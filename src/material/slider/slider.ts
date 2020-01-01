@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {FocusMonitor, FocusOrigin} from '@angular/cdk/a11y';
-import {Directionality} from '@angular/cdk/bidi';
+import { FocusMonitor, FocusOrigin } from '@angular/cdk/a11y';
+import { Directionality } from '@angular/cdk/bidi';
 import {
   BooleanInput,
   coerceBooleanProperty,
@@ -32,7 +32,6 @@ import {
   Component,
   ElementRef,
   EventEmitter,
-  forwardRef,
   Inject,
   Input,
   OnDestroy,
@@ -43,7 +42,7 @@ import {
   ViewEncapsulation,
   NgZone,
 } from '@angular/core';
-import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
+import { ControlValueAccessor, NgControl } from '@angular/forms';
 import {
   CanColor,
   CanColorCtor,
@@ -55,11 +54,11 @@ import {
   mixinDisabled,
   mixinTabIndex,
 } from '@angular/material/core';
-import {ANIMATION_MODULE_TYPE} from '@angular/platform-browser/animations';
-import {normalizePassiveListenerOptions} from '@angular/cdk/platform';
-import {Subscription} from 'rxjs';
+import { ANIMATION_MODULE_TYPE } from '@angular/platform-browser/animations';
+import { normalizePassiveListenerOptions } from '@angular/cdk/platform';
+import { Subscription } from 'rxjs';
 
-const activeEventOptions = normalizePassiveListenerOptions({passive: false});
+const activeEventOptions = normalizePassiveListenerOptions({ passive: false });
 
 /**
  * Visually, a 30px separation between tick marks looks best. This is very subjective but it is
@@ -76,17 +75,6 @@ const MIN_VALUE_NONACTIVE_THUMB_GAP = 7;
 /** The thumb gap size for an active slider at its minimum value. */
 const MIN_VALUE_ACTIVE_THUMB_GAP = 10;
 
-/**
- * Provider Expression that allows mat-slider to register as a ControlValueAccessor.
- * This allows it to support [(ngModel)] and [formControl].
- * @docs-private
- */
-export const MAT_SLIDER_VALUE_ACCESSOR: any = {
-  provide: NG_VALUE_ACCESSOR,
-  useExisting: forwardRef(() => MatSlider),
-  multi: true
-};
-
 /** A simple change event emitted by the MatSlider component. */
 export class MatSliderChange {
   /** The MatSlider that changed. */
@@ -99,14 +87,14 @@ export class MatSliderChange {
 // Boilerplate for applying mixins to MatSlider.
 /** @docs-private */
 class MatSliderBase {
-  constructor(public _elementRef: ElementRef) {}
+  constructor(public _elementRef: ElementRef) { }
 }
 const _MatSliderMixinBase:
-    HasTabIndexCtor &
-    CanColorCtor &
-    CanDisableCtor &
-    typeof MatSliderBase =
-        mixinTabIndex(mixinColor(mixinDisabled(MatSliderBase), 'accent'));
+  HasTabIndexCtor &
+  CanColorCtor &
+  CanDisableCtor &
+  typeof MatSliderBase =
+  mixinTabIndex(mixinColor(mixinDisabled(MatSliderBase), 'accent'));
 
 /**
  * Allows users to select from a range of values by moving the slider thumb. It is similar in
@@ -115,25 +103,24 @@ const _MatSliderMixinBase:
 @Component({
   selector: 'mat-slider',
   exportAs: 'matSlider',
-  providers: [MAT_SLIDER_VALUE_ACCESSOR],
   host: {
-    '(focus)': '_onFocus()',
-    '(blur)': '_onBlur()',
-    '(keydown)': '_onKeydown($event)',
-    '(keyup)': '_onKeyup()',
-    '(mouseenter)': '_onMouseenter()',
+    // '(focus)': '_onFocus()',
+    // '(blur)': '_onBlur()',
+    // '(keydown)': '_onKeydown($event)',
+    // '(keyup)': '_onKeyup()',
+    // '(mouseenter)': '_onMouseenter()',
 
     // On Safari starting to slide temporarily triggers text selection mode which
     // show the wrong cursor. We prevent it by stopping the `selectstart` event.
     '(selectstart)': '$event.preventDefault()',
     'class': 'mat-slider',
-    'role': 'slider',
-    '[tabIndex]': 'tabIndex',
-    '[attr.aria-disabled]': 'disabled',
-    '[attr.aria-valuemax]': 'max',
-    '[attr.aria-valuemin]': 'min',
-    '[attr.aria-valuenow]': 'value',
-    '[attr.aria-orientation]': 'vertical ? "vertical" : "horizontal"',
+    // 'role': 'slider',
+    // '[tabIndex]': 'tabIndex',
+    // '[attr.aria-disabled]': 'disabled',
+    // '[attr.aria-valuemax]': 'max',
+    // '[attr.aria-valuemin]': 'min',
+    // '[attr.aria-valuenow]': 'value',
+    // '[attr.aria-orientation]': 'vertical ? "vertical" : "horizontal"',
     '[class.mat-slider-disabled]': 'disabled',
     '[class.mat-slider-has-ticks]': 'tickInterval',
     '[class.mat-slider-horizontal]': '!vertical',
@@ -155,7 +142,7 @@ const _MatSliderMixinBase:
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MatSlider extends _MatSliderMixinBase
-    implements ControlValueAccessor, OnDestroy, CanDisable, CanColor, OnInit, HasTabIndex {
+  implements ControlValueAccessor, OnDestroy, CanDisable, CanColor, OnInit, HasTabIndex {
   /** Whether the slider is inverted. */
   @Input()
   get invert(): boolean { return this._invert; }
@@ -316,7 +303,7 @@ export class MatSlider extends _MatSliderMixinBase
   }
 
   /** onTouch function registered via registerOnTouch (ControlValueAccessor). */
-  onTouched: () => any = () => {};
+  onTouched: () => any = () => { };
 
   /** The percentage of the slider that coincides with the value. */
   get percent(): number { return this._clamp(this._percent); }
@@ -424,8 +411,8 @@ export class MatSlider extends _MatSliderMixinBase
 
     if (this._isMinValue && this._thumbGap) {
       let side = this.vertical ?
-          (this._invertAxis ? 'Bottom' : 'Top') :
-          (this._invertAxis ? 'Right' : 'Left');
+        (this._invertAxis ? 'Bottom' : 'Top') :
+        (this._invertAxis ? 'Right' : 'Left');
       styles[`padding${side}`] = `${this._thumbGap}px`;
     }
 
@@ -437,7 +424,7 @@ export class MatSlider extends _MatSliderMixinBase
     // For a horizontal slider in RTL languages we push the thumb container off the left edge
     // instead of the right edge to avoid causing a horizontal scrollbar to appear.
     let invertOffset =
-        (this._getDirection() == 'rtl' && !this.vertical) ? !this._invertAxis : this._invertAxis;
+      (this._getDirection() == 'rtl' && !this.vertical) ? !this._invertAxis : this._invertAxis;
     let offset = (invertOffset ? this.percent : 1 - this.percent) * 100;
     return {
       'transform': `translate${axis}(-${offset}%)`
@@ -450,7 +437,7 @@ export class MatSlider extends _MatSliderMixinBase
   /** The dimensions of the slider. */
   private _sliderDimensions: ClientRect | null = null;
 
-  private _controlValueAccessorChangeFn: (value: any) => void = () => {};
+  private _controlValueAccessorChangeFn: (value: any) => void = () => { };
 
   /** Decimal places to round to, based on the step amount. */
   private _roundToDecimal: number;
@@ -462,10 +449,13 @@ export class MatSlider extends _MatSliderMixinBase
   private _valueOnSlideStart: number | null;
 
   /** Position of the pointer when the dragging started. */
-  private _pointerPositionOnStart: {x: number, y: number} | null;
+  private _pointerPositionOnStart: { x: number, y: number } | null;
 
   /** Reference to the inner slider wrapper element. */
   @ViewChild('sliderWrapper') private _sliderWrapper: ElementRef;
+
+  /** Reference to the hidden input range element */
+  @ViewChild('sliderInput') private _sliderInput: ElementRef;
 
   /**
    * Whether mouse events should be converted to a slider position by calculating their distance
@@ -484,15 +474,20 @@ export class MatSlider extends _MatSliderMixinBase
   private _lastPointerEvent: MouseEvent | TouchEvent | null;
 
   constructor(elementRef: ElementRef,
-              private _focusMonitor: FocusMonitor,
-              private _changeDetectorRef: ChangeDetectorRef,
-              @Optional() private _dir: Directionality,
-              @Attribute('tabindex') tabIndex: string,
-              // @breaking-change 8.0.0 `_animationMode` parameter to be made required.
-              @Optional() @Inject(ANIMATION_MODULE_TYPE) public _animationMode?: string,
-              // @breaking-change 9.0.0 `_ngZone` parameter to be made required.
-              private _ngZone?: NgZone) {
+    private _focusMonitor: FocusMonitor,
+    private _changeDetectorRef: ChangeDetectorRef,
+    @Optional() _control: NgControl,
+    @Optional() private _dir: Directionality,
+    @Attribute('tabindex') tabIndex: string,
+    // @breaking-change 8.0.0 `_animationMode` parameter to be made required.
+    @Optional() @Inject(ANIMATION_MODULE_TYPE) public _animationMode?: string,
+    // @breaking-change 9.0.0 `_ngZone` parameter to be made required.
+    private _ngZone?: NgZone) {
     super(elementRef);
+
+    if (_control) {
+      _control.valueAccessor = this;
+    }
 
     this.tabIndex = parseInt(tabIndex) || 0;
 
@@ -505,11 +500,11 @@ export class MatSlider extends _MatSliderMixinBase
 
   ngOnInit() {
     this._focusMonitor
-        .monitor(this._elementRef, true)
-        .subscribe((origin: FocusOrigin) => {
-          this._isActive = !!origin && origin !== 'keyboard';
-          this._changeDetectorRef.detectChanges();
-        });
+      .monitor(this._elementRef, true)
+      .subscribe((origin: FocusOrigin) => {
+        this._isActive = !!origin && origin !== 'keyboard';
+        this._changeDetectorRef.detectChanges();
+      });
     if (this._dir) {
       this._dirChangeSubscription = this._dir.change.subscribe(() => {
         this._changeDetectorRef.markForCheck();
@@ -547,6 +542,23 @@ export class MatSlider extends _MatSliderMixinBase
 
   _onBlur() {
     this.onTouched();
+  }
+
+  /** 
+   * Will be fired only when the input is the only element capturing events.
+   * on mobile device with gesture triggering updates on the input.
+   * keydown prevent default will use the mat-slider element onKeydown values
+   */
+  _onChange(event: any) {
+    if (this.disabled || hasModifierKey(event)) {
+      return;
+    }
+    const currentValue = Number(event.target.value);
+    const swipeDirection = this.value && (currentValue > this.value ? 'increase' : 'decrease');
+    this._onKeydown({
+      keyCode: swipeDirection === 'increase' ? UP_ARROW : DOWN_ARROW,
+      preventDefault: event.preventDefault
+    } as KeyboardEvent);
   }
 
   _onKeydown(event: KeyboardEvent) {
@@ -669,7 +681,7 @@ export class MatSlider extends _MatSliderMixinBase
       this._isSliding = false;
 
       if (this._valueOnSlideStart != this.value && !this.disabled &&
-          pointerPositionOnStart && (pointerPositionOnStart.x !== currentPointerPosition.x ||
+        pointerPositionOnStart && (pointerPositionOnStart.x !== currentPointerPosition.x ||
           pointerPositionOnStart.y !== currentPointerPosition.y)) {
         this._emitChangeEvent();
       }
@@ -729,7 +741,7 @@ export class MatSlider extends _MatSliderMixinBase
   }
 
   /** Calculate the new value from the new physical location. The value will always be snapped. */
-  private _updateValueFromPosition(pos: {x: number, y: number}) {
+  private _updateValueFromPosition(pos: { x: number, y: number }) {
     if (!this._sliderDimensions) {
       return;
     }
@@ -833,12 +845,12 @@ export class MatSlider extends _MatSliderMixinBase
    * Currently only used to allow a blur event to fire but will be used with keyboard input later.
    */
   private _focusHostElement(options?: FocusOptions) {
-    this._elementRef.nativeElement.focus(options);
+    this._sliderInput.nativeElement.focus(options);
   }
 
   /** Blurs the native element. */
   private _blurHostElement() {
-    this._elementRef.nativeElement.blur();
+    this._sliderInput.nativeElement.blur();
   }
 
   /** Runs a callback inside of the NgZone, if possible. */
@@ -911,5 +923,5 @@ function isTouchEvent(event: MouseEvent | TouchEvent): event is TouchEvent {
 function getPointerPositionOnPage(event: MouseEvent | TouchEvent) {
   // `touches` will be empty for start/end events so we have to fall back to `changedTouches`.
   const point = isTouchEvent(event) ? (event.touches[0] || event.changedTouches[0]) : event;
-  return {x: point.clientX, y: point.clientY};
+  return { x: point.clientX, y: point.clientY };
 }

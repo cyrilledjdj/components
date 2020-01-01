@@ -1,7 +1,6 @@
-@import '../core/style/variables';
-@import '../core/style/vendor-prefixes';
-@import '../../cdk/a11y/a11y';
-
+@import "../core/style/variables";
+@import "../core/style/vendor-prefixes";
+@import "../../cdk/a11y/a11y";
 
 // This refers to the thickness of the slider. On a horizontal slider this is the height, on a
 // vertical slider this is the width.
@@ -26,7 +25,6 @@ $mat-slider-thumb-label-size: 28px !default;
 $mat-slider-tick-size: 2px !default;
 
 $mat-slider-focus-ring-size: 30px !default;
-
 
 .mat-slider {
   display: inline-block;
@@ -57,14 +55,14 @@ $mat-slider-focus-ring-size: 30px !default;
   position: absolute;
   transform-origin: 0 0;
   transition: transform $swift-ease-out-duration $swift-ease-out-timing-function,
-              background-color $swift-ease-out-duration $swift-ease-out-timing-function;
+    background-color $swift-ease-out-duration $swift-ease-out-timing-function;
 }
 
 .mat-slider-track-background {
   position: absolute;
   transform-origin: 100% 100%;
   transition: transform $swift-ease-out-duration $swift-ease-out-timing-function,
-              background-color $swift-ease-out-duration $swift-ease-out-timing-function;
+    background-color $swift-ease-out-duration $swift-ease-out-timing-function;
 }
 
 .mat-slider-ticks-container {
@@ -96,8 +94,8 @@ $mat-slider-focus-ring-size: 30px !default;
   transform: scale(0);
   opacity: 0;
   transition: transform $swift-ease-out-duration $swift-ease-out-timing-function,
-              background-color $swift-ease-out-duration $swift-ease-out-timing-function,
-              opacity $swift-ease-out-duration $swift-ease-out-timing-function;
+    background-color $swift-ease-out-duration $swift-ease-out-timing-function,
+    opacity $swift-ease-out-duration $swift-ease-out-timing-function;
 
   .mat-slider.cdk-keyboard-focused &,
   .mat-slider.cdk-program-focused & {
@@ -125,8 +123,8 @@ $mat-slider-focus-ring-size: 30px !default;
   border-radius: 50%;
   transform: scale($mat-slider-thumb-default-scale);
   transition: transform $swift-ease-out-duration $swift-ease-out-timing-function,
-              background-color $swift-ease-out-duration $swift-ease-out-timing-function,
-              border-color $swift-ease-out-duration $swift-ease-out-timing-function;
+    background-color $swift-ease-out-duration $swift-ease-out-timing-function,
+    border-color $swift-ease-out-duration $swift-ease-out-timing-function;
 }
 
 .mat-slider-thumb-label {
@@ -140,8 +138,8 @@ $mat-slider-focus-ring-size: 30px !default;
   height: $mat-slider-thumb-label-size;
   border-radius: 50%;
   transition: transform $swift-ease-out-duration $swift-ease-out-timing-function,
-              border-radius  $swift-ease-out-duration $swift-ease-out-timing-function,
-              background-color  $swift-ease-out-duration $swift-ease-out-timing-function;
+    border-radius $swift-ease-out-duration $swift-ease-out-timing-function,
+    background-color $swift-ease-out-duration $swift-ease-out-timing-function;
 
   @include cdk-high-contrast {
     outline: solid 1px;
@@ -154,7 +152,6 @@ $mat-slider-focus-ring-size: 30px !default;
   transition: opacity $swift-ease-out-duration $swift-ease-out-timing-function;
 }
 
-
 // Slider sliding state.
 .mat-slider-sliding {
   .mat-slider-track-fill,
@@ -166,12 +163,10 @@ $mat-slider-focus-ring-size: 30px !default;
   }
 }
 
-
 // Slider with ticks when not disabled.
 .mat-slider-has-ticks {
-
   .mat-slider-wrapper::after {
-    content: '';
+    content: "";
     position: absolute;
     border-width: 0;
     border-style: solid;
@@ -193,7 +188,6 @@ $mat-slider-focus-ring-size: 30px !default;
   }
 }
 
-
 // Slider with thumb label.
 .mat-slider-thumb-label-showing {
   .mat-slider-focus-ring {
@@ -205,7 +199,6 @@ $mat-slider-focus-ring-size: 30px !default;
   }
 }
 
-
 // Inverted slider.
 .mat-slider-axis-inverted {
   .mat-slider-track-fill {
@@ -216,7 +209,6 @@ $mat-slider-focus-ring-size: 30px !default;
     transform-origin: 0 0;
   }
 }
-
 
 // Active slider.
 .mat-slider:not(.mat-slider-disabled) {
@@ -244,7 +236,6 @@ $mat-slider-focus-ring-size: 30px !default;
   }
 }
 
-
 // Disabled slider.
 .mat-slider-disabled {
   .mat-slider-focus-ring {
@@ -261,7 +252,6 @@ $mat-slider-focus-ring-size: 30px !default;
     display: none;
   }
 }
-
 
 // Horizontal slider.
 .mat-slider-horizontal {
@@ -329,9 +319,10 @@ $mat-slider-focus-ring-size: 30px !default;
   .mat-slider-thumb-label {
     right: -$mat-slider-thumb-label-size / 2;
     top: -($mat-slider-thumb-label-size + $mat-slider-thumb-arrow-gap);
-    transform: translateY($mat-slider-thumb-label-size / 2 + $mat-slider-thumb-arrow-gap)
-        scale(0.01)
-        rotate(45deg);
+    transform: translateY(
+        $mat-slider-thumb-label-size / 2 + $mat-slider-thumb-arrow-gap
+      )
+      scale(0.01) rotate(45deg);
   }
 
   .mat-slider-thumb-label-text {
@@ -351,7 +342,6 @@ $mat-slider-focus-ring-size: 30px !default;
     }
   }
 }
-
 
 // Vertical slider.
 .mat-slider-vertical {
@@ -423,9 +413,10 @@ $mat-slider-focus-ring-size: 30px !default;
   .mat-slider-thumb-label {
     bottom: -$mat-slider-thumb-label-size / 2;
     left: -($mat-slider-thumb-label-size + $mat-slider-thumb-arrow-gap);
-    transform: translateX($mat-slider-thumb-label-size / 2 + $mat-slider-thumb-arrow-gap)
-        scale(0.01)
-        rotate(-45deg);
+    transform: translateX(
+        $mat-slider-thumb-label-size / 2 + $mat-slider-thumb-arrow-gap
+      )
+      scale(0.01) rotate(-45deg);
   }
 
   .mat-slider-thumb-label-text {
@@ -439,9 +430,8 @@ $mat-slider-focus-ring-size: 30px !default;
   }
 }
 
-
 // Slider in RTL languages.
-[dir='rtl'] {
+[dir="rtl"] {
   .mat-slider-wrapper::after {
     left: 0;
     right: auto;
@@ -481,4 +471,14 @@ $mat-slider-focus-ring-size: 30px !default;
   .mat-slider-has-ticks .mat-slider-wrapper::after {
     transition: none;
   }
+}
+
+// range input element used as the target element for keyboard interactions
+.mat-slider-input {
+  position: absolute;
+  width: 100%;
+  height: 0px;
+  opacity: 0; // Hides the original input range
+  left: -3px;
+  z-index: -1;
 }
