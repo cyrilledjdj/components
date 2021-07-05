@@ -1,6 +1,6 @@
 import {Component, DebugElement} from '@angular/core';
 import {By} from '@angular/platform-browser';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 import {MatChip, MatChipsModule} from './index';
 
 describe('Chip Remove', () => {
@@ -9,7 +9,7 @@ describe('Chip Remove', () => {
   let chipDebugElement: DebugElement;
   let chipNativeElement: HTMLElement;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [MatChipsModule],
       declarations: [
@@ -20,7 +20,7 @@ describe('Chip Remove', () => {
     TestBed.compileComponents();
   }));
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     fixture = TestBed.createComponent(TestChip);
     testChip = fixture.debugElement.componentInstance;
     fixture.detectChanges();
@@ -30,14 +30,26 @@ describe('Chip Remove', () => {
   }));
 
   describe('basic behavior', () => {
-    it('should applies the `mat-chip-remove` CSS class', () => {
-      let buttonElement = chipNativeElement.querySelector('button')!;
+    it('should apply a CSS class to the remove icon', () => {
+      const buttonElement = chipNativeElement.querySelector('button')!;
 
       expect(buttonElement.classList).toContain('mat-chip-remove');
     });
 
-    it('should emits (removed) on click', () => {
-      let buttonElement = chipNativeElement.querySelector('button')!;
+    it('should ensure that the button cannot submit its parent form', () => {
+      const buttonElement = chipNativeElement.querySelector('button')!;
+
+      expect(buttonElement.getAttribute('type')).toBe('button');
+    });
+
+    it('should not set the `type` attribute on non-button elements', () => {
+      const buttonElement = chipNativeElement.querySelector('span.mat-chip-remove')!;
+
+      expect(buttonElement.hasAttribute('type')).toBe(false);
+    });
+
+    it('should emit (removed) on click', () => {
+      const buttonElement = chipNativeElement.querySelector('button')!;
 
       testChip.removable = true;
       fixture.detectChanges();
@@ -51,7 +63,7 @@ describe('Chip Remove', () => {
     });
 
     it('should not remove if parent chip is disabled', () => {
-      let buttonElement = chipNativeElement.querySelector('button')!;
+      const buttonElement = chipNativeElement.querySelector('button')!;
 
       testChip.disabled = true;
       testChip.removable = true;
@@ -73,7 +85,10 @@ describe('Chip Remove', () => {
     <mat-chip
       [removable]="removable"
       [disabled]="disabled"
-      (removed)="didRemove()"><button matChipRemove></button></mat-chip>
+      (removed)="didRemove()">
+      <button matChipRemove></button>
+      <span matChipRemove></span>
+    </mat-chip>
   `
 })
 class TestChip {

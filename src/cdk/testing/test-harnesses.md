@@ -11,7 +11,7 @@ testing.
 
 `@angular/cdk/testing` contains infrastructure for creating and using component test harnesses. You
 can create test harnesses for any component, ranging from small reusable widgets to full application
-pages. 
+pages.
 
 The component harness system supports multiple testing environments. You can use the same harness
 implementation in both unit and end-to-end tests. This means that users only need to learn one API,
@@ -26,7 +26,7 @@ This document provides guidance for three types of developers:
 1. [Test authors](#api-for-test-authors)
 2. [Component harness authors](#api-for-component-harness-authors)
 3. [Harness environment authors](#api-for-harness-environment-authors)
-   
+
 Since many developers fall into only one of these categories, the relevant APIs are broken out by
 developer type in the sections below.
 
@@ -67,13 +67,13 @@ create `ComponentHarness` instances directly.
 In most cases, you can create a `HarnessLoader` in the `beforeEach` block using
 `TestbedHarnessEnvironment.loader(fixture)` and then use that `HarnessLoader` to create any
 necessary `ComponentHarness` instances. The other methods cover special cases as shown in this
-example:  
+example:
 
 Consider a reusable dialog-button component that opens a dialog on click, containing the following
 components, each with a corresponding harness:
 - `MyDialogButton` (composes the `MyButton` and `MyDialog` with a convenient API)
 - `MyButton` (a simple button component)
-- `MyDialog` (a dialog appended to `document.body` by `MyButtonDialog` upon click)
+- `MyDialog` (a dialog appended to `document.body` by `MyDialogButton` upon click)
 
 The following code loads harnesses for each of these components:
 
@@ -136,39 +136,64 @@ are used to create `ComponentHarness` instances for elements under this root ele
 | `getHarness<T extends ComponentHarness>(harnessType: ComponentHarnessConstructor<T> \| HarnessPredicate<T>): Promise<T>` | Searches for an instance of the given `ComponentHarness` class or `HarnessPredicate` below the root element of this `HarnessLoader` and returns an instance of the harness corresponding to the first matching element |
 | `getAllHarnesses<T extends ComponentHarness>(harnessType: ComponentHarnessConstructor<T> \| HarnessPredicate<T>): Promise<T[]>` | Acts like `getHarness`, but returns an array of harness instances, one for each matching element, rather than just the first matching element  |
 
-Calls to `getHarness` and `getAllHarnesses` can either take `ComponentHarness` subclass or a 
+Calls to `getHarness` and `getAllHarnesses` can either take `ComponentHarness` subclass or a
 `HarnessPredicate`. `HarnessPredicate` applies additional restrictions to the search (e.g. searching
 for a button that has some particular text, etc). The
 [details of `HarnessPredicate`](#filtering-harness-instances-with-harnesspredicate) are discussed in
 the [API for component harness authors](#api-for-component-harness-authors); harness authors should
-provide convenience methods on their `ComponentHarness` subclass to facilitate creation of
+provide convenience methods on their `ComponentHarness` subclass to facilitate the creation of
 `HarnessPredicate` instances. However, if the harness author's API is not sufficient, they can be
 created manually.
 
+#### Change detection
+By default, test harnesses will run Angular's change detection before reading the state of a DOM
+element and after interacting with a DOM element. While convenient in most cases, there may be times
+that you need finer-grained control over change detection. For example, you may want to check the
+state of a component while an async operation is pending. In these cases you can use the
+`manualChangeDetection` function to disable automatic handling of change detection for a block of
+code. For example:
+
+```ts
+it('checks state while async action is in progress', async () => {
+  const buttonHarness = loader.getHarness(MyButtonHarness);
+  await manualChangeDetection(async () => {
+    await buttonHarness.click();
+    fixture.detectChanges();
+    // Check expectations while async click operation is in progress.
+    expect(isProgressSpinnerVisible()).toBe(true);
+    await fixture.whenStable();
+    // Check expectations after async click operation complete.
+    expect(isProgressSpinnerVisible()).toBe(false);
+  });
+});
+```
+
 #### Working with asynchronous component harness methods
 
-In order to support both unit and end-to-end tests, and to insulate tests against changes in
+To support both unit and end-to-end tests, and to insulate tests against changes in
 asynchronous behavior, almost all harness methods are asynchronous and return a `Promise`;
-therefore, the Angular team recommends using 
+therefore, the Angular team recommends using
 [ES2017 `async`/`await` syntax](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function)
 to improve the test readability.
 
 Note that `await` statements block the execution of your test until the associated `Promise`
-resolves. When reading multiple properties off a harness it may not be necessary to block on the
-first before asking for the next, in these cases use `Promise.all` to parallelize.
-
-For example, consider the following example of reading both the `checked` and `indeterminate` state
-off of a checkbox harness:
+resolves. Occasionally, you may want to perform multiple actions simultaneously and wait until
+they're all done rather than performing each action sequentially. For example, reading multiple
+properties off a single component. In these situations use the `parallel` function to parallelize
+the operations. The parallel function works similarly to `Promise.all`, while also optimizing change
+detection, so it is not run an excessive number of times. The following code demonstrates how you
+can read multiple properties from a harness with `parallel`:
 
 ```ts
 it('reads properties in parallel', async () => {
   const checkboxHarness = loader.getHarness(MyCheckboxHarness);
-  const [checked, indeterminate] = await Promise.all([
+  // Read the checked and intermediate properties simultaneously.
+  const [checked, indeterminate] = await parallel(() => [
     checkboxHarness.isChecked(),
     checkboxHarness.isIndeterminate()
   ]);
-
-  // ... make some assertions
+  expect(checked).toBe(false);
+  expect(indeterminate).toBe(true);
 });
 ```
 
@@ -184,7 +209,7 @@ common components for a large Angular application.
 The abstract `ComponentHarness` class is the base class for all component harnesses. To create a
 custom component harness, extend `ComponentHarness` and implement the static property
 `hostSelector`. The `hostSelector` property identifies elements in the DOM that match this harness
-subclass. In most cases the `hostSelector` should be the same as the `selector` of the corresponding
+subclass. In most cases, the `hostSelector` should be the same as the `selector` of the corresponding
 `Component` or `Directive`. For example, consider a simple popup component:
 
 ```ts
@@ -226,7 +251,7 @@ corresponding component. You can access the component's host element via the `ho
 the `ComponentHarness` base class.
 
 `ComponentHarness` additionally offers several methods for locating elements within the component's
-DOM. These methods are `locatorFor`, `locatorForOptional`, and `locatorForAll`. 
+DOM. These methods are `locatorFor`, `locatorForOptional`, and `locatorForAll`.
 Note, though, that these methods do not directly find elements. Instead, they _create functions_
 that find elements. This approach safeguards against caching references to out-of-date elements. For
 example, when an `ngIf` hides and then shows an element, the result is a new DOM element; using
@@ -274,6 +299,9 @@ The functions created with the locator methods described above all return `TestE
 | `getDimensions(): Promise<ElementDimensions>` | Gets the dimensions of the element. |
 | `getProperty(name: string): Promise<any>` | Gets the value of the given JS property for the element. |
 | `matchesSelector(selector: string): Promise<boolean>` | Checks whether the element matches the given CSS selector. |
+| `setInputValue(value: string): Promise<void>;` | Sets the value of a property of an input. |
+| `selectOptions(...optionIndexes: number[]): Promise<void>;` | Selects the options at the specified indexes inside of a native `select` element. |
+| `dispatchEvent(name: string, data?: Record<string, EventData>): Promise<void>;` | Dispatches an event with a particular name. |
 
 `TestElement` is an abstraction designed to work across different test environments (Karma,
 Protractor, etc). When using harnesses, you should perform all DOM interaction via this interface.
@@ -285,7 +313,7 @@ unless its an element the component consumer defines directly (e.g. the host ele
 `TestElement` instances for internal elements leads users to depend on a component's internal DOM
 structure.
 
-Instead, provide more narrow-focused methods for particular actions the end user will
+Instead, provide more narrow-focused methods for particular actions the end-user will
 take or particular state they may want to check. For example, `MyPopupHarness` could provide methods
 like `toggle` and `isOpen`:
 
@@ -322,7 +350,7 @@ earlier has an alternate signature that can be used for locating sub-harnesses r
 | `locatorForOptional<T extends ComponentHarness>(harnessType: ComponentHarnessConstructor<T>): () => Promise<T \| null>` | Creates a function that returns a `Promise` for the first harness matching the given harness type when called. If no matching harness is found, the `Promise` is resolved with `null`. |
 | `locatorForAll<T extends ComponentHarness>(harnessType: ComponentHarnessConstructor<T>): () => Promise<T[]>` | Creates a function that returns a `Promise` for a list of all harnesses matching the given harness type when called. |
 
-For example consider a menu build using the popup shown above:
+For example, consider a menu build using the popup shown above:
 
 ```ts
 @Component({
@@ -395,7 +423,7 @@ for adding options.
 | `add(description: string, predicate: (harness: T) => Promise<boolean>): HarnessPredicate<T>` | Creates a new `HarnessPredicate` that enforces all of the conditions of the current one, plus the new constraint specified by the `predicate` parameter. |
 
 For example, when working with a menu it would likely be useful to add a way to filter based on
-trigger text and to filter menu items based on their text: 
+trigger text and to filter menu items based on their text:
 
 ```ts
 interface MyMenuHarnessFilters extends BaseHarnessFilters {
@@ -421,7 +449,7 @@ class MyMenuHarness extends ComponentHarness {
   protected getPopupHarness = this.locatorFor(MyPopupHarness);
 
   /** Gets the text of the menu trigger. */
-  getTriggerText(): Promise<string> {
+  async getTriggerText(): Promise<string> {
     const popupHarness = await this.getPopupHarness();
     return popupHarness.getTriggerText();
   }
@@ -460,7 +488,7 @@ class MyMenuHarness extends ComponentHarness {
 
   /** Gets a list of items in the menu, optionally filtered based on the given criteria. */
   async getItems(filters: MyMenuItemHarnessFilters = {}): Promise<MyMenuItemHarness[]> {
-    const getFilteredItems = this.locatorFor(MyMenuItemHarness.with(filters));
+    const getFilteredItems = this.locatorForAll(MyMenuItemHarness.with(filters));
     return getFilteredItems();
   }
 
@@ -482,26 +510,21 @@ several APIs that can be used to create `HarnessLoader` instances for cases like
 | `harnessLoaderForOptional(selector: string): Promise<HarnessLoader \| null>` | Gets a `Promise` for a `HarnessLoader` rooted at the first element matching the given selector, if no element is found the `Promise` resolves to `null`. |
 | `harnessLoaderForAll(selector: string): Promise<HarnessLoader[]>` | Gets a `Promise` for a list of `HarnessLoader`, one rooted at each element matching the given selector. |
 
+
 The `MyPopup` component discussed earlier is a good example of a component with arbitrary content
-that users may want to load harnesses for. `MyPopupHarness` could add support for this:
+that users may want to load harnesses for. `MyPopupHarness` could add support for this by
+extending `ContentContainerComponentHarness`.
 
 ```ts
-class MyPopupHarness extends ComponentHarness {
+class MyPopupHarness extends ContentContainerComponentHarness<string> {
   static hostSelector = 'my-popup';
-
-  /** Gets a `HarnessLoader` whose root element is the popup's content element. */
-  async getHarnessLoaderForContent(): Promise<HarnessLoader> {
-    return this.harnessLoaderFor('my-popup-content');
-  }
 }
 ```
 
 #### Accessing elements outside of the component's host element
 
-There are times when a component harness might need to access elements outside of it's corresponding
-component's host element. A good example of this is components that use the
-[CDK overlay](https://material.angular.io/cdk/overlay/overview). The CDK overlay creates an element
-that is attached directly to the body, outside of the component's host element. In this case,
+There are times when a component harness might need to access elements outside of its corresponding
+component's host element. Components that use [CDK overlay](https://material.angular.io/cdk/overlay/overview) serve as examples of this. The CDK overlay creates an element that is attached directly to the body, outside of the component's host element. In this case,
 `ComponentHarness` provides a method that can be used to get a `LocatorFactory` for the root element
 of the document. The `LocatorFactory` supports most of the same APIs as the `ComponentHarness` base
 class, and can then be used to query relative to the document's root element.
@@ -537,8 +560,8 @@ subsequent `NgZone` stabilization before animation events are fully flushed. In 
 needed, the `ComponentHarness` offers a `forceStabilize()` method that can be called to do the
 second round.
 
-Additionally some components may intentionally schedule tasks _outside_ of `NgZone`, this is
-typically accomplished by using `NgZone.runOutsideAngular`. In this case the corresponding harness
+Additionally, some components may intentionally schedule tasks _outside_ of `NgZone`, this is
+typically accomplished by using `NgZone.runOutsideAngular`. In this case, the corresponding harness
 may need to explicitly wait for tasks outside `NgZone`, as this does not happen automatically.
 `ComponentHarness` offers a method called `waitForTasksOutsideAngular` for this purpose.
 
@@ -552,7 +575,7 @@ may need to explicitly wait for tasks outside `NgZone`, as this does not happen 
 Harness environment authors are developers who want to add support for using component harnesses in
 additional testing environments. Out-of-the-box, Angular CDK's component harnesses can be used in
 Protractor E2E tests and Karma unit tests. Developers can support additional environments by
-creating custom implementations of `TestElement` and `HarnessEnvironment`. 
+creating custom implementations of `TestElement` and `HarnessEnvironment`.
 
 #### Creating a `TestElement` implementation for the environment
 
@@ -560,7 +583,7 @@ The first step in adding support for a new testing environment is to create a `T
 implementation. The `TestElement` interface serves as an environment-agnostic representation of a
 DOM element; it lets harnesses interact with DOM elements regardless of the underlying environment.
 Because some environments don't support interacting with DOM elements synchronously
-(e.g. webdriver), all of `TestElement` methods are asynchronous, returning a `Promise` with the
+(e.g. webdriver), all of the `TestElement` methods are asynchronous, returning a `Promise` with the
 result of the operation.
 
 | Method | Description |
@@ -579,6 +602,9 @@ result of the operation.
 | `getDimensions(): Promise<ElementDimensions>` | Gets the dimensions of the element. |
 | `getProperty(name: string): Promise<any>` | Gets the value of the given property for the element. |
 | `matchesSelector(selector: string): Promise<boolean>` | Checks whether the given selector matches the element. |
+| `setInputValue(value: string): Promise<void>;` | Sets the value of a property of an input. |
+| `selectOptions(...optionIndexes: number[]): Promise<void>;` | Selects the options at the specified indexes inside of a native `select` element. |
+| `dispatchEvent(name: string, data?: Record<string, EventData>): Promise<void>;` | Dispatches an event with a particular name. |
 
 The `TestElement` interface consists largely of methods that resemble methods
 available on `HTMLElement`; similar methods exist in most test environments, which makes
@@ -587,19 +613,19 @@ implementing the `sendKeys` method, is that the key codes in the `TestKey`
 enum likely differ from the key codes used in the test environment. Environment authors should
 maintain a mapping from `TestKey` codes to the codes used in the particular testing environment.
 
-The 
+The
 [`UnitTestElement`](https://github.com/angular/components/blob/master/src/cdk/testing/testbed/unit-test-element.ts#L57)
-and 
+and
 [`ProtractorElement`](https://github.com/angular/components/blob/master/src/cdk/testing/protractor/protractor-element.ts#L67)
 implementations in Angular CDK serve as good examples of implementations of this interface.
 
 #### Creating a `HarnessEnvironemnt` implementation for the environment
 
-Test authors use `HarnessEnvironemnt` to create component harness instances for use in tests. 
+Test authors use `HarnessEnvironemnt` to create component harness instances for use in tests.
 
 `HarnessEnvironment` is an abstract class that must be extended to create a concrete subclass for
 the new environment. When supporting a new test environment, you must create a `HarnessEnvironment`
-subclass that add concrete implementations for all abstract members.
+subclass that adds concrete implementations for all abstract members.
 
 You will notice that `HarnessEnvironment` has a generic type parameter: `HarnessEnvironment<E>`.
 This parameter, `E`, represents the raw element type of the environment. For example, this parameter
@@ -625,8 +651,25 @@ require arguments to be passed. (e.g. the `loader` method on `TestbedHarnessEnvi
 `ComponentFixture`, and the class provides additional static methods called `documentRootLoader` and
 `harnessForFixture`).
 
-The 
+The
 [`TestbedHarnessEnvironment`](https://github.com/angular/components/blob/master/src/cdk/testing/testbed/testbed-harness-environment.ts#L20)
-and 
+and
 [`ProtractorHarnessEnvironment`](https://github.com/angular/components/blob/master/src/cdk/testing/protractor/protractor-harness-environment.ts#L16)
 implementations in Angular CDK serve as good examples of implementations of this interface.
+
+#### Handling auto change detection status
+In order to support the `manualChangeDetection` and `parallel` APIs, your environment should install
+a handler for the auto change detection status.
+
+When your environment wants to start handling the auto change detection status it can call
+`handleAutoChangeDetectionStatus(handler)`. The handler function will receive a 
+`AutoChangeDetectionStatus` which has two properties:
+ 
+* `isDisabled: boolean` - Indicates whether auto change detection is currently disabled. When true,
+  your environment's `forceStabilize` method should act as a no-op. This allows users to trigger
+  change detection manually instead.
+* `onDetectChangesNow?: () => void` - If this optional callback is specified, your environment
+  should trigger change detection immediately and call the callback when change detection finishes.
+
+If your environment wants to stop handling auto change detection status it can call
+`stopHandlingAutoChangeDetectionStatus()`.

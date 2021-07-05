@@ -1,5 +1,5 @@
 import {normalize} from '@angular-devkit/core';
-import {WorkspaceProject} from '@angular-devkit/core/src/experimental/workspace';
+import {ProjectDefinition} from '@angular-devkit/core/src/workspace';
 import {Tree} from '@angular-devkit/schematics';
 import {SchematicTestRunner} from '@angular-devkit/schematics/testing';
 import {
@@ -8,8 +8,14 @@ import {
   getProjectStyleFile,
   getProjectTargetOptions,
 } from '@angular/cdk/schematics';
-import {createTestApp, getFileContent} from '@angular/cdk/schematics/testing';
-import {getWorkspace} from '@schematics/angular/utility/config';
+import {createTestApp, createTestLibrary, getFileContent} from '@angular/cdk/schematics/testing';
+import {getWorkspace} from '@schematics/angular/utility/workspace';
+import {COLLECTION_PATH} from '../paths';
+import {addPackageToPackageJson} from './package-config';
+
+interface PackageJson {
+  dependencies: Record<string, string>;
+}
 
 describe('ng-add schematic', () => {
   let runner: SchematicTestRunner;
@@ -18,7 +24,7 @@ describe('ng-add schematic', () => {
   let warnOutput: string[];
 
   beforeEach(async () => {
-    runner = new SchematicTestRunner('schematics', require.resolve('../collection.json'));
+    runner = new SchematicTestRunner('schematics', COLLECTION_PATH);
     appTree = await createTestApp(runner);
 
     errorOutput = [];
@@ -33,7 +39,7 @@ describe('ng-add schematic', () => {
   });
 
   /** Expects the given file to be in the styles of the specified workspace project. */
-  function expectProjectStyleFile(project: WorkspaceProject, filePath: string) {
+  function expectProjectStyleFile(project: ProjectDefinition, filePath: string) {
     expect(getProjectTargetOptions(project, 'build').styles)
         .toContain(
             filePath, `Expected "${filePath}" to be added to the project styles in the workspace.`);
@@ -41,7 +47,7 @@ describe('ng-add schematic', () => {
 
   /** Removes the specified dependency from the /package.json in the given tree. */
   function removePackageJsonDependency(tree: Tree, dependencyName: string) {
-    const packageContent = JSON.parse(getFileContent(tree, '/package.json'));
+    const packageContent = JSON.parse(getFileContent(tree, '/package.json')) as PackageJson;
     delete packageContent.dependencies[dependencyName];
     tree.overwrite('/package.json', JSON.stringify(packageContent, null, 2));
   }
@@ -53,12 +59,12 @@ describe('ng-add schematic', () => {
     removePackageJsonDependency(appTree, '@angular/animations');
 
     const tree = await runner.runSchematicAsync('ng-add', {}, appTree).toPromise();
-    const packageJson = JSON.parse(getFileContent(tree, '/package.json'));
+    const packageJson = JSON.parse(getFileContent(tree, '/package.json')) as PackageJson;
     const dependencies = packageJson.dependencies;
     const angularCoreVersion = dependencies['@angular/core'];
 
-    expect(dependencies['@angular/material']).toBeDefined();
-    expect(dependencies['@angular/cdk']).toBeDefined();
+    expect(dependencies['@angular/material']).toBe('~0.0.0-PLACEHOLDER');
+    expect(dependencies['@angular/cdk']).toBe('~0.0.0-PLACEHOLDER');
     expect(dependencies['@angular/forms'])
         .toBe(
             angularCoreVersion,
@@ -73,13 +79,29 @@ describe('ng-add schematic', () => {
             Object.keys(dependencies).sort(),
             'Expected the modified "dependencies" to be sorted alphabetically.');
 
-    expect(runner.tasks.some(task => task.name === 'run-schematic')).toBe(true);
+    expect(runner.tasks.some(task => task.name === 'node-package')).toBe(true,
+      'Expected the package manager to be scheduled in order to update lock files.');
+    expect(runner.tasks.some(task => task.name === 'run-schematic')).toBe(true,
+      'Expected the setup-project schematic to be scheduled.');
+  });
+
+  it('should respect version range from CLI ng-add command', async () => {
+    // Simulates the behavior of the CLI `ng add` command. The command inserts the
+    // requested package version into the `package.json` before the actual schematic runs.
+    addPackageToPackageJson(appTree, '@angular/material', '^9.0.0');
+
+    const tree = await runner.runSchematicAsync('ng-add', {}, appTree).toPromise();
+    const packageJson = JSON.parse(getFileContent(tree, '/package.json')) as PackageJson;
+    const dependencies = packageJson.dependencies;
+
+    expect(dependencies['@angular/material']).toBe('^9.0.0');
+    expect(dependencies['@angular/cdk']).toBe('^9.0.0');
   });
 
   it('should add default theme', async () => {
     const tree = await runner.runSchematicAsync('ng-add-setup-project', {}, appTree).toPromise();
 
-    const workspace = getWorkspace(tree);
+    const workspace = await getWorkspace(tree);
     const project = getProjectFromWorkspace(workspace);
 
     expectProjectStyleFile(
@@ -93,15 +115,15 @@ describe('ng-add schematic', () => {
     const tree = await runner.runSchematicAsync('ng-add-setup-project', {theme: 'custom'}, appTree)
                      .toPromise();
 
-    const workspace = getWorkspace(tree);
+    const workspace = await getWorkspace(tree);
     const project = getProjectFromWorkspace(workspace);
     const expectedStylesPath = normalize(`/${project.root}/src/styles.scss`);
 
     const buffer = tree.read(expectedStylesPath);
     const themeContent = buffer!.toString();
 
-    expect(themeContent).toContain(`@import '~@angular/material/theming';`);
-    expect(themeContent).toContain(`$app-primary: mat-palette(`);
+    expect(themeContent).toContain(`@use '~@angular/material' as mat;`);
+    expect(themeContent).toContain(`$app-primary: mat.define-palette(`);
   });
 
   it('should create a custom theme file if no SCSS file could be found', async () => {
@@ -110,7 +132,7 @@ describe('ng-add schematic', () => {
 
     const tree = await runner.runSchematicAsync('ng-add-setup-project', {theme: 'custom'}, appTree)
                      .toPromise();
-    const workspace = getWorkspace(tree);
+    const workspace = await getWorkspace(tree);
     const project = getProjectFromWorkspace(workspace);
     const expectedStylesPath = normalize(`/${project.root}/src/custom-theme.scss`);
 
@@ -120,7 +142,7 @@ describe('ng-add schematic', () => {
 
   it('should add font links', async () => {
     const tree = await runner.runSchematicAsync('ng-add-setup-project', {}, appTree).toPromise();
-    const workspace = getWorkspace(tree);
+    const workspace = await getWorkspace(tree);
     const project = getProjectFromWorkspace(workspace);
 
     const indexFiles = getProjectIndexFiles(project);
@@ -134,16 +156,18 @@ describe('ng-add schematic', () => {
       // the created links properly align with the existing HTML. Default CLI projects use an
       // indentation of two columns.
       expect(htmlContent)
+        .toContain('  <link rel="preconnect" href="https://fonts.gstatic.com">');
+      expect(htmlContent)
         .toContain('  <link href="https://fonts.googleapis.com/icon?family=Material+Icons"');
       expect(htmlContent)
-        .toContain(
-          '  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500&display=swap"');
+        .toContain('  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@' +
+                   '300;400;500&display=swap"');
     });
   });
 
   it('should add material app styles', async () => {
     const tree = await runner.runSchematicAsync('ng-add-setup-project', {}, appTree).toPromise();
-    const workspace = getWorkspace(tree);
+    const workspace = await getWorkspace(tree);
     const project = getProjectFromWorkspace(workspace);
 
     const defaultStylesPath = getProjectStyleFile(project)!;
@@ -166,7 +190,7 @@ describe('ng-add schematic', () => {
     });
 
     it('should not add BrowserAnimationsModule if NoopAnimationsModule is set up', async () => {
-      const workspace = getWorkspace(appTree);
+      const workspace = await getWorkspace(appTree);
       const project = getProjectFromWorkspace(workspace);
 
       // Simulate the case where a developer uses `ng-add` on an Angular CLI project which already
@@ -196,8 +220,8 @@ describe('ng-add schematic', () => {
               'Expected the project app module to import the "NoopAnimationsModule".');
     });
 
-    it('should not add NoopAnimationsModule if BrowserAnimationsModule is set up', () => {
-      const workspace = getWorkspace(appTree);
+    it('should not add NoopAnimationsModule if BrowserAnimationsModule is set up', async () => {
+      const workspace = await getWorkspace(appTree);
       const project = getProjectFromWorkspace(workspace);
 
       // Simulate the case where a developer uses `ng-add` on an Angular CLI project which already
@@ -215,32 +239,52 @@ describe('ng-add schematic', () => {
 
   describe('custom project builders', () => {
     /** Overwrites a target builder for the workspace in the given tree */
-    function overwriteTargetBuilder(tree: Tree, targetName: string, newBuilder: string) {
-      const workspace = getWorkspace(tree);
-      const project = getProjectFromWorkspace(workspace);
-      const targetConfig = project.architect && project.architect[targetName] ||
-          project.targets && project.targets[targetName];
-      targetConfig['builder'] = newBuilder;
-      tree.overwrite('/angular.json', JSON.stringify(workspace, null, 2));
+    function overwriteTargetBuilder(tree: Tree, targetName: 'build' | 'test', newBuilder: string) {
+      const config = {
+        version: 1,
+        defaultProject: 'material',
+        projects: {
+          material: {
+            projectType: 'application',
+            root: 'projects/material',
+            sourceRoot: 'projects/material/src',
+            prefix: 'app',
+            architect: {
+              build: {
+                builder: '@angular-devkit/build-angular:browser',
+                options: {
+                  outputPath: 'dist/material',
+                  index: 'projects/material/src/index.html',
+                  main: 'projects/material/src/main.ts',
+                  styles: ['projects/material/src/styles.css']
+                }
+              },
+              test: {
+                builder: '@angular-devkit/build-angular:karma',
+                options: {
+                  outputPath: 'dist/material',
+                  index: 'projects/material/src/index.html',
+                  main: 'projects/material/src/main.ts',
+                  styles: ['projects/material/src/styles.css']
+                }
+              }
+            }
+          }
+        }
+      };
+
+      config.projects.material.architect[targetName].builder = newBuilder;
+      tree.overwrite('/angular.json', JSON.stringify(config, null, 2));
     }
 
     it('should throw an error if the "build" target has been changed', async () => {
       overwriteTargetBuilder(appTree, 'build', 'thirdparty-builder');
-
-      let message: string|null = null;
-
-      try {
-        await runner.runSchematicAsync('ng-add-setup-project', {}, appTree).toPromise();
-      } catch (e) {
-        message = e.message;
-      }
-
-      expect(message).toMatch(/not using the default builders.*build/);
+      await expectAsync(runner.runSchematicAsync('ng-add-setup-project', {}, appTree).toPromise())
+        .toBeRejectedWithError(/not using the default builders.*build/);
     });
 
     it('should warn if the "test" target has been changed', async () => {
       overwriteTargetBuilder(appTree, 'test', 'thirdparty-test-builder');
-
       await runner.runSchematicAsync('ng-add-setup-project', {}, appTree).toPromise();
 
       expect(errorOutput.length).toBe(0);
@@ -257,17 +301,29 @@ describe('ng-add schematic', () => {
 
     /** Writes a specific style file to the workspace in the given tree */
     function writeStyleFileToWorkspace(tree: Tree, stylePath: string) {
-      const workspace = getWorkspace(tree);
-      const project = getProjectFromWorkspace(workspace);
-      const buildOptions = getProjectTargetOptions(project, 'build');
-
-      if (!buildOptions.styles) {
-        buildOptions.styles = [stylePath];
-      } else {
-        buildOptions.styles.push(stylePath);
-      }
-
-      tree.overwrite('/angular.json', JSON.stringify(workspace, null, 2));
+      tree.overwrite('/angular.json', JSON.stringify({
+        version: 1,
+        defaultProject: 'material',
+        projects: {
+          material: {
+            projectType: 'application',
+            root: 'projects/material',
+            sourceRoot: 'projects/material/src',
+            prefix: 'app',
+            architect: {
+              build: {
+                builder: '@angular-devkit/build-angular:browser',
+                options: {
+                  outputPath: 'dist/material',
+                  index: 'projects/material/src/index.html',
+                  main: 'projects/material/src/main.ts',
+                  styles: ['projects/material/src/styles.css', stylePath]
+                }
+              }
+            }
+          }
+        }
+      }, null, 2));
     }
 
     it('should replace existing prebuilt theme files', async () => {
@@ -275,7 +331,7 @@ describe('ng-add schematic', () => {
       writeStyleFileToWorkspace(appTree, existingThemePath);
 
       const tree = await runner.runSchematicAsync('ng-add-setup-project', {}, appTree).toPromise();
-      const workspace = getWorkspace(tree);
+      const workspace = await getWorkspace(tree);
       const project = getProjectFromWorkspace(workspace);
       const styles = getProjectTargetOptions(project, 'build').styles;
 
@@ -289,7 +345,7 @@ describe('ng-add schematic', () => {
       writeStyleFileToWorkspace(appTree, './projects/material/custom-theme.scss');
 
       const tree = await runner.runSchematicAsync('ng-add-setup-project', {}, appTree).toPromise();
-      const workspace = getWorkspace(tree);
+      const workspace = await getWorkspace(tree);
       const project = getProjectFromWorkspace(workspace);
       const styles = getProjectTargetOptions(project, 'build').styles;
 
@@ -303,7 +359,7 @@ describe('ng-add schematic', () => {
       writeStyleFileToWorkspace(appTree, defaultPrebuiltThemePath);
 
       const tree = await runner.runSchematicAsync('ng-add-setup-project', {}, appTree).toPromise();
-      const workspace = getWorkspace(tree);
+      const workspace = await getWorkspace(tree);
       const project = getProjectFromWorkspace(workspace);
       const styles = getProjectTargetOptions(project, 'build').styles;
 
@@ -327,7 +383,7 @@ describe('ng-add schematic', () => {
     const tree = await runner.runSchematicAsync('ng-add-setup-project', {
       typography: true
     }, appTree).toPromise();
-    const workspace = getWorkspace(tree);
+    const workspace = await getWorkspace(tree);
     const project = getProjectFromWorkspace(workspace);
 
     const indexFiles = getProjectIndexFiles(project);
@@ -351,7 +407,7 @@ describe('ng-add schematic', () => {
       typography: true
     }, appTree).toPromise();
 
-    const workspace = getWorkspace(tree);
+    const workspace = await getWorkspace(tree);
     const project = getProjectFromWorkspace(workspace);
     const indexFiles = getProjectIndexFiles(project);
     expect(indexFiles.length).toBe(1);
@@ -374,7 +430,7 @@ describe('ng-add schematic', () => {
       typography: true
     }, appTree).toPromise();
 
-    const workspace = getWorkspace(tree);
+    const workspace = await getWorkspace(tree);
     const project = getProjectFromWorkspace(workspace);
     const indexFiles = getProjectIndexFiles(project);
     expect(indexFiles.length).toBe(1);
@@ -383,5 +439,58 @@ describe('ng-add schematic', () => {
       const buffer = tree.read(indexPath)!;
       expect(buffer.toString()).toContain('<body class="one mat-typography two">');
     });
+  });
+
+  it('should not add the global typography class if the user did not opt into it', async () => {
+    appTree.overwrite('projects/material/src/index.html', `
+      <html>
+        <head></head>
+        <body class="one two"></body>
+      </html>
+    `);
+
+    const tree = await runner.runSchematicAsync('ng-add-setup-project', {
+      typography: false
+    }, appTree).toPromise();
+
+    const workspace = await getWorkspace(tree);
+    const project = getProjectFromWorkspace(workspace);
+    const indexFiles = getProjectIndexFiles(project);
+    expect(indexFiles.length).toBe(1);
+
+    indexFiles.forEach(indexPath => {
+      const buffer = tree.read(indexPath)!;
+      expect(buffer.toString()).toContain('<body class="one two">');
+    });
+  });
+});
+
+describe('ng-add schematic - library project', () => {
+  let runner: SchematicTestRunner;
+  let libraryTree: Tree;
+  let errorOutput: string[];
+  let warnOutput: string[];
+
+  beforeEach(async () => {
+    runner = new SchematicTestRunner('schematics', require.resolve('../collection.json'));
+    libraryTree = await createTestLibrary(runner);
+
+    errorOutput = [];
+    warnOutput = [];
+    runner.logger.subscribe(e => {
+      if (e.level === 'error') {
+        errorOutput.push(e.message);
+      } else if (e.level === 'warn') {
+        warnOutput.push(e.message);
+      }
+    });
+  });
+
+  it('should warn if a library project is targeted', async () => {
+    await runner.runSchematicAsync('ng-add-setup-project', {}, libraryTree).toPromise();
+
+    expect(errorOutput.length).toBe(0);
+    expect(warnOutput.length).toBe(1);
+    expect(warnOutput[0]).toMatch(/There is no additional setup required/);
   });
 });

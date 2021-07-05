@@ -23,7 +23,7 @@ import {
   Inject,
   Optional,
 } from '@angular/core';
-import {MDCSwitchAdapter, MDCSwitchFoundation} from '@material/switch';
+import {deprecated} from '@material/switch';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
 import {
   BooleanInput,
@@ -32,8 +32,9 @@ import {
   NumberInput
 } from '@angular/cdk/coercion';
 import {ANIMATION_MODULE_TYPE} from '@angular/platform-browser/animations';
-import {ThemePalette, RippleAnimationConfig} from '@angular/material/core';
+import {ThemePalette, RippleAnimationConfig} from '@angular/material-experimental/mdc-core';
 import {numbers} from '@material/ripple';
+import {FocusMonitor} from '@angular/cdk/a11y';
 import {
   MAT_SLIDE_TOGGLE_DEFAULT_OPTIONS,
   MatSlideToggleDefaultOptions,
@@ -41,6 +42,18 @@ import {
 
 // Increasing integer for generating unique ids for slide-toggle components.
 let nextUniqueId = 0;
+
+/** Configuration for the ripple animation. */
+const RIPPLE_ANIMATION_CONFIG: RippleAnimationConfig = {
+  enterDuration: numbers.DEACTIVATION_TIMEOUT_MS,
+  exitDuration: numbers.FG_DEACTIVATION_MS,
+};
+
+/** Configuration for ripples when animations are disabled. */
+const NOOP_RIPPLE_ANIMATION_CONFIG: RippleAnimationConfig = {
+  enterDuration: 0,
+  exitDuration: 0
+};
 
 /** @docs-private */
 export const MAT_SLIDE_TOGGLE_VALUE_ACCESSOR: any = {
@@ -65,7 +78,8 @@ export class MatSlideToggleChange {
   host: {
     'class': 'mat-mdc-slide-toggle',
     '[id]': 'id',
-    '[attr.tabindex]': 'null',
+    // Needs to be `-1` so it can still receive programmatic focus.
+    '[attr.tabindex]': 'disabled ? null : -1',
     '[attr.aria-label]': 'null',
     '[attr.aria-labelledby]': 'null',
     '[class.mat-primary]': 'color === "primary"',
@@ -73,8 +87,7 @@ export class MatSlideToggleChange {
     '[class.mat-warn]': 'color === "warn"',
     '[class.mat-mdc-slide-toggle-focused]': '_focused',
     '[class.mat-mdc-slide-toggle-checked]': 'checked',
-    '[class._mat-animation-noopable]': '_animationMode === "NoopAnimations"',
-    '(focus)': '_inputElement.nativeElement.focus()',
+    '[class._mat-animation-noopable]': '_noopAnimations',
   },
   exportAs: 'matSlideToggle',
   encapsulation: ViewEncapsulation.None,
@@ -86,28 +99,31 @@ export class MatSlideToggle implements ControlValueAccessor, AfterViewInit, OnDe
   private _onChange = (_: any) => {};
   private _onTouched = () => {};
 
-  private _uniqueId: string = `mat-slide-toggle-${++nextUniqueId}`;
+  private _uniqueId: string = `mat-mdc-slide-toggle-${++nextUniqueId}`;
   private _required: boolean = false;
   private _checked: boolean = false;
-  private _foundation: MDCSwitchFoundation;
-  private _adapter: MDCSwitchAdapter = {
+  private _foundation: deprecated.MDCSwitchFoundation;
+  private _adapter: deprecated.MDCSwitchAdapter = {
     addClass: className => this._switchElement.nativeElement.classList.add(className),
     removeClass: className => this._switchElement.nativeElement.classList.remove(className),
     setNativeControlChecked: checked => this._checked = checked,
     setNativeControlDisabled: disabled => this._disabled = disabled,
+    setNativeControlAttr: (name, value) => {
+      this._inputElement.nativeElement.setAttribute(name, value);
+    }
   };
 
   /** Whether the slide toggle is currently focused. */
   _focused: boolean;
 
   /** Configuration for the underlying ripple. */
-  _rippleAnimation: RippleAnimationConfig = {
-    enterDuration: numbers.DEACTIVATION_TIMEOUT_MS,
-    exitDuration: numbers.FG_DEACTIVATION_MS,
-  };
+  _rippleAnimation: RippleAnimationConfig;
+
+  /** Whether noop animations are enabled. */
+  _noopAnimations: boolean;
 
   /** The color palette  for this slide toggle. */
-  @Input() color: ThemePalette = 'accent';
+  @Input() color: ThemePalette;
 
   /** Name value will be applied to the input element if present. */
   @Input() name: string | null = null;
@@ -179,16 +195,6 @@ export class MatSlideToggle implements ControlValueAccessor, AfterViewInit, OnDe
   /** Event will be dispatched each time the slide-toggle input is toggled. */
   @Output() readonly toggleChange: EventEmitter<void> = new EventEmitter<void>();
 
-  /**
-   * An event will be dispatched each time the slide-toggle is dragged.
-   * This event is always emitted when the user drags the slide toggle to make a change greater
-   * than 50%. It does not mean the slide toggle's value is changed. The event is not emitted when
-   * the user toggles the slide toggle to change its value.
-   * @deprecated No longer being used.
-   * @breaking-change 9.0.0
-   */
-  @Output() readonly dragChange: EventEmitter<void> = new EventEmitter<void>();
-
   /** Returns the unique id for the visual hidden input. */
   get inputId(): string { return `${this.id || this._uniqueId}-input`; }
 
@@ -198,21 +204,53 @@ export class MatSlideToggle implements ControlValueAccessor, AfterViewInit, OnDe
   /** Reference to the MDC switch element. */
   @ViewChild('switch') _switchElement: ElementRef<HTMLElement>;
 
-  constructor(private _changeDetectorRef: ChangeDetectorRef,
+  constructor(private _elementRef: ElementRef,
+              private _focusMonitor: FocusMonitor,
+              private _changeDetectorRef: ChangeDetectorRef,
               @Attribute('tabindex') tabIndex: string,
               @Inject(MAT_SLIDE_TOGGLE_DEFAULT_OPTIONS)
                   public defaults: MatSlideToggleDefaultOptions,
-              @Optional() @Inject(ANIMATION_MODULE_TYPE) public _animationMode?: string) {
+              @Optional() @Inject(ANIMATION_MODULE_TYPE) animationMode?: string) {
     this.tabIndex = parseInt(tabIndex) || 0;
+    this.color = defaults.color || 'accent';
+    this._noopAnimations = animationMode === 'NoopAnimations';
+    this._rippleAnimation = this._noopAnimations ?
+      NOOP_RIPPLE_ANIMATION_CONFIG : RIPPLE_ANIMATION_CONFIG;
   }
 
   ngAfterViewInit() {
-    const foundation = this._foundation = new MDCSwitchFoundation(this._adapter);
+    const foundation = this._foundation = new deprecated.MDCSwitchFoundation(this._adapter);
     foundation.setDisabled(this.disabled);
     foundation.setChecked(this.checked);
+
+    this._focusMonitor
+      .monitor(this._elementRef, true)
+      .subscribe(focusOrigin => {
+        // Only forward focus manually when it was received programmatically or through the
+        // keyboard. We should not do this for mouse/touch focus for two reasons:
+        // 1. It can prevent clicks from landing in Chrome (see #18269).
+        // 2. They're already handled by the wrapping `label` element.
+        if (focusOrigin === 'keyboard' || focusOrigin === 'program') {
+          this._inputElement.nativeElement.focus();
+          this._focused = true;
+        } else if (!focusOrigin) {
+          // When a focused element becomes disabled, the browser *immediately* fires a blur event.
+          // Angular does not expect events to be raised during change detection, so any state
+          // change (such as a form control's ng-touched) will cause a changed-after-checked error.
+          // See https://github.com/angular/angular/issues/17793. To work around this, we defer
+          // telling the form control it has been touched until the next tick.
+          Promise.resolve().then(() => {
+            this._focused = false;
+            this._onTouched();
+            this._changeDetectorRef.markForCheck();
+          });
+        }
+    });
   }
 
   ngOnDestroy() {
+    this._focusMonitor.stopMonitoring(this._elementRef);
+
     if (this._foundation) {
       this._foundation.destroy();
     }
@@ -287,20 +325,6 @@ export class MatSlideToggle implements ControlValueAccessor, AfterViewInit, OnDe
   toggle(): void {
     this.checked = !this.checked;
     this._onChange(this.checked);
-  }
-
-  /** Handles blur events on the native input. */
-  _onBlur() {
-    // When a focused element becomes disabled, the browser *immediately* fires a blur event.
-    // Angular does not expect events to be raised during change detection, so any state change
-    // (such as a form control's 'ng-touched') will cause a changed-after-checked error.
-    // See https://github.com/angular/angular/issues/17793. To work around this, we defer
-    // telling the form control it has been touched until the next tick.
-    Promise.resolve().then(() => {
-      this._focused = false;
-      this._onTouched();
-      this._changeDetectorRef.markForCheck();
-    });
   }
 
   static ngAcceptInputType_tabIndex: NumberInput;

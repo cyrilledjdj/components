@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load("//src/e2e-app:test_suite.bzl", "e2e_test_suite")
 load(
     "//tools:defaults.bzl",
@@ -11,6 +9,8 @@ load(
     "sass_library",
 )
 
+package(default_visibility = ["//visibility:public"])
+
 ng_module(
     name = "mdc-tabs",
     srcs = glob(
@@ -18,7 +18,6 @@ ng_module(
         exclude = ["**/*.spec.ts"],
     ),
     assets = [
-        ":tabs_scss",
         ":tab-body.css",
         ":tab-header.css",
         ":tab-group.css",
@@ -27,6 +26,7 @@ ng_module(
     ] + glob(["**/*.html"]),
     module_name = "@angular/material-experimental/mdc-tabs",
     deps = [
+        "//src:dev_mode_types",
         "//src/cdk/a11y",
         "//src/cdk/bidi",
         "//src/cdk/coercion",
@@ -35,7 +35,7 @@ ng_module(
         "//src/cdk/platform",
         "//src/cdk/portal",
         "//src/cdk/scrolling",
-        "//src/material/core",
+        "//src/material-experimental/mdc-core",
         "//src/material/tabs",
         "@npm//@angular/animations",
         "@npm//@angular/common",
@@ -47,16 +47,6 @@ ng_module(
 sass_library(
     name = "mdc_tabs_scss_lib",
     srcs = glob(["**/_*.scss"]),
-    deps = [
-        "//src/material-experimental/mdc-helpers:mdc_helpers_scss_lib",
-        "//src/material-experimental/mdc-helpers:mdc_scss_deps_lib",
-    ],
-)
-
-sass_binary(
-    name = "tabs_scss",
-    src = "_mdc-tabs.scss",
-    include_paths = ["external/npm/node_modules"],
     deps = [
         "//src/material-experimental/mdc-helpers:mdc_helpers_scss_lib",
         "//src/material-experimental/mdc-helpers:mdc_scss_deps_lib",
@@ -113,7 +103,7 @@ ng_test_library(
         "//src/cdk/scrolling",
         "//src/cdk/testing/private",
         "//src/cdk/testing/testbed",
-        "//src/material/core",
+        "//src/material-experimental/mdc-core",
         "@npm//@angular/common",
         "@npm//@angular/platform-browser",
         "@npm//rxjs",

@@ -1,33 +1,28 @@
+import {LiveAnnouncer} from '@angular/cdk/a11y';
+import {OverlayContainer} from '@angular/cdk/overlay';
+import {CommonModule} from '@angular/common';
 import {
-  inject,
-  ComponentFixture,
-  TestBed,
-  fakeAsync,
-  tick,
-  flush,
-} from '@angular/core/testing';
-import {
-  NgModule,
   Component,
   Directive,
+  Inject,
+  NgModule,
+  TemplateRef,
   ViewChild,
   ViewContainerRef,
-  Inject,
-  TemplateRef,
 } from '@angular/core';
-import {CommonModule} from '@angular/common';
+import {ComponentFixture, fakeAsync, flush, inject, TestBed, tick} from '@angular/core/testing';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
-import {OverlayContainer} from '@angular/cdk/overlay';
-import {LiveAnnouncer} from '@angular/cdk/a11y';
 import {
-  MatSnackBarModule,
-  MatSnackBar,
-  MatSnackBarConfig,
-  MatSnackBarRef,
-  SimpleSnackBar,
   MAT_SNACK_BAR_DATA,
   MAT_SNACK_BAR_DEFAULT_OPTIONS,
+  MatSnackBar,
+  MatSnackBarConfig,
+  MatSnackBarContainer,
+  MatSnackBarModule,
+  MatSnackBarRef,
+  SimpleSnackBar,
 } from './index';
+import {Platform} from '@angular/cdk/platform';
 
 describe('MatSnackBar', () => {
   let snackBar: MatSnackBar;
@@ -40,6 +35,8 @@ describe('MatSnackBar', () => {
 
   let simpleMessage = 'Burritos are here!';
   let simpleActionLabel = 'pickup';
+
+  const announceDelay = 150;
 
   beforeEach(fakeAsync(() => {
     TestBed.configureTestingModule({
@@ -67,51 +64,131 @@ describe('MatSnackBar', () => {
     testViewContainerRef = viewContainerFixture.componentInstance.childViewContainer;
   });
 
-  it('should have the role of `alert` with an `assertive` politeness if no announcement message ' +
-     'is provided', () => {
+  it('should open with content first in the inert region', () => {
+    snackBar.open('Snack time!', 'Chew');
+    viewContainerFixture.detectChanges();
+
+    const containerElement = overlayContainerElement.querySelector('snack-bar-container')!;
+    const inertElement = containerElement.querySelector('[aria-hidden]')!;
+
+    expect(inertElement.getAttribute('aria-hidden'))
+      .toBe('true', 'Expected the non-live region to be aria-hidden');
+    expect(inertElement.textContent).toContain('Snack time!',
+        'Expected non-live region to contain the snack bar content');
+
+    const liveElement = containerElement.querySelector('[aria-live]')!;
+    expect(liveElement.childNodes.length)
+        .toBe(0, 'Expected live region to not contain any content');
+  });
+
+  it('should move content to the live region after 150ms', fakeAsync(() => {
+    snackBar.open('Snack time!', 'Chew');
+    viewContainerFixture.detectChanges();
+
+    const containerElement = overlayContainerElement.querySelector('snack-bar-container')!;
+    const liveElement = containerElement.querySelector('[aria-live]')!;
+    tick(announceDelay);
+
+    expect(liveElement.textContent).toContain('Snack time!',
+        'Expected live region to contain the snack bar content');
+
+    const inertElement = containerElement.querySelector('[aria-hidden]')!;
+    expect(inertElement).toBeFalsy('Expected non-live region to not contain any content');
+  }));
+
+  it('should preserve focus when moving content to the live region', fakeAsync(() => {
+    snackBar.open('Snack time!', 'Chew');
+    viewContainerFixture.detectChanges();
+
+    const actionButton = overlayContainerElement
+        .querySelector('.mat-simple-snackbar-action > button')! as HTMLElement;
+    actionButton.focus();
+    expect(document.activeElement)
+        .toBe(actionButton, 'Expected the focus to move to the action button');
+
+    flush();
+    expect(document.activeElement)
+        .toBe(actionButton, 'Expected the focus to remain on the action button');
+  }));
+
+  it('should have aria-live of `assertive` with an `assertive` politeness if no announcement ' +
+     'message is provided', () => {
     snackBar.openFromComponent(BurritosNotification,
       {announcementMessage: '', politeness: 'assertive'});
 
     viewContainerFixture.detectChanges();
 
     const containerElement = overlayContainerElement.querySelector('snack-bar-container')!;
-    expect(containerElement.getAttribute('role'))
-        .toBe('alert', 'Expected snack bar container to have role="alert"');
+    const liveElement = containerElement.querySelector('[aria-live]')!;
+
+    expect(liveElement.getAttribute('aria-live')).toBe('assertive',
+        'Expected snack bar container live region to have aria-live="assertive"');
   });
 
-  it('should have the role of `status` with an `assertive` politeness if an announcement message ' +
-     'is provided', () => {
+  it('should have aria-live of `polite` with an `assertive` politeness if an announcement ' +
+     'message is provided', () => {
       snackBar.openFromComponent(BurritosNotification,
         {announcementMessage: 'Yay Burritos', politeness: 'assertive'});
     viewContainerFixture.detectChanges();
 
     const containerElement = overlayContainerElement.querySelector('snack-bar-container')!;
-    expect(containerElement.getAttribute('role'))
-        .toBe('status', 'Expected snack bar container to have role="status"');
+    const liveElement = containerElement.querySelector('[aria-live]')!;
+
+    expect(liveElement.getAttribute('aria-live'))
+        .toBe('polite', 'Expected snack bar container live region to have aria-live="polite"');
   });
 
-  it('should have the role of `status` with a `polite` politeness', () => {
+  it('should have aria-live of `polite` with a `polite` politeness', () => {
     snackBar.openFromComponent(BurritosNotification, {politeness: 'polite'});
     viewContainerFixture.detectChanges();
 
     const containerElement = overlayContainerElement.querySelector('snack-bar-container')!;
-    expect(containerElement.getAttribute('role'))
-        .toBe('status', 'Expected snack bar container to have role="status"');
+    const liveElement = containerElement.querySelector('[aria-live]')!;
+
+    expect(liveElement.getAttribute('aria-live'))
+        .toBe('polite', 'Expected snack bar container live region to have aria-live="polite"');
   });
 
-  it('should remove the role if the politeness is turned off', () => {
+  it('should have aria-live of `off` if the politeness is turned off', () => {
     snackBar.openFromComponent(BurritosNotification, {politeness: 'off'});
     viewContainerFixture.detectChanges();
 
     const containerElement = overlayContainerElement.querySelector('snack-bar-container')!;
-    expect(containerElement.getAttribute('role')).toBeFalsy('Expected role to be removed');
+    const liveElement = containerElement.querySelector('[aria-live]')!;
+
+    expect(liveElement.getAttribute('aria-live'))
+        .toBe('off', 'Expected snack bar container live region to have aria-live="off"');
+  });
+
+  it('should have role of `alert` with an `assertive` politeness (Firefox only)', () => {
+    const platform = TestBed.inject(Platform);
+    snackBar.openFromComponent(BurritosNotification, {politeness: 'assertive'});
+    viewContainerFixture.detectChanges();
+
+    const containerElement = overlayContainerElement.querySelector('snack-bar-container')!;
+    const liveElement = containerElement.querySelector('[aria-live]')!;
+
+    expect(liveElement.getAttribute('role'))
+      .toBe(platform.FIREFOX ? 'alert' : null);
+  });
+
+  it('should have role of `status` with an `polite` politeness (Firefox only)', () => {
+    const platform = TestBed.inject(Platform);
+    snackBar.openFromComponent(BurritosNotification, {politeness: 'polite'});
+    viewContainerFixture.detectChanges();
+
+    const containerElement = overlayContainerElement.querySelector('snack-bar-container')!;
+    const liveElement = containerElement.querySelector('[aria-live]')!;
+
+    expect(liveElement.getAttribute('role'))
+      .toBe(platform.FIREFOX ? 'status' : null);
   });
 
   it('should open and close a snackbar without a ViewContainerRef', fakeAsync(() => {
-    let snackBarRef = snackBar.open('Snack time!', 'Chew');
+    const snackBarRef = snackBar.open('Snack time!', 'Chew');
     viewContainerFixture.detectChanges();
 
-    let messageElement = overlayContainerElement.querySelector('snack-bar-container')!;
+    const messageElement = overlayContainerElement.querySelector('snack-bar-container')!;
     expect(messageElement.textContent).toContain('Snack time!',
        'Expected snack bar to show a message without a ViewContainerRef');
 
@@ -124,8 +201,8 @@ describe('MatSnackBar', () => {
   }));
 
   it('should open a simple message with a button', () => {
-    let config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
-    let snackBarRef = snackBar.open(simpleMessage, simpleActionLabel, config);
+    const config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
+    const snackBarRef = snackBar.open(simpleMessage, simpleActionLabel, config);
 
     viewContainerFixture.detectChanges();
 
@@ -135,11 +212,11 @@ describe('MatSnackBar', () => {
       .toBe(snackBarRef,
             'Expected the snack bar reference to be placed in the component instance');
 
-    let messageElement = overlayContainerElement.querySelector('snack-bar-container')!;
+    const messageElement = overlayContainerElement.querySelector('snack-bar-container')!;
     expect(messageElement.textContent)
         .toContain(simpleMessage, `Expected the snack bar message to be '${simpleMessage}'`);
 
-    let buttonElement = overlayContainerElement.querySelector('button.mat-button')!;
+    const buttonElement = overlayContainerElement.querySelector('button.mat-button')!;
     expect(buttonElement.tagName)
         .toBe('BUTTON', 'Expected snack bar action label to be a <button>');
     expect(buttonElement.textContent)
@@ -148,8 +225,8 @@ describe('MatSnackBar', () => {
   });
 
   it('should open a simple message with no button', () => {
-    let config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
-    let snackBarRef = snackBar.open(simpleMessage, undefined, config);
+    const config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
+    const snackBarRef = snackBar.open(simpleMessage, undefined, config);
 
     viewContainerFixture.detectChanges();
 
@@ -158,7 +235,7 @@ describe('MatSnackBar', () => {
     expect(snackBarRef.instance.snackBarRef)
       .toBe(snackBarRef, 'Expected the snack bar reference to be placed in the component instance');
 
-    let messageElement = overlayContainerElement.querySelector('snack-bar-container')!;
+    const messageElement = overlayContainerElement.querySelector('snack-bar-container')!;
     expect(messageElement.textContent)
         .toContain(simpleMessage, `Expected the snack bar message to be '${simpleMessage}'`);
     expect(overlayContainerElement.querySelector('button.mat-button'))
@@ -166,10 +243,10 @@ describe('MatSnackBar', () => {
   });
 
   it('should dismiss the snack bar and remove itself from the view', fakeAsync(() => {
-    let config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
-    let dismissCompleteSpy = jasmine.createSpy('dismiss complete spy');
+    const config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
+    const dismissCompleteSpy = jasmine.createSpy('dismiss complete spy');
 
-    let snackBarRef = snackBar.open(simpleMessage, undefined, config);
+    const snackBarRef = snackBar.open(simpleMessage, undefined, config);
     viewContainerFixture.detectChanges();
     expect(overlayContainerElement.childElementCount)
         .toBeGreaterThan(0, 'Expected overlay container element to have at least one child');
@@ -177,6 +254,10 @@ describe('MatSnackBar', () => {
     snackBarRef.afterDismissed().subscribe({complete: dismissCompleteSpy});
 
     snackBarRef.dismiss();
+    const messageElement = overlayContainerElement.querySelector('snack-bar-container')!;
+    expect (messageElement.hasAttribute('mat-exit'))
+        .toBe(true, 'Expected the snackbar container to have the "exit" attribute upon dismiss');
+
     viewContainerFixture.detectChanges();  // Run through animations for dismissal
     flush();
 
@@ -186,18 +267,17 @@ describe('MatSnackBar', () => {
   }));
 
 
-  it('should default to the passed message for the announcement message', fakeAsync(() => {
+  it('should clear the announcement message if it is the same as main message', fakeAsync(() => {
     spyOn(liveAnnouncer, 'announce');
 
-    snackBar.open(simpleMessage);
+    snackBar.open(simpleMessage, undefined, {announcementMessage: simpleMessage});
     viewContainerFixture.detectChanges();
+    flush();
 
     expect(overlayContainerElement.childElementCount)
       .toBe(1, 'Expected the overlay with the default announcement message to be added');
 
-    // Expect the live announcer to have been called with the display message and some
-    // string for the politeness. We do not want to test for the default politeness here.
-    expect(liveAnnouncer.announce).toHaveBeenCalledWith(simpleMessage, jasmine.any(String));
+    expect(liveAnnouncer.announce).not.toHaveBeenCalled();
   }));
 
   it('should be able to specify a custom announcement message', fakeAsync(() => {
@@ -208,6 +288,7 @@ describe('MatSnackBar', () => {
       politeness: 'assertive'
     });
     viewContainerFixture.detectChanges();
+    flush();
 
     expect(overlayContainerElement.childElementCount)
       .toBe(1, 'Expected the overlay with a custom `announcementMessage` to be added');
@@ -241,55 +322,59 @@ describe('MatSnackBar', () => {
   }));
 
   it('should set the animation state to visible on entry', () => {
-    let config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
-    let snackBarRef = snackBar.open(simpleMessage, undefined, config);
+    const config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
+    const snackBarRef = snackBar.open(simpleMessage, undefined, config);
 
     viewContainerFixture.detectChanges();
-    expect(snackBarRef.containerInstance._animationState)
+    const container = snackBarRef.containerInstance as MatSnackBarContainer;
+    expect(container._animationState)
         .toBe('visible', `Expected the animation state would be 'visible'.`);
     snackBarRef.dismiss();
 
     viewContainerFixture.detectChanges();
-    expect(snackBarRef.containerInstance._animationState)
+    expect(container._animationState)
         .toBe('hidden', `Expected the animation state would be 'hidden'.`);
   });
 
   it('should set the animation state to complete on exit', () => {
-    let config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
-    let snackBarRef = snackBar.open(simpleMessage, undefined, config);
+    const config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
+    const snackBarRef = snackBar.open(simpleMessage, undefined, config);
     snackBarRef.dismiss();
 
     viewContainerFixture.detectChanges();
-    expect(snackBarRef.containerInstance._animationState)
+    const container = snackBarRef.containerInstance as MatSnackBarContainer;
+    expect(container._animationState)
         .toBe('hidden', `Expected the animation state would be 'hidden'.`);
   });
 
   it(`should set the old snack bar animation state to complete and the new snack bar animation
       state to visible on entry of new snack bar`, fakeAsync(() => {
-    let config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
-    let snackBarRef = snackBar.open(simpleMessage, undefined, config);
-    let dismissCompleteSpy = jasmine.createSpy('dismiss complete spy');
+    const config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
+    const snackBarRef = snackBar.open(simpleMessage, undefined, config);
+    const dismissCompleteSpy = jasmine.createSpy('dismiss complete spy');
 
     viewContainerFixture.detectChanges();
-    expect(snackBarRef.containerInstance._animationState)
+    const container1 = snackBarRef.containerInstance as MatSnackBarContainer;
+    expect(container1._animationState)
         .toBe('visible', `Expected the animation state would be 'visible'.`);
 
-    let config2 = {viewContainerRef: testViewContainerRef};
-    let snackBarRef2 = snackBar.open(simpleMessage, undefined, config2);
+    const config2 = {viewContainerRef: testViewContainerRef};
+    const snackBarRef2 = snackBar.open(simpleMessage, undefined, config2);
 
     viewContainerFixture.detectChanges();
     snackBarRef.afterDismissed().subscribe({complete: dismissCompleteSpy});
     flush();
 
     expect(dismissCompleteSpy).toHaveBeenCalled();
-    expect(snackBarRef.containerInstance._animationState)
+    const container2 = snackBarRef2.containerInstance as MatSnackBarContainer;
+    expect(container1._animationState)
         .toBe('hidden', `Expected the animation state would be 'hidden'.`);
-    expect(snackBarRef2.containerInstance._animationState)
+    expect(container2._animationState)
         .toBe('visible', `Expected the animation state would be 'visible'.`);
   }));
 
   it('should open a new snackbar after dismissing a previous snackbar', fakeAsync(() => {
-    let config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
+    const config: MatSnackBarConfig = {viewContainerRef: testViewContainerRef};
     let snackBarRef = snackBar.open(simpleMessage, 'Dismiss', config);
 
     viewContainerFixture.detectChanges();
@@ -304,7 +389,8 @@ describe('MatSnackBar', () => {
 
     // Wait for the snackbar open animation to finish.
     flush();
-    expect(snackBarRef.containerInstance._animationState)
+    const container = snackBarRef.containerInstance as MatSnackBarContainer;
+    expect(container._animationState)
         .toBe('visible', `Expected the animation state would be 'visible'.`);
   }));
 
@@ -347,7 +433,7 @@ describe('MatSnackBar', () => {
       snackBarRef.afterDismissed().subscribe({complete: dismissCompleteSpy});
       snackBarRef.onAction().subscribe({complete: actionCompleteSpy});
 
-      let actionButton =
+      const actionButton =
         overlayContainerElement.querySelector('button.mat-button') as HTMLButtonElement;
       actionButton.click();
       viewContainerFixture.detectChanges();
@@ -409,10 +495,10 @@ describe('MatSnackBar', () => {
   }));
 
   it('should dismiss automatically after a specified timeout', fakeAsync(() => {
-    let config = new MatSnackBarConfig();
+    const config = new MatSnackBarConfig();
     config.duration = 250;
-    let snackBarRef = snackBar.open('content', 'test', config);
-    let afterDismissSpy = jasmine.createSpy('after dismiss spy');
+    const snackBarRef = snackBar.open('content', 'test', config);
+    const afterDismissSpy = jasmine.createSpy('after dismiss spy');
     snackBarRef.afterDismissed().subscribe(afterDismissSpy);
 
     viewContainerFixture.detectChanges();
@@ -426,7 +512,7 @@ describe('MatSnackBar', () => {
   }));
 
   it('should clear the dismiss timeout when dismissed before timeout expiration', fakeAsync(() => {
-    let config = new MatSnackBarConfig();
+    const config = new MatSnackBarConfig();
     config.duration = 1000;
     snackBar.open('content', 'test', config);
 
@@ -439,11 +525,26 @@ describe('MatSnackBar', () => {
     expect(viewContainerFixture.isStable()).toBe(true);
   }));
 
+  it('should clear the dismiss timeout when dismissed with action', fakeAsync(() => {
+    const config = new MatSnackBarConfig();
+    config.duration = 1000;
+    const snackBarRef = snackBar.open('content', 'test', config);
+
+    setTimeout(() => snackBarRef.dismissWithAction(), 500);
+
+    tick(600);
+    viewContainerFixture.detectChanges();
+    tick();
+
+    expect(viewContainerFixture.isStable()).toBe(true);
+  }));
+
   it('should add extra classes to the container', () => {
     snackBar.open(simpleMessage, simpleActionLabel, { panelClass: ['one', 'two'] });
     viewContainerFixture.detectChanges();
 
-    let containerClasses = overlayContainerElement.querySelector('snack-bar-container')!.classList;
+    const containerClasses =
+      overlayContainerElement.querySelector('snack-bar-container')!.classList;
 
     expect(containerClasses).toContain('one');
     expect(containerClasses).toContain('two');
@@ -453,7 +554,7 @@ describe('MatSnackBar', () => {
     snackBar.open(simpleMessage, simpleActionLabel, { direction: 'rtl' });
     viewContainerFixture.detectChanges();
 
-    let pane = overlayContainerElement.querySelector('.cdk-global-overlay-wrapper')!;
+    const pane = overlayContainerElement.querySelector('.cdk-global-overlay-wrapper')!;
 
     expect(pane.getAttribute('dir')).toBe('rtl', 'Expected the pane to be in RTL mode.');
   });

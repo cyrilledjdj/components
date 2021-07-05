@@ -1,13 +1,13 @@
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 import {Component, DebugElement} from '@angular/core';
 import {By} from '@angular/platform-browser';
-import {MatButtonModule, MatButton} from './index';
-import {MatRipple, ThemePalette} from '@angular/material/core';
+import {MatButtonModule, MatButton, MatFabDefaultOptions, MAT_FAB_DEFAULT_OPTIONS} from './index';
+import {MatRipple, ThemePalette} from '@angular/material-experimental/mdc-core';
 
 
 describe('MDC-based MatButton', () => {
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [MatButtonModule],
       declarations: [TestApp],
@@ -91,6 +91,22 @@ describe('MDC-based MatButton', () => {
 
       expect(miniFabButtonDebugEl.nativeElement.classList)
           .toContain('mat-accent', 'Expected mini-fab buttons to use accent palette by default');
+    });
+  });
+
+  describe('button[mat-fab] extended', () => {
+    it('should be extended', () => {
+      const fixture = TestBed.createComponent(TestApp);
+      fixture.detectChanges();
+      const extendedFabButtonDebugEl = fixture.debugElement.query(By.css('.extended-fab-test'))!;
+
+      expect(extendedFabButtonDebugEl.nativeElement.classList.contains('mat-mdc-extended-fab'))
+        .toBeFalse();
+
+      fixture.componentInstance.extended = true;
+
+      fixture.detectChanges();
+      expect(extendedFabButtonDebugEl.nativeElement.classList).toContain('mat-mdc-extended-fab');
     });
   });
 
@@ -257,7 +273,45 @@ describe('MDC-based MatButton', () => {
       );
     });
   });
+
+  it('should have a focus indicator', () => {
+    const fixture = TestBed.createComponent(TestApp);
+    const buttonNativeElements =
+        [...fixture.debugElement.nativeElement.querySelectorAll('a, button')];
+
+    expect(buttonNativeElements
+        .every(element => !!element.querySelector('.mat-mdc-focus-indicator'))).toBe(true);
+  });
 });
+
+describe('MatFabDefaultOptions', () => {
+  function configure(defaults: MatFabDefaultOptions) {
+    TestBed.configureTestingModule({
+      imports: [MatButtonModule],
+      declarations: [TestApp],
+      providers: [{provide: MAT_FAB_DEFAULT_OPTIONS, useValue: defaults}]
+    });
+
+    TestBed.compileComponents();
+  }
+
+  it('should override default color in component', () => {
+    configure({color: 'primary'});
+    const fixture: ComponentFixture<TestApp> = TestBed.createComponent(TestApp);
+    fixture.detectChanges();
+    const fabButtonDebugEl = fixture.debugElement.query(By.css('button[mat-fab]'))!;
+    expect(fabButtonDebugEl.nativeElement.classList).toContain('mat-primary');
+  });
+
+  it('should default to accent if config does not specify color', () => {
+    configure({});
+    const fixture: ComponentFixture<TestApp> = TestBed.createComponent(TestApp);
+    fixture.detectChanges();
+    const fabButtonDebugEl = fixture.debugElement.query(By.css('button[mat-fab]'))!;
+    expect(fabButtonDebugEl.nativeElement.classList).toContain('mat-accent');
+  });
+});
+
 
 /** Test component that contains an MatButton. */
 @Component({
@@ -272,6 +326,7 @@ describe('MDC-based MatButton', () => {
       Link
     </a>
     <button mat-fab>Fab Button</button>
+    <button mat-fab [extended]="extended" class="extended-fab-test">Extended</button>
     <button mat-mini-fab>Mini Fab Button</button>
   `
 })
@@ -281,6 +336,7 @@ class TestApp {
   rippleDisabled: boolean = false;
   buttonColor: ThemePalette;
   tabIndex: number;
+  extended: boolean = false;
 
   increment() {
     this.clickCount++;

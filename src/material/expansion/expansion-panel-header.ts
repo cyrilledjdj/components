@@ -6,76 +6,77 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {FocusMonitor, FocusableOption, FocusOrigin} from '@angular/cdk/a11y';
-import {ENTER, SPACE, hasModifierKey} from '@angular/cdk/keycodes';
+import {FocusableOption, FocusMonitor, FocusOrigin} from '@angular/cdk/a11y';
+import {ENTER, hasModifierKey, SPACE} from '@angular/cdk/keycodes';
 import {
+  AfterViewInit,
+  Attribute,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
   Directive,
   ElementRef,
   Host,
+  Inject,
   Input,
   OnDestroy,
-  ViewEncapsulation,
   Optional,
-  Inject,
+  ViewEncapsulation,
 } from '@angular/core';
-import {merge, Subscription, EMPTY} from 'rxjs';
+import {ANIMATION_MODULE_TYPE} from '@angular/platform-browser/animations';
+import {HasTabIndex, mixinTabIndex} from '@angular/material/core';
+import {NumberInput} from '@angular/cdk/coercion';
+import {EMPTY, merge, Subscription} from 'rxjs';
 import {filter} from 'rxjs/operators';
+import {MatAccordionTogglePosition} from './accordion-base';
 import {matExpansionAnimations} from './expansion-animations';
 import {
   MatExpansionPanel,
   MatExpansionPanelDefaultOptions,
   MAT_EXPANSION_PANEL_DEFAULT_OPTIONS,
 } from './expansion-panel';
-import {MatAccordionTogglePosition} from './accordion-base';
 
+
+// Boilerplate for applying mixins to MatExpansionPanelHeader.
+/** @docs-private */
+abstract class MatExpansionPanelHeaderBase {
+  abstract readonly disabled: boolean;
+}
+const _MatExpansionPanelHeaderMixinBase = mixinTabIndex(MatExpansionPanelHeaderBase);
 
 /**
- * `<mat-expansion-panel-header>`
- *
- * This component corresponds to the header element of an `<mat-expansion-panel>`.
+ * Header element of a `<mat-expansion-panel>`.
  */
 @Component({
   selector: 'mat-expansion-panel-header',
-  styleUrls: ['./expansion-panel-header.css'],
-  templateUrl: './expansion-panel-header.html',
+  styleUrls: ['expansion-panel-header.css'],
+  templateUrl: 'expansion-panel-header.html',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  inputs: ['tabIndex'],
   animations: [
     matExpansionAnimations.indicatorRotate,
-    matExpansionAnimations.expansionHeaderHeight
   ],
   host: {
-    'class': 'mat-expansion-panel-header',
+    'class': 'mat-expansion-panel-header mat-focus-indicator',
     'role': 'button',
     '[attr.id]': 'panel._headerId',
-    '[attr.tabindex]': 'disabled ? -1 : 0',
+    '[attr.tabindex]': 'tabIndex',
     '[attr.aria-controls]': '_getPanelId()',
     '[attr.aria-expanded]': '_isExpanded()',
     '[attr.aria-disabled]': 'panel.disabled',
     '[class.mat-expanded]': '_isExpanded()',
     '[class.mat-expansion-toggle-indicator-after]': `_getTogglePosition() === 'after'`,
     '[class.mat-expansion-toggle-indicator-before]': `_getTogglePosition() === 'before'`,
+    '[class._mat-animation-noopable]': '_animationMode === "NoopAnimations"',
+    '[style.height]': '_getHeaderHeight()',
     '(click)': '_toggle()',
     '(keydown)': '_keydown($event)',
-    '[@.disabled]': '_animationsDisabled',
-    '(@expansionHeight.start)': '_animationStarted()',
-    '[@expansionHeight]': `{
-        value: _getExpandedState(),
-        params: {
-          collapsedHeight: collapsedHeight,
-          expandedHeight: expandedHeight
-        }
-    }`,
   },
 })
-export class MatExpansionPanelHeader implements OnDestroy, FocusableOption {
+export class MatExpansionPanelHeader extends _MatExpansionPanelHeaderMixinBase implements
+  AfterViewInit, OnDestroy, FocusableOption, HasTabIndex {
   private _parentChangeSubscription = Subscription.EMPTY;
-
-  /** Whether Angular animations in the panel header should be disabled. */
-  _animationsDisabled = true;
 
   constructor(
       @Host() public panel: MatExpansionPanel,
@@ -83,11 +84,15 @@ export class MatExpansionPanelHeader implements OnDestroy, FocusableOption {
       private _focusMonitor: FocusMonitor,
       private _changeDetectorRef: ChangeDetectorRef,
       @Inject(MAT_EXPANSION_PANEL_DEFAULT_OPTIONS) @Optional()
-          defaultOptions?: MatExpansionPanelDefaultOptions) {
+          defaultOptions?: MatExpansionPanelDefaultOptions,
+      @Optional() @Inject(ANIMATION_MODULE_TYPE) public _animationMode?: string,
+      @Attribute('tabindex') tabIndex?: string) {
+    super();
     const accordionHideToggleChange = panel.accordion ?
         panel.accordion._stateChanges.pipe(
             filter(changes => !!(changes['hideToggle'] || changes['togglePosition']))) :
         EMPTY;
+    this.tabIndex = parseInt(tabIndex || '') || 0;
 
     // Since the toggle state depends on an @Input on the panel, we
     // need to subscribe and trigger change detection manually.
@@ -108,28 +113,10 @@ export class MatExpansionPanelHeader implements OnDestroy, FocusableOption {
       .pipe(filter(() => panel._containsFocus()))
       .subscribe(() => _focusMonitor.focusVia(_element, 'program'));
 
-    _focusMonitor.monitor(_element).subscribe(origin => {
-      if (origin && panel.accordion) {
-        panel.accordion._handleHeaderFocus(this);
-      }
-    });
-
     if (defaultOptions) {
       this.expandedHeight = defaultOptions.expandedHeight;
       this.collapsedHeight = defaultOptions.collapsedHeight;
     }
-  }
-
-  _animationStarted() {
-    // Currently the `expansionHeight` animation has a `void => collapsed` transition which is
-    // there to work around a bug in Angular (see #13088), however this introduces a different
-    // issue. The new transition will cause the header to animate in on init (see #16067), if the
-    // consumer has set a header height that is different from the default one. We work around it
-    // by disabling animations on the header and re-enabling them after the first animation has run.
-    // Note that Angular dispatches animation events even if animations are disabled. Ideally this
-    // wouldn't be necessary if we remove the `void => collapsed` transition, but we have to wait
-    // for https://github.com/angular/angular/issues/18847 to be resolved.
-    this._animationsDisabled = false;
   }
 
   /** Height of the header while the panel is expanded. */
@@ -142,13 +129,15 @@ export class MatExpansionPanelHeader implements OnDestroy, FocusableOption {
    * Whether the associated panel is disabled. Implemented as a part of `FocusableOption`.
    * @docs-private
    */
-  get disabled() {
+  get disabled(): boolean {
     return this.panel.disabled;
   }
 
   /** Toggles the expanded state of the panel. */
   _toggle(): void {
-    this.panel.toggle();
+    if (!this.disabled) {
+      this.panel.toggle();
+    }
   }
 
   /** Gets whether the panel is expanded. */
@@ -174,6 +163,20 @@ export class MatExpansionPanelHeader implements OnDestroy, FocusableOption {
   /** Gets whether the expand indicator should be shown. */
   _showToggle(): boolean {
     return !this.panel.hideToggle && !this.panel.disabled;
+  }
+
+  /**
+   * Gets the current height of the header. Null if no custom height has been
+   * specified, and if the default height from the stylesheet should be used.
+   */
+  _getHeaderHeight(): string|null {
+    const isExpanded = this._isExpanded();
+    if (isExpanded && this.expandedHeight) {
+      return this.expandedHeight;
+    } else if (!isExpanded && this.collapsedHeight) {
+      return this.collapsedHeight;
+    }
+    return null;
   }
 
   /** Handle keydown event calling to toggle() if appropriate. */
@@ -202,20 +205,32 @@ export class MatExpansionPanelHeader implements OnDestroy, FocusableOption {
    * @param origin Origin of the action that triggered the focus.
    * @docs-private
    */
-  focus(origin: FocusOrigin = 'program', options?: FocusOptions) {
-    this._focusMonitor.focusVia(this._element, origin, options);
+  focus(origin?: FocusOrigin, options?: FocusOptions) {
+    if (origin) {
+      this._focusMonitor.focusVia(this._element, origin, options);
+    } else {
+      this._element.nativeElement.focus(options);
+    }
+  }
+
+  ngAfterViewInit() {
+    this._focusMonitor.monitor(this._element).subscribe(origin => {
+      if (origin && this.panel.accordion) {
+        this.panel.accordion._handleHeaderFocus(this);
+      }
+    });
   }
 
   ngOnDestroy() {
     this._parentChangeSubscription.unsubscribe();
     this._focusMonitor.stopMonitoring(this._element);
   }
+
+  static ngAcceptInputType_tabIndex: NumberInput;
 }
 
 /**
- * `<mat-panel-description>`
- *
- * This directive is to be used inside of the MatExpansionPanelHeader component.
+ * Description element of a `<mat-expansion-panel-header>`.
  */
 @Directive({
   selector: 'mat-panel-description',
@@ -226,9 +241,7 @@ export class MatExpansionPanelHeader implements OnDestroy, FocusableOption {
 export class MatExpansionPanelDescription {}
 
 /**
- * `<mat-panel-title>`
- *
- * This directive is to be used inside of the MatExpansionPanelHeader component.
+ * Title element of a `<mat-expansion-panel-header>`.
  */
 @Directive({
   selector: 'mat-panel-title',

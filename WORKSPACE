@@ -8,77 +8,69 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # Add NodeJS rules
 http_archive(
     name = "build_bazel_rules_nodejs",
-    sha256 = "a54b2511d6dae42c1f7cdaeb08144ee2808193a088004fc3b464a04583d5aa2e",
-    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.42.3/rules_nodejs-0.42.3.tar.gz"],
+    sha256 = "10f534e1c80f795cffe1f2822becd4897754d18564612510c59b3c73544ae7c6",
+    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/3.5.0/rules_nodejs-3.5.0.tar.gz"],
 )
 
 # Add sass rules
 http_archive(
     name = "io_bazel_rules_sass",
-    sha256 = "ad08e8c82aa1f48b72dc295cb83bba33f514cdf24cc7b0e21e9353f20f0dc147",
-    strip_prefix = "rules_sass-5d1b26f8cd12c5d75dd359f9291090b341e8fd52",
-    # We need to use a version that includes SHA 5d1b26f8cd12c5d75dd359f9291090b341e8fd52 of
-    # the "rules_sass" repository as it adds support for workers.
-    url = "https://github.com/bazelbuild/rules_sass/archive/5d1b26f8cd12c5d75dd359f9291090b341e8fd52.zip",
+    sha256 = "80d3e70ab5a8d59494aa9e3a7e4722f9f9a6fe98d1497be6bfa0b9e106b1ea54",
+    strip_prefix = "rules_sass-1.34.1",
+    urls = [
+        "https://github.com/bazelbuild/rules_sass/archive/1.34.1.zip",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.34.1.zip",
+    ],
 )
 
-load("@build_bazel_rules_nodejs//:defs.bzl", "check_bazel_version", "node_repositories", "yarn_install")
+# Add skylib which contains common Bazel utilities. Note that `rules_nodejs` would also
+# bring in the skylib repository but with an older version that does not support shorthands
+# for declaring Bazel build setting flags.
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "ebdf850bfef28d923a2cc67ddca86355a449b5e4f38b0a70e584dc24e5984aa6",
+    strip_prefix = "bazel-skylib-f80bc733d4b9f83d427ce3442be2e07427b2cc8d",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f80bc733d4b9f83d427ce3442be2e07427b2cc8d.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/archive/f80bc733d4b9f83d427ce3442be2e07427b2cc8d.tar.gz",
+    ],
+)
 
-# The minimum bazel version to use with this repo is v1.1.0.
-check_bazel_version("1.1.0")
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+
+bazel_skylib_workspace()
+
+load("@build_bazel_rules_nodejs//:index.bzl", "check_bazel_version", "node_repositories", "yarn_install")
+
+check_bazel_version("4.0.0")
 
 node_repositories(
-    node_repositories = {
-        "12.9.1-darwin_amd64": ("node-v12.9.1-darwin-x64.tar.gz", "node-v12.9.1-darwin-x64", "9aaf29d30056e2233fd15dfac56eec12e8342d91bb6c13d54fb5e599383dddb9"),
-        "12.9.1-linux_amd64": ("node-v12.9.1-linux-x64.tar.xz", "node-v12.9.1-linux-x64", "680a1263c9f5f91adadcada549f0a9c29f1b26d09658d2b501c334c3f63719e5"),
-        "12.9.1-windows_amd64": ("node-v12.9.1-win-x64.zip", "node-v12.9.1-win-x64", "6a4e54bda091bd02dbd8ff1b9f6671e036297da012a53891e3834d4bf4bed297"),
-    },
-    node_urls = ["https://nodejs.org/dist/v{version}/{filename}"],
-    # For deterministic builds, specify explicit NodeJS and Yarn versions.
-    node_version = "12.9.1",
-    yarn_repositories = {
-        "1.19.1": ("yarn-v1.19.1.tar.gz", "yarn-v1.19.1", "34293da6266f2aae9690d59c2d764056053ff7eebc56b80b8df05010c3da9343"),
-    },
-    yarn_urls = ["https://github.com/yarnpkg/yarn/releases/download/v{version}/{filename}"],
-    yarn_version = "1.19.1",
+    node_version = "14.16.1",
+    package_json = ["//:package.json"],
 )
 
 yarn_install(
     name = "npm",
-    # We add the postinstall patches file here so that Yarn will rerun whenever
-    # the patches script changes.
-    data = ["//:tools/bazel/postinstall-patches.js"],
+    # We add the postinstall patches file, and ngcc main fields update script here so
+    # that Yarn will rerun whenever one of these files has been modified.
+    data = [
+        "//:tools/postinstall/apply-patches.js",
+        "//:tools/postinstall/update-ngcc-main-fields.js",
+    ],
     package_json = "//:package.json",
+    quiet = False,
     yarn_lock = "//:yarn.lock",
 )
 
-# Install all bazel dependencies of the @ngdeps npm packages
-load("@npm//:install_bazel_dependencies.bzl", "install_bazel_dependencies")
+load("@npm//@bazel/protractor:package.bzl", "npm_bazel_protractor_dependencies")
 
-install_bazel_dependencies()
-
-# Setup TypeScript Bazel workspace
-load("@npm_bazel_typescript//:index.bzl", "ts_setup_workspace")
-
-ts_setup_workspace()
-
-# Fetch transitive dependencies which are needed to use the karma rules.
-load("@npm_bazel_karma//:package.bzl", "npm_bazel_karma_dependencies")
-
-npm_bazel_karma_dependencies()
+npm_bazel_protractor_dependencies()
 
 # Setup web testing. We need to setup a browser because the web testing rules for TypeScript need
 # a reference to a registered browser (ideally that's a hermetic version of a browser)
 load("@io_bazel_rules_webtesting//web:repositories.bzl", "web_test_repositories")
 
 web_test_repositories()
-
-load("@io_bazel_rules_webtesting//web/versioned:browsers-0.3.2.bzl", "browser_repositories")
-
-browser_repositories(
-    chromium = True,
-    firefox = True,
-)
 
 # Fetch transitive dependencies which are needed to use the Sass rules.
 load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
@@ -90,30 +82,10 @@ load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 
 sass_repositories()
 
-# Bring in bazel_toolchains for RBE setup configuration.
-http_archive(
-    name = "bazel_toolchains",
-    sha256 = "3c1299efcf64a4ecf4f6def7564db28879ad2870632144d77932e7910686d3f3",
-    strip_prefix = "bazel-toolchains-1.1.2",
-    url = "https://github.com/bazelbuild/bazel-toolchains/archive/1.1.2.tar.gz",
+# Setup repositories for browsers provided by the shared dev-infra package.
+load(
+    "@npm//@angular/dev-infra-private/bazel/browsers:browser_repositories.bzl",
+    _dev_infra_browser_repositories = "browser_repositories",
 )
 
-load("@bazel_toolchains//repositories:repositories.bzl", bazel_toolchains_repositories = "repositories")
-
-bazel_toolchains_repositories()
-
-load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
-
-rbe_autoconfig(
-    name = "rbe_default",
-    # Need to specify a base container digest in order to ensure that we can use the checked-in
-    # platform configurations for the "ubuntu16_04" image. Otherwise the autoconfig rule would
-    # need to pull the image and run it in order determine the toolchain configuration.
-    # See: https://github.com/bazelbuild/bazel-toolchains/blob/master/rules/rbe_repo.bzl#L229
-    base_container_digest = "sha256:1ab40405810effefa0b2f45824d6d608634ccddbf06366760c341ef6fbead011",
-    digest = "sha256:0b8fa87db4b8e5366717a7164342a029d1348d2feea7ecc4b18c780bc2507059",
-    registry = "marketplace.gcr.io",
-    # We can't use the default "ubuntu16_04" RBE image provided by the autoconfig because we need
-    # a specific Linux kernel that comes with "libx11" in order to run headless browser tests.
-    repository = "google/rbe-ubuntu16-04-webtest",
-)
+_dev_infra_browser_repositories()

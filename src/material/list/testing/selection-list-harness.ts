@@ -6,7 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {HarnessPredicate} from '@angular/cdk/testing';
+import {HarnessPredicate, parallel} from '@angular/cdk/testing';
+import {MatListOptionCheckboxPosition} from '@angular/material/list';
 import {MatListHarnessBase} from './list-harness-base';
 import {
   ListItemHarnessFilters,
@@ -19,7 +20,7 @@ import {getListItemPredicate, MatListItemHarnessBase} from './list-item-harness-
 export class MatSelectionListHarness extends MatListHarnessBase<
     typeof MatListOptionHarness, MatListOptionHarness, ListOptionHarnessFilters> {
   /** The selector for the host element of a `MatSelectionList` instance. */
-  static hostSelector = 'mat-selection-list';
+  static hostSelector = '.mat-selection-list';
 
   /**
    * Gets a `HarnessPredicate` that can be used to search for a `MatSelectionListHarness` that meets
@@ -32,7 +33,7 @@ export class MatSelectionListHarness extends MatListHarnessBase<
     return new HarnessPredicate(MatSelectionListHarness, options);
   }
 
-  _itemHarness = MatListOptionHarness;
+  override _itemHarness = MatListOptionHarness;
 
   /** Whether the selection list is disabled. */
   async isDisabled(): Promise<boolean> {
@@ -45,7 +46,7 @@ export class MatSelectionListHarness extends MatListHarnessBase<
    */
   async selectItems(...filters: ListOptionHarnessFilters[]): Promise<void> {
     const items = await this._getItems(filters);
-    await Promise.all(items.map(item => item.select()));
+    await parallel(() => items.map(item => item.select()));
   }
 
   /**
@@ -54,7 +55,7 @@ export class MatSelectionListHarness extends MatListHarnessBase<
    */
   async deselectItems(...filters: ListItemHarnessFilters[]): Promise<void> {
     const items = await this._getItems(filters);
-    await Promise.all(items.map(item => item.deselect()));
+    await parallel(() => items.map(item => item.deselect()));
   }
 
   /** Gets all items matching the given list of filters. */
@@ -62,15 +63,17 @@ export class MatSelectionListHarness extends MatListHarnessBase<
     if (!filters.length) {
       return this.getItems();
     }
-    return ([] as MatListOptionHarness[]).concat(...await Promise.all(
-        filters.map(filter => this.locatorForAll(MatListOptionHarness.with(filter))())));
+    const matches = await parallel(() => {
+      return filters.map(filter => this.locatorForAll(MatListOptionHarness.with(filter))());
+    });
+    return matches.reduce((result, current) => [...result, ...current], []);
   }
 }
 
 /** Harness for interacting with a list option. */
 export class MatListOptionHarness extends MatListItemHarnessBase {
   /** The selector for the host element of a `MatListOption` instance. */
-  static hostSelector = 'mat-list-option';
+  static hostSelector = '.mat-list-option';
 
   /**
    * Gets a `HarnessPredicate` that can be used to search for a `MatListOptionHarness` that
@@ -87,7 +90,7 @@ export class MatListOptionHarness extends MatListItemHarnessBase {
   private _itemContent = this.locatorFor('.mat-list-item-content');
 
   /** Gets the position of the checkbox relative to the list option content. */
-  async getCheckboxPosition(): Promise<'before' | 'after'> {
+  async getCheckboxPosition(): Promise<MatListOptionCheckboxPosition> {
     return await (await this._itemContent()).hasClass('mat-list-item-content-reverse') ?
         'after' : 'before';
   }
@@ -110,6 +113,11 @@ export class MatListOptionHarness extends MatListItemHarnessBase {
   /** Blurs the list option. */
   async blur(): Promise<void> {
     return (await this.host()).blur();
+  }
+
+  /** Whether the list option is focused. */
+  async isFocused(): Promise<boolean> {
+    return (await this.host()).isFocused();
   }
 
   /** Toggles the checked state of the checkbox. */

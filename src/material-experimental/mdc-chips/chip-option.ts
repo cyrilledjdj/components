@@ -14,8 +14,10 @@ import {
   EventEmitter,
   Input,
   Output,
-  ViewEncapsulation
+  ViewEncapsulation,
+  AfterContentInit
 } from '@angular/core';
+import {deprecated} from '@material/chips';
 import {take} from 'rxjs/operators';
 import {MatChip} from './chip';
 
@@ -42,6 +44,7 @@ export class MatChipSelectionChange {
   inputs: ['color', 'disableRipple', 'tabIndex'],
   host: {
     'role': 'option',
+    'class': 'mat-mdc-focus-indicator mat-mdc-chip-option',
     '[class.mat-mdc-chip-disabled]': 'disabled',
     '[class.mat-mdc-chip-highlighted]': 'highlighted',
     '[class.mat-mdc-chip-with-avatar]': 'leadingIcon',
@@ -61,7 +64,7 @@ export class MatChipSelectionChange {
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class MatChipOption extends MatChip {
+export class MatChipOption extends MatChip implements AfterContentInit {
 
   /** Whether the chip list is selectable. */
   chipListSelectable: boolean = true;
@@ -110,11 +113,19 @@ export class MatChipOption extends MatChip {
   }
 
   /** The unstyled chip selector for this component. */
-  protected basicChipAttrName = 'mat-basic-chip-option';
+  protected override basicChipAttrName = 'mat-basic-chip-option';
 
   /** Emitted when the chip is selected or deselected. */
   @Output() readonly selectionChange: EventEmitter<MatChipSelectionChange> =
       new EventEmitter<MatChipSelectionChange>();
+
+  override ngAfterContentInit() {
+    super.ngAfterContentInit();
+
+    if (this.selected && this.leadingIcon) {
+      this.leadingIcon.setClass(deprecated.chipCssClasses.HIDDEN_LEADING_ICON, true);
+    }
+  }
 
   /** Selects the chip. */
   select(): void {
@@ -172,7 +183,7 @@ export class MatChipOption extends MatChip {
       return;
     }
 
-    if (!this._hasFocus) {
+    if (!this._hasFocus()) {
       this._elementRef.nativeElement.focus();
       this._onFocus.next({chip: this});
     }
@@ -186,7 +197,6 @@ export class MatChipOption extends MatChip {
     // that moves focus not the next item. To work around the issue, we defer marking the chip
     // as not focused until the next time the zone stabilizes.
     this._ngZone.onStable
-      .asObservable()
       .pipe(take(1))
       .subscribe(() => {
         this._ngZone.run(() => {
@@ -227,8 +237,4 @@ export class MatChipOption extends MatChip {
 
   static ngAcceptInputType_selectable: BooleanInput;
   static ngAcceptInputType_selected: BooleanInput;
-  static ngAcceptInputType_disabled: BooleanInput;
-  static ngAcceptInputType_removable: BooleanInput;
-  static ngAcceptInputType_highlighted: BooleanInput;
-  static ngAcceptInputType_disableRipple: BooleanInput;
 }

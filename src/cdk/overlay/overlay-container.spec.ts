@@ -1,4 +1,4 @@
-import {async, inject, TestBed} from '@angular/core/testing';
+import {waitForAsync, inject, TestBed} from '@angular/core/testing';
 import {Component, NgModule, ViewChild, ViewContainerRef} from '@angular/core';
 import {PortalModule, CdkPortal} from '@angular/cdk/portal';
 import {Overlay, OverlayContainer, OverlayModule} from './index';
@@ -7,7 +7,7 @@ describe('OverlayContainer', () => {
   let overlay: Overlay;
   let overlayContainer: OverlayContainer;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [OverlayTestModule]
     }).compileComponents();
@@ -24,7 +24,7 @@ describe('OverlayContainer', () => {
 
   it('should remove the overlay container element from the DOM on destruction', () => {
     const fixture = TestBed.createComponent(TestComponentWithTemplatePortals);
-
+    fixture.detectChanges();
     const overlayRef = overlay.create();
     overlayRef.attach(fixture.componentInstance.templatePortal);
     fixture.detectChanges();
@@ -53,9 +53,10 @@ describe('OverlayContainer', () => {
         .toBe(false, 'Expected the overlay container not to have class "commander-shepard"');
   });
 
-  it('should ensure that there is only one overlay container on the page', () => {
+  it('should remove overlay containers from the server when on the browser', () => {
     const extraContainer = document.createElement('div');
     extraContainer.classList.add('cdk-overlay-container');
+    extraContainer.setAttribute('platform', 'server');
     document.body.appendChild(extraContainer);
 
     overlayContainer.getContainerElement();
@@ -65,6 +66,33 @@ describe('OverlayContainer', () => {
       extraContainer.parentNode.removeChild(extraContainer);
     }
   });
+
+  it('should remove overlay containers from other unit tests', () => {
+    const extraContainer = document.createElement('div');
+    extraContainer.classList.add('cdk-overlay-container');
+    extraContainer.setAttribute('platform', 'test');
+    document.body.appendChild(extraContainer);
+
+    overlayContainer.getContainerElement();
+    expect(document.querySelectorAll('.cdk-overlay-container').length).toBe(1);
+
+    if (extraContainer.parentNode) {
+      extraContainer.parentNode.removeChild(extraContainer);
+    }
+  });
+
+  it('should not remove extra containers that were created on the browser', () => {
+    const extraContainer = document.createElement('div');
+    extraContainer.classList.add('cdk-overlay-container');
+    document.body.appendChild(extraContainer);
+
+    overlayContainer.getContainerElement();
+
+    expect(document.querySelectorAll('.cdk-overlay-container').length).toBe(2);
+
+    extraContainer.parentNode!.removeChild(extraContainer);
+  });
+
 });
 
 /** Test-bed component that contains a TempatePortal and an ElementRef. */
@@ -73,7 +101,7 @@ describe('OverlayContainer', () => {
   providers: [Overlay],
 })
 class TestComponentWithTemplatePortals {
-  @ViewChild(CdkPortal, {static: true}) templatePortal: CdkPortal;
+  @ViewChild(CdkPortal) templatePortal: CdkPortal;
 
   constructor(public viewContainerRef: ViewContainerRef) { }
 }

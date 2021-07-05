@@ -1,7 +1,12 @@
-import {createFakeEvent} from '@angular/cdk/testing/private';
+import {
+  dispatchKeyboardEvent,
+  createKeyboardEvent,
+  dispatchEvent,
+} from '@angular/cdk/testing/private';
 import {Component, DebugElement} from '@angular/core';
 import {By} from '@angular/platform-browser';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
+import {SPACE, ENTER, TAB} from '@angular/cdk/keycodes';
 import {MatChip, MatChipsModule} from './index';
 
 describe('MDC-based Chip Remove', () => {
@@ -10,7 +15,7 @@ describe('MDC-based Chip Remove', () => {
   let chipDebugElement: DebugElement;
   let chipNativeElement: HTMLElement;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [MatChipsModule],
       declarations: [
@@ -21,7 +26,7 @@ describe('MDC-based Chip Remove', () => {
     TestBed.compileComponents();
   }));
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     fixture = TestBed.createComponent(TestChip);
     testChip = fixture.debugElement.componentInstance;
     fixture.detectChanges();
@@ -31,25 +36,25 @@ describe('MDC-based Chip Remove', () => {
   }));
 
   describe('basic behavior', () => {
-    it('should apply the `mat-mdc-chip-remove` CSS class', () => {
+    it('should apply a CSS class to the remove icon', () => {
       let buttonElement = chipNativeElement.querySelector('button')!;
 
       expect(buttonElement.classList).toContain('mat-mdc-chip-remove');
     });
 
-    it('should start MDC exit animation on click', () => {
-      let buttonElement = chipNativeElement.querySelector('button')!;
+    it('should ensure that the button cannot submit its parent form', () => {
+      const buttonElement = chipNativeElement.querySelector('button')!;
 
-      testChip.removable = true;
-      fixture.detectChanges();
-
-      buttonElement.click();
-      fixture.detectChanges();
-
-      expect(chipNativeElement.classList.contains('mdc-chip--exit')).toBe(true);
+      expect(buttonElement.getAttribute('type')).toBe('button');
     });
 
-    it ('should emit (removed) event when exit animation is complete', () => {
+    it('should not set the `type` attribute on non-button elements', () => {
+      const buttonElement = chipNativeElement.querySelector('span.mat-mdc-chip-remove')!;
+
+      expect(buttonElement.hasAttribute('type')).toBe(false);
+    });
+
+    it('should emit (removed) event when exit animation is complete', () => {
       let buttonElement = chipNativeElement.querySelector('button')!;
 
       testChip.removable = true;
@@ -58,10 +63,6 @@ describe('MDC-based Chip Remove', () => {
       spyOn(testChip, 'didRemove');
       buttonElement.click();
       fixture.detectChanges();
-
-      const fakeEvent = createFakeEvent('transitionend');
-      (fakeEvent as any).propertyName = 'width';
-      chipNativeElement.dispatchEvent(fakeEvent);
 
       expect(testChip.didRemove).toHaveBeenCalled();
     });
@@ -86,6 +87,74 @@ describe('MDC-based Chip Remove', () => {
       expect(buttonElement.hasAttribute('aria-hidden')).toBe(false);
     });
 
+    it('should prevent the default SPACE action', () => {
+      const buttonElement = chipNativeElement.querySelector('button')!;
+
+      testChip.removable = true;
+      fixture.detectChanges();
+
+      const event = dispatchKeyboardEvent(buttonElement, 'keydown', SPACE);
+      fixture.detectChanges();
+
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('should not prevent the default SPACE action when a modifier key is pressed', () => {
+      const buttonElement = chipNativeElement.querySelector('button')!;
+
+      testChip.removable = true;
+      fixture.detectChanges();
+
+      const event = createKeyboardEvent('keydown', SPACE, undefined, {shift: true});
+      dispatchEvent(buttonElement, event);
+      fixture.detectChanges();
+
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it('should prevent the default ENTER action', () => {
+      const buttonElement = chipNativeElement.querySelector('button')!;
+
+      testChip.removable = true;
+      fixture.detectChanges();
+
+      const event = dispatchKeyboardEvent(buttonElement, 'keydown', ENTER);
+      fixture.detectChanges();
+
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('should not prevent the default ENTER action when a modifier key is pressed', () => {
+      const buttonElement = chipNativeElement.querySelector('button')!;
+
+      testChip.removable = true;
+      fixture.detectChanges();
+
+      const event = createKeyboardEvent('keydown', ENTER, undefined, {shift: true});
+      dispatchEvent(buttonElement, event);
+      fixture.detectChanges();
+
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it ('should not remove on any key press', () => {
+      let buttonElement = chipNativeElement.querySelector('button')!;
+
+      testChip.removable = true;
+      fixture.detectChanges();
+
+      spyOn(testChip, 'didRemove');
+      dispatchKeyboardEvent(buttonElement, 'keydown', TAB);
+      fixture.detectChanges();
+
+      expect(testChip.didRemove).not.toHaveBeenCalled();
+    });
+
+    it('should have a focus indicator', () => {
+      const buttonElement = chipNativeElement.querySelector('button')!;
+
+      expect(buttonElement.classList.contains('mat-mdc-focus-indicator')).toBe(true);
+    });
   });
 });
 
@@ -94,7 +163,10 @@ describe('MDC-based Chip Remove', () => {
     <mat-chip
       [removable]="removable"
       [disabled]="disabled"
-      (removed)="didRemove()"><button matChipRemove></button></mat-chip>
+      (removed)="didRemove()">
+      <button matChipRemove></button>
+      <span matChipRemove></span>
+    </mat-chip>
   `
 })
 class TestChip {

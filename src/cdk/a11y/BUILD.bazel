@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load(
     "//tools:defaults.bzl",
     "markdown_to_html",
@@ -10,6 +8,8 @@ load(
     "sass_library",
 )
 
+package(default_visibility = ["//visibility:public"])
+
 ng_module(
     name = "a11y",
     srcs = glob(
@@ -18,11 +18,11 @@ ng_module(
     ),
     module_name = "@angular/cdk/a11y",
     deps = [
+        "//src:dev_mode_types",
         "//src/cdk/coercion",
         "//src/cdk/keycodes",
         "//src/cdk/observers",
         "//src/cdk/platform",
-        "@npm//@angular/common",
         "@npm//@angular/core",
         "@npm//rxjs",
     ],
@@ -50,7 +50,9 @@ ng_test_library(
         "//src/cdk/keycodes",
         "//src/cdk/observers",
         "//src/cdk/platform",
+        "//src/cdk/portal",
         "//src/cdk/testing/private",
+        "@npm//@angular/common",
         "@npm//@angular/platform-browser",
         "@npm//rxjs",
     ],

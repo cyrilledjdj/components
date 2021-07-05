@@ -1,6 +1,6 @@
-package(default_visibility = ["//visibility:public"])
-
 load("//tools:defaults.bzl", "ng_module")
+
+package(default_visibility = ["//visibility:public"])
 
 ng_module(
     name = "example",
@@ -8,7 +8,7 @@ ng_module(
     deps = [
         "//src/cdk/coercion",
         "//src/components-examples",
+        "//src/components-examples/private",
         "//src/material/expansion",
-        "@npm//@angular/elements",
     ],
 )

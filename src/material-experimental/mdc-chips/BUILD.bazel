@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load(
     "//tools:defaults.bzl",
     "ng_module",
@@ -8,6 +6,8 @@ load(
     "sass_binary",
     "sass_library",
 )
+
+package(default_visibility = ["//visibility:public"])
 
 ng_module(
     name = "mdc-chips",
@@ -20,8 +20,9 @@ ng_module(
     assets = [":chips_scss"] + glob(["**/*.html"]),
     module_name = "@angular/material-experimental/mdc-chips",
     deps = [
-        "//src/material/core",
-        "//src/material/form-field",
+        "//src:dev_mode_types",
+        "//src/material-experimental/mdc-core",
+        "//src/material-experimental/mdc-form-field",
         "@npm//@angular/animations",
         "@npm//@angular/common",
         "@npm//@angular/core",
@@ -65,14 +66,16 @@ ng_test_library(
         "//src/cdk/bidi",
         "//src/cdk/keycodes",
         "//src/cdk/platform",
+        "//src/cdk/testing",
         "//src/cdk/testing/private",
-        "//src/material/core",
-        "//src/material/form-field",
-        "//src/material/input",
+        "//src/material-experimental/mdc-core",
+        "//src/material-experimental/mdc-form-field",
+        "//src/material-experimental/mdc-input",
         "@npm//@angular/animations",
         "@npm//@angular/common",
         "@npm//@angular/forms",
         "@npm//@angular/platform-browser",
+        "@npm//@material/chips",
         "@npm//material-components-web",
         "@npm//rxjs",
     ],
@@ -81,6 +84,10 @@ ng_test_library(
 ng_web_test_suite(
     name = "unit_tests",
     static_files = [
+        "@npm//:node_modules/@material/textfield/dist/mdc.textfield.js",
+        "@npm//:node_modules/@material/line-ripple/dist/mdc.lineRipple.js",
+        "@npm//:node_modules/@material/notched-outline/dist/mdc.notchedOutline.js",
+        "@npm//:node_modules/@material/dom/dist/mdc.dom.js",
         "@npm//:node_modules/@material/chips/dist/mdc.chips.js",
         "@npm//:node_modules/@material/ripple/dist/mdc.ripple.js",
     ],

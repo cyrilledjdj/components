@@ -1,6 +1,7 @@
 import {CommonModule} from '@angular/common';
 import {NgModule} from '@angular/core';
 import {ReactiveFormsModule} from '@angular/forms';
+import {ScrollingModule} from '@angular/cdk/scrolling';
 import {MatButtonModule} from '@angular/material/button';
 import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatInputModule} from '@angular/material/input';
@@ -17,12 +18,14 @@ import {
 } from './tooltip-modified-defaults/tooltip-modified-defaults-example';
 import {TooltipOverviewExample} from './tooltip-overview/tooltip-overview-example';
 import {TooltipPositionExample} from './tooltip-position/tooltip-position-example';
+import {TooltipHarnessExample} from './tooltip-harness/tooltip-harness-example';
 
 export {
   TooltipAutoHideExample,
   TooltipCustomClassExample,
   TooltipDelayExample,
   TooltipDisabledExample,
+  TooltipHarnessExample,
   TooltipManualExample,
   TooltipMessageExample,
   TooltipModifiedDefaultsExample,
@@ -35,6 +38,7 @@ const EXAMPLES = [
   TooltipCustomClassExample,
   TooltipDelayExample,
   TooltipDisabledExample,
+  TooltipHarnessExample,
   TooltipManualExample,
   TooltipMessageExample,
   TooltipModifiedDefaultsExample,
@@ -51,9 +55,11 @@ const EXAMPLES = [
     MatSelectModule,
     MatTooltipModule,
     ReactiveFormsModule,
+    ScrollingModule, // Required for the auto-scrolling example
   ],
   declarations: EXAMPLES,
   exports: EXAMPLES,
+  entryComponents: EXAMPLES,
 })
 export class TooltipExamplesModule {
 }

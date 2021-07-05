@@ -15,9 +15,10 @@ import {
   Optional,
   ChangeDetectorRef,
   SkipSelf,
+  Inject,
 } from '@angular/core';
 import {UniqueSelectionDispatcher} from '@angular/cdk/collections';
-import {CdkAccordion} from './accordion';
+import {CDK_ACCORDION, CdkAccordion} from './accordion';
 import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
 import {Subscription} from 'rxjs';
 
@@ -32,35 +33,35 @@ let nextId = 0;
   selector: 'cdk-accordion-item, [cdkAccordionItem]',
   exportAs: 'cdkAccordionItem',
   providers: [
-    // Provide CdkAccordion as undefined to prevent nested accordion items from registering
-    // to the same accordion.
-    {provide: CdkAccordion, useValue: undefined},
+    // Provide `CDK_ACCORDION` as undefined to prevent nested accordion items from
+    // registering to the same accordion.
+    {provide: CDK_ACCORDION, useValue: undefined},
   ],
 })
 export class CdkAccordionItem implements OnDestroy {
   /** Subscription to openAll/closeAll events. */
   private _openCloseAllSubscription = Subscription.EMPTY;
   /** Event emitted every time the AccordionItem is closed. */
-  @Output() closed: EventEmitter<void> = new EventEmitter<void>();
+  @Output() readonly closed: EventEmitter<void> = new EventEmitter<void>();
   /** Event emitted every time the AccordionItem is opened. */
-  @Output() opened: EventEmitter<void> = new EventEmitter<void>();
+  @Output() readonly opened: EventEmitter<void> = new EventEmitter<void>();
   /** Event emitted when the AccordionItem is destroyed. */
-  @Output() destroyed: EventEmitter<void> = new EventEmitter<void>();
+  @Output() readonly destroyed: EventEmitter<void> = new EventEmitter<void>();
 
   /**
    * Emits whenever the expanded state of the accordion changes.
    * Primarily used to facilitate two-way binding.
    * @docs-private
    */
-  @Output() expandedChange: EventEmitter<boolean> = new EventEmitter<boolean>();
+  @Output() readonly expandedChange: EventEmitter<boolean> = new EventEmitter<boolean>();
 
   /** The unique AccordionItem id. */
   readonly id: string = `cdk-accordion-child-${nextId++}`;
 
   /** Whether the AccordionItem is expanded. */
   @Input()
-  get expanded(): any { return this._expanded; }
-  set expanded(expanded: any) {
+  get expanded(): boolean { return this._expanded; }
+  set expanded(expanded: boolean) {
     expanded = coerceBooleanProperty(expanded);
 
     // Only emit events and update the internal value if the value changes.
@@ -89,14 +90,14 @@ export class CdkAccordionItem implements OnDestroy {
 
   /** Whether the AccordionItem is disabled. */
   @Input()
-  get disabled() { return this._disabled; }
-  set disabled(disabled: any) { this._disabled = coerceBooleanProperty(disabled); }
-  private _disabled: boolean = false;
+  get disabled(): boolean { return this._disabled; }
+  set disabled(disabled: boolean) { this._disabled = coerceBooleanProperty(disabled); }
+  private _disabled = false;
 
   /** Unregister function for _expansionDispatcher. */
   private _removeUniqueSelectionListener: () => void = () => {};
 
-  constructor(@Optional() @SkipSelf() public accordion: CdkAccordion,
+  constructor(@Optional() @Inject(CDK_ACCORDION) @SkipSelf() public accordion: CdkAccordion,
               private _changeDetectorRef: ChangeDetectorRef,
               protected _expansionDispatcher: UniqueSelectionDispatcher) {
     this._removeUniqueSelectionListener =

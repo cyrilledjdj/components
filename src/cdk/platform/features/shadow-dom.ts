@@ -17,3 +17,38 @@ export function _supportsShadowDom(): boolean {
 
   return shadowDomIsSupported;
 }
+
+/** Gets the shadow root of an element, if supported and the element is inside the Shadow DOM. */
+export function _getShadowRoot(element: HTMLElement): ShadowRoot | null {
+  if (_supportsShadowDom()) {
+    const rootNode = element.getRootNode ? element.getRootNode() : null;
+
+    // Note that this should be caught by `_supportsShadowDom`, but some
+    // teams have been able to hit this code path on unsupported browsers.
+    if (typeof ShadowRoot !== 'undefined' && ShadowRoot && rootNode instanceof ShadowRoot) {
+      return rootNode;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Gets the currently-focused element on the page while
+ * also piercing through Shadow DOM boundaries.
+ */
+export function _getFocusedElementPierceShadowDom(): HTMLElement | null {
+  let activeElement = typeof document !== 'undefined' && document ?
+    document.activeElement as HTMLElement | null : null;
+
+  while (activeElement && activeElement.shadowRoot) {
+    const newActiveElement = activeElement.shadowRoot.activeElement as HTMLElement | null;
+    if (newActiveElement === activeElement) {
+      break;
+    } else {
+      activeElement = newActiveElement;
+    }
+  }
+
+  return activeElement;
+}

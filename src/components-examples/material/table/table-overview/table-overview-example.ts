@@ -1,4 +1,4 @@
-import {Component, OnInit, ViewChild} from '@angular/core';
+import {AfterViewInit, Component, ViewChild} from '@angular/core';
 import {MatPaginator} from '@angular/material/paginator';
 import {MatSort} from '@angular/material/sort';
 import {MatTableDataSource} from '@angular/material/table';
@@ -7,13 +7,12 @@ export interface UserData {
   id: string;
   name: string;
   progress: string;
-  color: string;
+  fruit: string;
 }
 
 /** Constants used to fill up our data base. */
-const COLORS: string[] = [
-  'maroon', 'red', 'orange', 'yellow', 'olive', 'green', 'purple', 'fuchsia', 'lime', 'teal',
-  'aqua', 'blue', 'navy', 'black', 'gray'
+const FRUITS: string[] = [
+  'blueberry', 'lychee', 'kiwi', 'mango', 'peach', 'lime', 'pomegranate', 'pineapple'
 ];
 const NAMES: string[] = [
   'Maia', 'Asher', 'Olivia', 'Atticus', 'Amelia', 'Jack', 'Charlotte', 'Theodore', 'Isla', 'Oliver',
@@ -28,12 +27,12 @@ const NAMES: string[] = [
   styleUrls: ['table-overview-example.css'],
   templateUrl: 'table-overview-example.html',
 })
-export class TableOverviewExample implements OnInit {
-  displayedColumns: string[] = ['id', 'name', 'progress', 'color'];
+export class TableOverviewExample implements AfterViewInit {
+  displayedColumns: string[] = ['id', 'name', 'progress', 'fruit'];
   dataSource: MatTableDataSource<UserData>;
 
-  @ViewChild(MatPaginator, {static: true}) paginator: MatPaginator;
-  @ViewChild(MatSort, {static: true}) sort: MatSort;
+  @ViewChild(MatPaginator) paginator: MatPaginator;
+  @ViewChild(MatSort) sort: MatSort;
 
   constructor() {
     // Create 100 users
@@ -43,12 +42,13 @@ export class TableOverviewExample implements OnInit {
     this.dataSource = new MatTableDataSource(users);
   }
 
-  ngOnInit() {
+  ngAfterViewInit() {
     this.dataSource.paginator = this.paginator;
     this.dataSource.sort = this.sort;
   }
 
-  applyFilter(filterValue: string) {
+  applyFilter(event: Event) {
+    const filterValue = (event.target as HTMLInputElement).value;
     this.dataSource.filter = filterValue.trim().toLowerCase();
 
     if (this.dataSource.paginator) {
@@ -60,12 +60,12 @@ export class TableOverviewExample implements OnInit {
 /** Builds and returns a new User. */
 function createNewUser(id: number): UserData {
   const name = NAMES[Math.round(Math.random() * (NAMES.length - 1))] + ' ' +
-      NAMES[Math.round(Math.random() * (NAMES.length - 1))].charAt(0) + '.';
+    NAMES[Math.round(Math.random() * (NAMES.length - 1))].charAt(0) + '.';
 
   return {
     id: id.toString(),
     name: name,
     progress: Math.round(Math.random() * 100).toString(),
-    color: COLORS[Math.round(Math.random() * (COLORS.length - 1))]
+    fruit: FRUITS[Math.round(Math.random() * (FRUITS.length - 1))]
   };
 }

@@ -1,4 +1,11 @@
-import {async, TestBed, fakeAsync, tick, ComponentFixture, flush} from '@angular/core/testing';
+import {
+  waitForAsync,
+  TestBed,
+  fakeAsync,
+  tick,
+  ComponentFixture,
+  flush,
+} from '@angular/core/testing';
 import {Component, ViewChild} from '@angular/core';
 import {By} from '@angular/platform-browser';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
@@ -17,7 +24,7 @@ import {
 
 
 describe('MatExpansionPanel', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [
         MatExpansionModule,
@@ -30,6 +37,7 @@ describe('MatExpansionPanel', () => {
         LazyPanelWithContent,
         LazyPanelOpenOnLoad,
         PanelWithTwoWayBinding,
+        PanelWithHeaderTabindex,
       ],
     });
     TestBed.compileComponents();
@@ -47,6 +55,14 @@ describe('MatExpansionPanel', () => {
     flush();
 
     expect(headerEl.classList).toContain('mat-expanded');
+  }));
+
+  it('should add strong focus indication', fakeAsync(() => {
+    const fixture = TestBed.createComponent(PanelWithContent);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.mat-expansion-panel-header').classList)
+      .toContain('mat-focus-indicator');
   }));
 
   it('should be able to render panel content lazily', fakeAsync(() => {
@@ -208,6 +224,24 @@ describe('MatExpansionPanel', () => {
     expect(document.activeElement).toBe(header, 'Expected header to be focused.');
   }));
 
+  it('should not change focus origin if origin not specified', fakeAsync(() => {
+    const fixture = TestBed.createComponent(PanelWithContent);
+    fixture.componentInstance.expanded = true;
+    fixture.detectChanges();
+    tick(250);
+
+    const header = fixture.debugElement.query(By.css('mat-expansion-panel-header'))!;
+    const headerInstance = header.componentInstance;
+
+    headerInstance.focus('mouse');
+    headerInstance.focus();
+    fixture.detectChanges();
+    tick(250);
+
+    expect(header.nativeElement.classList).toContain('cdk-focused');
+    expect(header.nativeElement.classList).toContain('cdk-mouse-focused');
+  }));
+
   it('should not override the panel margin if it is not inside an accordion', fakeAsync(() => {
     const fixture = TestBed.createComponent(PanelWithCustomMargin);
     fixture.detectChanges();
@@ -343,7 +377,20 @@ describe('MatExpansionPanel', () => {
     expect(panel.componentInstance.hideToggle).toBe(true);
     expect(header.componentInstance.expandedHeight).toBe('10px');
     expect(header.componentInstance.collapsedHeight).toBe('16px');
+    expect(header.nativeElement.style.height).toBe('16px');
+
+    fixture.componentInstance.expanded = true;
+    fixture.detectChanges();
+    expect(header.nativeElement.style.height).toBe('10px');
   });
+
+  it('should be able to set a custom tabindex on the header', fakeAsync(() => {
+    const fixture = TestBed.createComponent(PanelWithHeaderTabindex);
+    const headerEl = fixture.nativeElement.querySelector('.mat-expansion-panel-header');
+    fixture.detectChanges();
+
+    expect(headerEl.getAttribute('tabindex')).toBe('7');
+  }));
 
   describe('disabled state', () => {
     let fixture: ComponentFixture<PanelWithContent>;
@@ -401,6 +448,61 @@ describe('MatExpansionPanel', () => {
 
       expect(fixture.componentInstance.panel.expanded).toBe(true);
       expect(header.classList).toContain('mat-expanded');
+    });
+
+    it('should be able to toggle a disabled expansion panel programmatically via the ' +
+      'open/close methods', () => {
+        const panelInstance = fixture.componentInstance.panel;
+
+        expect(panelInstance.expanded).toBe(false);
+        expect(header.classList).not.toContain('mat-expanded');
+
+        fixture.componentInstance.disabled = true;
+        fixture.detectChanges();
+
+        panelInstance.open();
+        fixture.detectChanges();
+
+        expect(panelInstance.expanded).toBe(true);
+        expect(header.classList).toContain('mat-expanded');
+
+        panelInstance.close();
+        fixture.detectChanges();
+
+        expect(panelInstance.expanded).toBe(false);
+        expect(header.classList).not.toContain('mat-expanded');
+      });
+
+    it('should be able to toggle a disabled expansion panel programmatically via the ' +
+      'toggle method', () => {
+        const panelInstance = fixture.componentInstance.panel;
+
+        expect(panelInstance.expanded).toBe(false);
+        expect(header.classList).not.toContain('mat-expanded');
+
+        fixture.componentInstance.disabled = true;
+        fixture.detectChanges();
+
+        panelInstance.toggle();
+        fixture.detectChanges();
+
+        expect(panelInstance.expanded).toBe(true);
+        expect(header.classList).toContain('mat-expanded');
+
+        panelInstance.toggle();
+        fixture.detectChanges();
+
+        expect(panelInstance.expanded).toBe(false);
+        expect(header.classList).not.toContain('mat-expanded');
+      });
+
+    it('should update the tabindex if the header becomes disabled', () => {
+      expect(header.getAttribute('tabindex')).toBe('0');
+
+      fixture.componentInstance.disabled = true;
+      fixture.detectChanges();
+
+      expect(header.getAttribute('tabindex')).toBe('-1');
     });
 
   });
@@ -493,4 +595,13 @@ class LazyPanelOpenOnLoad {}
 })
 class PanelWithTwoWayBinding {
   expanded = false;
+}
+
+@Component({
+  template: `
+  <mat-expansion-panel>
+    <mat-expansion-panel-header tabindex="7">Panel Title</mat-expansion-panel-header>
+  </mat-expansion-panel>`
+})
+class PanelWithHeaderTabindex {
 }

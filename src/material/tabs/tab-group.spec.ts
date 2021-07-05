@@ -1,12 +1,26 @@
 import {LEFT_ARROW} from '@angular/cdk/keycodes';
 import {dispatchFakeEvent, dispatchKeyboardEvent} from '@angular/cdk/testing/private';
 import {Component, OnInit, QueryList, ViewChild, ViewChildren} from '@angular/core';
-import {async, ComponentFixture, fakeAsync, TestBed, tick} from '@angular/core/testing';
+import {
+  waitForAsync,
+  ComponentFixture,
+  fakeAsync,
+  TestBed,
+  tick,
+  flush,
+} from '@angular/core/testing';
 import {By} from '@angular/platform-browser';
 import {BrowserAnimationsModule, NoopAnimationsModule} from '@angular/platform-browser/animations';
 import {CommonModule} from '@angular/common';
 import {Observable} from 'rxjs';
-import {MatTab, MatTabGroup, MatTabHeaderPosition, MatTabsModule} from './index';
+import {
+  MatTab,
+  MatTabGroup,
+  MatTabHeader,
+  MatTabHeaderPosition,
+  MatTabsModule,
+  MAT_TABS_CONFIG
+} from './index';
 
 
 describe('MatTabGroup', () => {
@@ -25,6 +39,7 @@ describe('MatTabGroup', () => {
         TabGroupWithIsActiveBinding,
         NestedTabs,
         TabGroupWithIndirectDescendantTabs,
+        TabGroupWithSpaceAbove,
       ],
     });
 
@@ -50,7 +65,7 @@ describe('MatTabGroup', () => {
     });
 
     it('should change selected index on click', () => {
-      let component = fixture.debugElement.componentInstance;
+      const component = fixture.debugElement.componentInstance;
       component.selectedIndex = 0;
       checkSelectedIndex(0, fixture);
 
@@ -66,12 +81,12 @@ describe('MatTabGroup', () => {
     });
 
     it('should support two-way binding for selectedIndex', fakeAsync(() => {
-      let component = fixture.componentInstance;
+      const component = fixture.componentInstance;
       component.selectedIndex = 0;
 
       fixture.detectChanges();
 
-      let tabLabel = fixture.debugElement.queryAll(By.css('.mat-tab-label'))[1];
+      const tabLabel = fixture.debugElement.queryAll(By.css('.mat-tab-label'))[1];
       tabLabel.nativeElement.click();
       fixture.detectChanges();
       tick();
@@ -80,8 +95,8 @@ describe('MatTabGroup', () => {
     }));
 
     // Note: needs to be `async` in order to fail when we expect it to.
-    it('should set to correct tab on fast change', async(() => {
-      let component = fixture.componentInstance;
+    it('should set to correct tab on fast change', waitForAsync(() => {
+      const component = fixture.componentInstance;
       component.selectedIndex = 0;
       fixture.detectChanges();
 
@@ -100,8 +115,8 @@ describe('MatTabGroup', () => {
     }));
 
     it('should change tabs based on selectedIndex', fakeAsync(() => {
-      let component = fixture.componentInstance;
-      let tabComponent = fixture.debugElement.query(By.css('mat-tab-group'))!.componentInstance;
+      const component = fixture.componentInstance;
+      const tabComponent = fixture.debugElement.query(By.css('mat-tab-group'))!.componentInstance;
 
       spyOn(component, 'handleSelection').and.callThrough();
 
@@ -158,7 +173,7 @@ describe('MatTabGroup', () => {
     });
 
     it('should not crash when setting the selected index to NaN', () => {
-      let component = fixture.debugElement.componentInstance;
+      const component = fixture.debugElement.componentInstance;
 
       expect(() => {
         component.selectedIndex = NaN;
@@ -222,7 +237,7 @@ describe('MatTabGroup', () => {
       fixture.detectChanges();
 
       spyOn(fixture.componentInstance, 'animationDone');
-      let tabLabel = fixture.debugElement.queryAll(By.css('.mat-tab-label'))[1];
+      const tabLabel = fixture.debugElement.queryAll(By.css('.mat-tab-label'))[1];
       tabLabel.nativeElement.click();
       fixture.detectChanges();
       tick();
@@ -247,12 +262,12 @@ describe('MatTabGroup', () => {
 
       expect(fixture.componentInstance.handleFocus).toHaveBeenCalledTimes(0);
 
-      tabLabels[1].nativeElement.click();
+      tabLabels[2].nativeElement.click();
       fixture.detectChanges();
 
       expect(fixture.componentInstance.handleFocus).toHaveBeenCalledTimes(1);
       expect(fixture.componentInstance.handleFocus)
-        .toHaveBeenCalledWith(jasmine.objectContaining({index: 1}));
+        .toHaveBeenCalledWith(jasmine.objectContaining({index: 2}));
     });
 
     it('should emit focusChange on arrow key navigation', () => {
@@ -266,8 +281,8 @@ describe('MatTabGroup', () => {
       expect(fixture.componentInstance.handleFocus).toHaveBeenCalledTimes(0);
 
       // In order to verify that the `focusChange` event also fires with the correct
-      // index, we focus the second tab before testing the keyboard navigation.
-      tabLabels[1].nativeElement.click();
+      // index, we focus the third tab before testing the keyboard navigation.
+      tabLabels[2].nativeElement.click();
       fixture.detectChanges();
 
       expect(fixture.componentInstance.handleFocus).toHaveBeenCalledTimes(1);
@@ -276,7 +291,7 @@ describe('MatTabGroup', () => {
 
       expect(fixture.componentInstance.handleFocus).toHaveBeenCalledTimes(2);
       expect(fixture.componentInstance.handleFocus)
-        .toHaveBeenCalledWith(jasmine.objectContaining({index: 0}));
+        .toHaveBeenCalledWith(jasmine.objectContaining({index: 1}));
     });
 
     it('should clean up the tabs QueryList on destroy', () => {
@@ -289,6 +304,63 @@ describe('MatTabGroup', () => {
 
       expect(spy).toHaveBeenCalled();
       subscription.unsubscribe();
+    });
+
+    it('should have a focus indicator', () => {
+      const tabLabelNativeElements =
+          [...fixture.debugElement.nativeElement.querySelectorAll('.mat-tab-label')];
+
+      expect(tabLabelNativeElements.every(el => el.classList.contains('mat-focus-indicator')))
+        .toBe(true);
+    });
+
+    it('should emit focusChange when a tab receives focus', fakeAsync(() => {
+      spyOn(fixture.componentInstance, 'handleFocus');
+      fixture.detectChanges();
+
+      const tabLabels = fixture.debugElement.queryAll(By.css('.mat-tab-label'));
+
+      expect(fixture.componentInstance.handleFocus).toHaveBeenCalledTimes(0);
+
+      // In order to verify that the `focusChange` event also fires with the correct
+      // index, we focus the second tab before testing the keyboard navigation.
+      dispatchFakeEvent(tabLabels[2].nativeElement, 'focus');
+      fixture.detectChanges();
+      flush();
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.handleFocus).toHaveBeenCalledTimes(1);
+      expect(fixture.componentInstance.handleFocus)
+        .toHaveBeenCalledWith(jasmine.objectContaining({index: 2}));
+    }));
+
+    it('should be able to programmatically focus a particular tab', () => {
+      fixture.detectChanges();
+      const tabGroup: MatTabGroup =
+          fixture.debugElement.query(By.css('mat-tab-group')).componentInstance;
+      const tabHeader: MatTabHeader =
+          fixture.debugElement.query(By.css('mat-tab-header')).componentInstance;
+
+      expect(tabHeader.focusIndex).not.toBe(3);
+
+      tabGroup.focusTab(3);
+      fixture.detectChanges();
+
+      expect(tabHeader.focusIndex).not.toBe(3);
+    });
+
+    it('should be able to set a tabindex on the inner content element', () => {
+      fixture.componentInstance.contentTabIndex = 1;
+      fixture.detectChanges();
+      const contentElements = Array.from<HTMLElement>(fixture.nativeElement
+          .querySelectorAll('mat-tab-body'));
+
+      expect(contentElements.map(e => e.getAttribute('tabindex'))).toEqual([null, '1', null]);
+
+      fixture.componentInstance.selectedIndex = 0;
+      fixture.detectChanges();
+
+      expect(contentElements.map(e => e.getAttribute('tabindex'))).toEqual(['1', null, null]);
     });
 
   });
@@ -560,7 +632,8 @@ describe('MatTabGroup', () => {
     }));
 
     it('should support setting the header position', () => {
-      let tabGroupNode = fixture.debugElement.query(By.css('mat-tab-group'))!.nativeElement;
+      const tabGroupNode =
+          fixture.debugElement.query(By.css('mat-tab-group'))!.nativeElement;
 
       expect(tabGroupNode.classList).not.toContain('mat-tab-group-inverted-header');
 
@@ -629,6 +702,46 @@ describe('MatTabGroup', () => {
     }));
   });
 
+  describe('tall tabs', () => {
+    beforeEach(() => {
+      window.scrollTo({top: 0});
+    });
+
+    it('should not scroll when changing tabs by clicking', fakeAsync(() => {
+      const fixture = TestBed.createComponent(TabGroupWithSpaceAbove);
+      fixture.detectChanges();
+      tick();
+      fixture.detectChanges();
+
+      window.scrollBy(0, 250);
+      expect(window.scrollY).toBe(250);
+
+      // select the second tab
+      const tabLabel = fixture.debugElement.queryAll(By.css('.mat-tab-label'))[1];
+      tabLabel.nativeElement.click();
+      checkSelectedIndex(1, fixture);
+
+      expect(window.scrollY).toBe(250);
+      tick();
+    }));
+
+    it('should not scroll when changing tabs programatically', fakeAsync(() => {
+      const fixture = TestBed.createComponent(TabGroupWithSpaceAbove);
+      fixture.detectChanges();
+      tick();
+      fixture.detectChanges();
+
+      window.scrollBy(0, 250);
+      expect(window.scrollY).toBe(250);
+
+      fixture.componentInstance.tabGroup.selectedIndex = 1;
+      fixture.detectChanges();
+
+      expect(window.scrollY).toBe(250);
+      tick();
+    }));
+  });
+
   /**
    * Checks that the `selectedIndex` has been updated; checks that the label and body have their
    * respective `active` classes
@@ -636,15 +749,15 @@ describe('MatTabGroup', () => {
   function checkSelectedIndex(expectedIndex: number, fixture: ComponentFixture<any>) {
     fixture.detectChanges();
 
-    let tabComponent: MatTabGroup = fixture.debugElement
+    const tabComponent: MatTabGroup = fixture.debugElement
         .query(By.css('mat-tab-group'))!.componentInstance;
     expect(tabComponent.selectedIndex).toBe(expectedIndex);
 
-    let tabLabelElement = fixture.debugElement
+    const tabLabelElement = fixture.debugElement
         .query(By.css(`.mat-tab-label:nth-of-type(${expectedIndex + 1})`))!.nativeElement;
     expect(tabLabelElement.classList.contains('mat-tab-label-active')).toBe(true);
 
-    let tabContentElement = fixture.debugElement
+    const tabContentElement = fixture.debugElement
         .query(By.css(`mat-tab-body:nth-of-type(${expectedIndex + 1})`))!.nativeElement;
     expect(tabContentElement.classList.contains('mat-tab-body-active')).toBe(true);
   }
@@ -658,6 +771,30 @@ describe('MatTabGroup', () => {
   }
 });
 
+describe('MatTabNavBar with a default config', () => {
+  let fixture: ComponentFixture<SimpleTabsTestApp>;
+
+  beforeEach(fakeAsync(() => {
+    TestBed.configureTestingModule({
+      imports: [MatTabsModule, BrowserAnimationsModule],
+      declarations: [SimpleTabsTestApp],
+      providers: [
+        {provide: MAT_TABS_CONFIG, useValue: {dynamicHeight: true}}
+      ]
+    });
+
+    TestBed.compileComponents();
+  }));
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(SimpleTabsTestApp);
+    fixture.detectChanges();
+  });
+
+  it('should set whether the height of the tab group is dynamic', () => {
+    expect(fixture.componentInstance.tabGroup.dynamicHeight).toBe(true);
+  });
+});
 
 describe('nested MatTabGroup with enabled animations', () => {
   beforeEach(fakeAsync(() => {
@@ -671,7 +808,7 @@ describe('nested MatTabGroup with enabled animations', () => {
 
   it('should not throw when creating a component with nested tab groups', fakeAsync(() => {
     expect(() => {
-      let fixture = TestBed.createComponent(NestedTabs);
+      const fixture = TestBed.createComponent(NestedTabs);
       fixture.detectChanges();
       tick();
     }).not.toThrow();
@@ -679,7 +816,7 @@ describe('nested MatTabGroup with enabled animations', () => {
 
   it('should not throw when setting an animationDuration without units', fakeAsync(() => {
     expect(() => {
-      let fixture = TestBed.createComponent(TabsWithCustomAnimationDuration);
+      const fixture = TestBed.createComponent(TabsWithCustomAnimationDuration);
       fixture.detectChanges();
       tick();
     }).not.toThrow();
@@ -693,6 +830,7 @@ describe('nested MatTabGroup with enabled animations', () => {
         [(selectedIndex)]="selectedIndex"
         [headerPosition]="headerPosition"
         [disableRipple]="disableRipple"
+        [contentTabIndex]="contentTabIndex"
         (animationDone)="animationDone()"
         (focusChange)="handleFocus($event)"
         (selectedTabChange)="handleSelection($event)">
@@ -712,11 +850,13 @@ describe('nested MatTabGroup with enabled animations', () => {
   `
 })
 class SimpleTabsTestApp {
+  @ViewChild(MatTabGroup) tabGroup: MatTabGroup;
   @ViewChildren(MatTab) tabs: QueryList<MatTab>;
   selectedIndex: number = 1;
   focusEvent: any;
   selectEvent: any;
   disableRipple: boolean = false;
+  contentTabIndex: number | null = null;
   headerPosition: MatTabHeaderPosition = 'above';
   handleFocus(event: any) {
     this.focusEvent = event;
@@ -936,5 +1076,26 @@ class TabsWithCustomAnimationDuration {}
   `,
 })
 class TabGroupWithIndirectDescendantTabs {
+  @ViewChild(MatTabGroup) tabGroup: MatTabGroup;
+}
+
+@Component({
+  template: `
+    <div style="height: 300px; background-color: aqua">
+      Top Content here
+    </div>
+    <mat-tab-group>
+      <ng-container>
+        <mat-tab label="One">
+          <div style="height: 3000px; background-color: red"></div>
+        </mat-tab>
+        <mat-tab label="Two">
+          <div style="height: 3000px; background-color: green"></div>
+        </mat-tab>
+      </ng-container>
+    </mat-tab-group>
+  `,
+})
+class TabGroupWithSpaceAbove {
   @ViewChild(MatTabGroup) tabGroup: MatTabGroup;
 }

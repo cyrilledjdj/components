@@ -18,18 +18,25 @@ import {SelectOverviewExample} from './select-overview/select-overview-example';
 import {SelectPanelClassExample} from './select-panel-class/select-panel-class-example';
 import {SelectResetExample} from './select-reset/select-reset-example';
 import {SelectValueBindingExample} from './select-value-binding/select-value-binding-example';
+import {SelectReactiveFormExample} from './select-reactive-form/select-reactive-form-example';
+import {SelectInitialValueExample} from './select-initial-value/select-initial-value-example';
+import {SelectHarnessExample} from './select-harness/select-harness-example';
+import {MatFormFieldModule} from '@angular/material/form-field';
 
 export {
   SelectCustomTriggerExample,
   SelectDisabledExample,
   SelectErrorStateMatcherExample,
   SelectFormExample,
+  SelectHarnessExample,
   SelectHintErrorExample,
+  SelectInitialValueExample,
   SelectMultipleExample,
   SelectNoRippleExample,
   SelectOptgroupExample,
   SelectOverviewExample,
   SelectPanelClassExample,
+  SelectReactiveFormExample,
   SelectResetExample,
   SelectValueBindingExample,
 };
@@ -39,12 +46,15 @@ const EXAMPLES = [
   SelectDisabledExample,
   SelectErrorStateMatcherExample,
   SelectFormExample,
+  SelectHarnessExample,
   SelectHintErrorExample,
+  SelectInitialValueExample,
   SelectMultipleExample,
   SelectNoRippleExample,
   SelectOptgroupExample,
   SelectOverviewExample,
   SelectPanelClassExample,
+  SelectReactiveFormExample,
   SelectResetExample,
   SelectValueBindingExample,
 ];
@@ -57,9 +67,11 @@ const EXAMPLES = [
     MatInputModule,
     MatSelectModule,
     ReactiveFormsModule,
+    MatFormFieldModule,
   ],
   declarations: EXAMPLES,
   exports: EXAMPLES,
+  entryComponents: EXAMPLES,
 })
 export class SelectExamplesModule {
 }

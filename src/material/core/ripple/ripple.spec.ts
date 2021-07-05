@@ -8,9 +8,10 @@ import {
   dispatchTouchEvent,
   createMouseEvent,
 } from '@angular/cdk/testing/private';
-import {defaultRippleAnimationConfig, RippleAnimationConfig} from './ripple-renderer';
+import {defaultRippleAnimationConfig} from './ripple-renderer';
 import {
-  MatRipple, MatRippleModule, MAT_RIPPLE_GLOBAL_OPTIONS, RippleState, RippleGlobalOptions
+  MatRipple, MatRippleModule, MAT_RIPPLE_GLOBAL_OPTIONS, RippleState, RippleGlobalOptions,
+  RippleAnimationConfig
 } from './index';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 
@@ -49,7 +50,7 @@ describe('MatRipple', () => {
   }));
 
   afterEach(() => {
-    document.body.style.margin = originalBodyMargin;
+    document.body.style.margin = originalBodyMargin!;
   });
 
   describe('basic ripple', () => {
@@ -180,7 +181,7 @@ describe('MatRipple', () => {
 
     it('should ignore fake mouse events from screen readers', fakeAsync(() => {
       const event = createMouseEvent('mousedown');
-      Object.defineProperty(event, 'buttons', {get: () => 0});
+      Object.defineProperties(event, {offsetX: {get: () => 0}, offsetY: {get: () => 0}});
 
       dispatchEvent(rippleTarget, event);
       tick(enterDuration);
@@ -479,14 +480,15 @@ describe('MatRipple', () => {
     let rippleDirective: MatRipple;
 
     function createTestComponent(rippleConfig: RippleGlobalOptions,
-                                 testComponent: any = BasicRippleContainer) {
+                                 testComponent: any = BasicRippleContainer,
+                                 extraImports: any[] = []) {
       // Reset the previously configured testing module to be able set new providers.
       // The testing module has been initialized in the root describe group for the ripples.
       TestBed.resetTestingModule();
       TestBed.configureTestingModule({
-        imports: [MatRippleModule],
+        imports: [MatRippleModule, ...extraImports],
         declarations: [testComponent],
-        providers: [{ provide: MAT_RIPPLE_GLOBAL_OPTIONS, useValue: rippleConfig }]
+        providers: [{provide: MAT_RIPPLE_GLOBAL_OPTIONS, useValue: rippleConfig}]
       });
 
       fixture = TestBed.createComponent(testComponent);
@@ -569,6 +571,14 @@ describe('MatRipple', () => {
       // will still exist. To properly finish all timers, we just wait the remaining time.
       tick(enterDuration - exitDuration);
     }));
+
+    it('should not mutate the global options when NoopAnimationsModule is present', () => {
+      const options: RippleGlobalOptions = {};
+
+      createTestComponent(options, RippleContainerWithoutBindings, [NoopAnimationsModule]);
+
+      expect(options.animation).toBeFalsy();
+    });
   });
 
   describe('with disabled animations', () => {
@@ -635,6 +645,24 @@ describe('MatRipple', () => {
 
       expect(rippleTarget.querySelectorAll('.mat-ripple-element').length).toBe(1);
     });
+
+    it('fades out non-persistent ripples when disabled input is set',
+       fakeAsync(() => {
+      dispatchMouseEvent(rippleTarget, 'mousedown');
+      controller.ripple.launch(0, 0, { persistent: true });
+
+      tick(enterDuration);
+      expect(rippleTarget.querySelectorAll('.mat-ripple-element').length).toBe(2);
+
+      spyOn(controller.ripple, 'fadeOutAllNonPersistent').and.callThrough();
+      controller.disabled = true;
+      fixture.detectChanges();
+
+      expect(controller.ripple.fadeOutAllNonPersistent).toHaveBeenCalled();
+
+      tick(exitDuration);
+      expect(rippleTarget.querySelectorAll('.mat-ripple-element').length).toBe(1);
+    }));
 
     it('allows specifying custom trigger element', () => {
       let alternateTrigger = fixture.debugElement.nativeElement

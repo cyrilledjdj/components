@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load("//src/e2e-app:test_suite.bzl", "e2e_test_suite")
 load(
     "//tools:defaults.bzl",
@@ -12,6 +10,8 @@ load(
     "sass_library",
 )
 
+package(default_visibility = ["//visibility:public"])
+
 ng_module(
     name = "grid-list",
     srcs = glob(
@@ -21,6 +21,7 @@ ng_module(
     assets = [":grid-list.css"] + glob(["**/*.html"]),
     module_name = "@angular/material/grid-list",
     deps = [
+        "//src:dev_mode_types",
         "//src/cdk/bidi",
         "//src/cdk/coercion",
         "//src/material/core",

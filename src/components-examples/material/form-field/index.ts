@@ -21,11 +21,13 @@ import {
   FormFieldPrefixSuffixExample
 } from './form-field-prefix-suffix/form-field-prefix-suffix-example';
 import {FormFieldThemingExample} from './form-field-theming/form-field-theming-example';
+import {FormFieldHarnessExample} from './form-field-harness/form-field-harness-example';
 
 export {
   FormFieldAppearanceExample,
   FormFieldCustomControlExample,
   FormFieldErrorExample,
+  FormFieldHarnessExample,
   FormFieldHintExample,
   FormFieldLabelExample,
   FormFieldOverviewExample,
@@ -38,6 +40,7 @@ const EXAMPLES = [
   FormFieldAppearanceExample,
   FormFieldCustomControlExample,
   FormFieldErrorExample,
+  FormFieldHarnessExample,
   FormFieldHintExample,
   FormFieldLabelExample,
   FormFieldOverviewExample,
@@ -59,6 +62,7 @@ const EXAMPLES = [
   ],
   declarations: [...EXAMPLES, MyTelInput],
   exports: EXAMPLES,
+  entryComponents: EXAMPLES,
 })
 export class FormFieldExamplesModule {
 }

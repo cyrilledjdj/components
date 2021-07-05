@@ -1,6 +1,13 @@
 import {dispatchFakeEvent} from '@angular/cdk/testing/private';
 import {Component, ViewChild} from '@angular/core';
-import {async, ComponentFixture, fakeAsync, flush, TestBed, tick} from '@angular/core/testing';
+import {
+  waitForAsync,
+  ComponentFixture,
+  fakeAsync,
+  flush,
+  TestBed,
+  tick,
+} from '@angular/core/testing';
 import {FormsModule} from '@angular/forms';
 import {By} from '@angular/platform-browser';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
@@ -13,7 +20,7 @@ describe('CdkTextareaAutosize', () => {
   let textarea: HTMLTextAreaElement;
   let autosize: CdkTextareaAutosize;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [
         FormsModule,
@@ -43,7 +50,7 @@ describe('CdkTextareaAutosize', () => {
   it('should resize the textarea based on its content', () => {
     let previousHeight = textarea.clientHeight;
 
-    fixture.componentInstance.content = `
+    textarea.value = `
     Once upon a midnight dreary, while I pondered, weak and weary,
     Over many a quaint and curious volume of forgotten lore—
         While I nodded, nearly napping, suddenly there came a tapping,
@@ -61,7 +68,7 @@ describe('CdkTextareaAutosize', () => {
         .toBe(textarea.scrollHeight, 'Expected textarea height to match its scrollHeight');
 
     previousHeight = textarea.clientHeight;
-    fixture.componentInstance.content += `
+    textarea.value += `
         Ah, distinctly I remember it was in the bleak December;
     And each separate dying ember wrought its ghost upon the floor.
         Eagerly I wished the morrow;—vainly I had sought to borrow
@@ -76,6 +83,38 @@ describe('CdkTextareaAutosize', () => {
         .toBeGreaterThan(previousHeight, 'Expected textarea to have grown with added content.');
     expect(textarea.clientHeight)
         .toBe(textarea.scrollHeight, 'Expected textarea height to match its scrollHeight');
+  });
+
+  it('should keep the placeholder size if the value is shorter than the placeholder', () => {
+    fixture = TestBed.createComponent(AutosizeTextAreaWithContent);
+
+    textarea = fixture.nativeElement.querySelector('textarea');
+    autosize = fixture.debugElement.query(By.css('textarea'))!
+        .injector.get<CdkTextareaAutosize>(CdkTextareaAutosize);
+
+    fixture.componentInstance.placeholder = `
+    Once upon a midnight dreary, while I pondered, weak and weary,
+    Over many a quaint and curious volume of forgotten lore—
+        While I nodded, nearly napping, suddenly there came a tapping,
+    As of some one gently rapping, rapping at my chamber door.
+    “’Tis some visitor,” I muttered, “tapping at my chamber door—
+                Only this and nothing more.”`;
+
+    fixture.detectChanges();
+
+    expect(textarea.clientHeight)
+        .toBe(textarea.scrollHeight, 'Expected textarea height to match its scrollHeight');
+
+    let previousHeight = textarea.clientHeight;
+
+    textarea.value = 'a';
+
+    // Manually call resizeToFitContent instead of faking an `input` event.
+    fixture.detectChanges();
+    autosize.resizeToFitContent();
+
+    expect(textarea.clientHeight)
+        .toBe(previousHeight, 'Expected textarea height not to have changed');
   });
 
   it('should set a min-height based on minRows', () => {
@@ -154,7 +193,7 @@ describe('CdkTextareaAutosize', () => {
   });
 
   it('should calculate the proper height based on the specified amount of max rows', () => {
-    fixture.componentInstance.content = [1, 2, 3, 4, 5, 6, 7, 8].join('\n');
+    textarea.value = [1, 2, 3, 4, 5, 6, 7, 8].join('\n');
     fixture.detectChanges();
     autosize.resizeToFitContent();
 
@@ -177,6 +216,27 @@ describe('CdkTextareaAutosize', () => {
         .injector.get<CdkTextareaAutosize>(CdkTextareaAutosize);
 
     fixture.componentInstance.content = `
+      Line
+      Line
+      Line
+      Line
+      Line`;
+
+    fixture.detectChanges();
+
+    expect(textarea.clientHeight)
+      .toBe(textarea.scrollHeight, 'Expected textarea height to match its scrollHeight');
+  });
+
+  it('should properly resize to placeholder on init', () => {
+    // Manually create the test component in this test, because in this test the first change
+    // detection should be triggered after a multiline placeholder is set.
+    fixture = TestBed.createComponent(AutosizeTextAreaWithContent);
+    textarea = fixture.nativeElement.querySelector('textarea');
+    autosize = fixture.debugElement.query(By.css('textarea'))!
+        .injector.get<CdkTextareaAutosize>(CdkTextareaAutosize);
+
+    fixture.componentInstance.placeholder = `
       Line
       Line
       Line
@@ -291,7 +351,7 @@ const textareaStyleReset = `
 @Component({
   template: `
     <textarea cdkTextareaAutosize [cdkAutosizeMinRows]="minRows" [cdkAutosizeMaxRows]="maxRows"
-        #autosize="cdkTextareaAutosize">{{content}}</textarea>`,
+        #autosize="cdkTextareaAutosize" [placeholder]="placeholder">{{content}}</textarea>`,
   styles: [textareaStyleReset],
 })
 class AutosizeTextAreaWithContent {
@@ -299,6 +359,7 @@ class AutosizeTextAreaWithContent {
   minRows: number | null = null;
   maxRows: number | null = null;
   content: string = '';
+  placeholder: string = '';
 }
 
 @Component({

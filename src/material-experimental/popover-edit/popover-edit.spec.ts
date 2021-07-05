@@ -3,7 +3,7 @@ import {LEFT_ARROW, UP_ARROW, RIGHT_ARROW, DOWN_ARROW, TAB} from '@angular/cdk/k
 import {MatTableModule} from '@angular/material/table';
 import {dispatchKeyboardEvent} from '@angular/cdk/testing/private';
 import {CommonModule} from '@angular/common';
-import {Component, Directive, ElementRef, Type, ViewChild} from '@angular/core';
+import {Component, Directive, ElementRef, ViewChild} from '@angular/core';
 import {ComponentFixture, fakeAsync, flush, TestBed, tick, inject} from '@angular/core/testing';
 import {FormsModule, NgForm} from '@angular/forms';
 import {OverlayContainer} from '@angular/cdk/overlay';
@@ -50,7 +50,11 @@ const CELL_TEMPLATE = `
     </span>
     `;
 
-const POPOVER_EDIT_DIRECTIVE_NAME = `[matPopoverEdit]="nameEdit" [matPopoverEditColspan]="colspan"`;
+const POPOVER_EDIT_DIRECTIVE_NAME = `
+    [matPopoverEdit]="nameEdit"
+    [matPopoverEditColspan]="colspan"
+    [matPopoverEditDisabled]="nameEditDisabled"
+    `;
 
 const POPOVER_EDIT_DIRECTIVE_WEIGHT = `[matPopoverEdit]="weightEdit" matPopoverEditTabOut`;
 
@@ -65,6 +69,7 @@ abstract class BaseTestComponent {
 
   preservedValues = new FormValueContainer<PeriodicElement, {'name': string}>();
 
+  nameEditDisabled = false;
   ignoreSubmitUnlessValid = true;
   clickOutBehavior: PopoverEditClickOutBehavior = 'close';
   colspan: CdkPopoverEditColspan = {};
@@ -169,7 +174,7 @@ class ElementDataSource extends DataSource<PeriodicElement> {
 
   /** Connect function called by the table to retrieve one stream containing the data to render. */
   connect() {
-    return this.data.asObservable();
+    return this.data;
   }
 
   disconnect() {}
@@ -177,7 +182,7 @@ class ElementDataSource extends DataSource<PeriodicElement> {
 
 @Component({
   template: `
-  <div #table style="margin: 16px">
+  <div #table style="margin: 16px; max-width: 90vw; max-height: 90vh;">
     <mat-table editable [dataSource]="dataSource">
       <ng-container matColumnDef="before">
         <mat-cell *matCellDef="let element">
@@ -214,7 +219,12 @@ class ElementDataSource extends DataSource<PeriodicElement> {
       <mat-row *matRowDef="let row; columns: displayedColumns;"></mat-row>
     </mat-table>
   </div>
-  `
+  `,
+  styles: [`
+    mat-table {
+      margin: 16px;
+    }
+  `]
 })
 class MatFlexTableInCell extends BaseTestComponent {
   displayedColumns = ['before', 'name', 'weight'];
@@ -260,17 +270,22 @@ class MatFlexTableInCell extends BaseTestComponent {
       <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
     </table>
   <div>
-  `
+  `,
+  styles: [`
+    table {
+      margin: 16px;
+    }
+  `]
 })
 class MatTableInCell extends BaseTestComponent {
   displayedColumns = ['before', 'name', 'weight'];
   dataSource = new ElementDataSource();
 }
 
-const testCases: ReadonlyArray<[Type<BaseTestComponent>, string]> = [
+const testCases = [
   [MatFlexTableInCell, 'Flex mat-table; edit defined within cell'],
   [MatTableInCell, 'Table mat-table; edit defined within cell'],
-];
+] as const;
 
 describe('Material Popover Edit', () => {
   for (const [componentClass, label] of testCases) {
@@ -308,9 +323,7 @@ describe('Material Popover Edit', () => {
           expect(component.hoverContentStateForRow(rows.length - 1))
               .toBe(HoverContentState.FOCUSABLE);
         }));
-      });
 
-      describe('triggering edit', () => {
         it('shows and hides on-hover content only after a delay', fakeAsync(() => {
           const [row0, row1] = component.getRows();
           row0.dispatchEvent(new Event('mouseover', {bubbles: true}));
@@ -410,14 +423,38 @@ describe('Material Popover Edit', () => {
           expect(component.lensIsOpen()).toBe(true);
           clearLeftoverTimers();
         }));
+
+        it('does not trigger edit when disabled', fakeAsync(() => {
+          component.nameEditDisabled = true;
+          fixture.detectChanges();
+
+          // Uses Enter to open the lens.
+          component.openLens();
+
+          expect(component.lensIsOpen()).toBe(false);
+          clearLeftoverTimers();
+        }));
       });
 
       describe('focus manipulation', () => {
         const getRowCells = () => component.getRows().map(getCells);
 
+        describe('tabindex', () => {
+          it('sets tabindex to 0 on editable cells', () => {
+            expect(component.getEditCell().getAttribute('tabindex')).toBe('0');
+          });
+
+          it('unsets tabindex to 0 on disabled cells', () => {
+            component.nameEditDisabled = true;
+            fixture.detectChanges();
+
+            expect(component.getEditCell().hasAttribute('tabindex')).toBe(false);
+          });
+        });
+
         describe('arrow keys', () => {
           const dispatchKey = (cell: HTMLElement, keyCode: number) =>
-              dispatchKeyboardEvent(cell, 'keydown', keyCode, undefined, cell);
+              dispatchKeyboardEvent(cell, 'keydown', keyCode);
 
           it('moves focus up/down/left/right and prevents default', () => {
             const rowCells = getRowCells();
@@ -537,6 +574,10 @@ matPopoverEditTabOut`, fakeAsync(() => {
       });
 
       describe('edit lens', () => {
+        function expectPixelsToEqual(actual: number, expected: number) {
+          expect(Math.floor(actual)).toBe(Math.floor(expected));
+        }
+
         it('shows a lens with the value from the table', fakeAsync(() => {
           component.openLens();
 
@@ -551,9 +592,9 @@ matPopoverEditTabOut`, fakeAsync(() => {
              const paneRect = component.getEditPane()!.getBoundingClientRect();
              const cellRect = component.getEditCell().getBoundingClientRect();
 
-             expect(paneRect.width).toBe(cellRect.width);
-             expect(paneRect.left).toBe(cellRect.left);
-             expect(paneRect.top).toBe(cellRect.top);
+             expectPixelsToEqual(paneRect.width, cellRect.width);
+             expectPixelsToEqual(paneRect.left, cellRect.left);
+             expectPixelsToEqual(paneRect.top, cellRect.top);
              clearLeftoverTimers();
            }));
 
@@ -567,25 +608,25 @@ matPopoverEditTabOut`, fakeAsync(() => {
              component.openLens();
 
              let paneRect = component.getEditPane()!.getBoundingClientRect();
-             expect(paneRect.top).toBe(cellRects[0].top);
-             expect(paneRect.left).toBe(cellRects[0].left);
-             expect(paneRect.right).toBe(cellRects[1].right);
+             expectPixelsToEqual(paneRect.top, cellRects[0].top);
+             expectPixelsToEqual(paneRect.left, cellRects[0].left);
+             expectPixelsToEqual(paneRect.right, cellRects[1].right);
 
              component.colspan = {after: 1};
              fixture.detectChanges();
 
              paneRect = component.getEditPane()!.getBoundingClientRect();
-             expect(paneRect.top).toBe(cellRects[1].top);
-             expect(paneRect.left).toBe(cellRects[1].left);
-             expect(paneRect.right).toBe(cellRects[2].right);
+             expectPixelsToEqual(paneRect.top, cellRects[1].top);
+             expectPixelsToEqual(paneRect.left, cellRects[1].left);
+             expectPixelsToEqual(paneRect.right, cellRects[2].right);
 
              component.colspan = {before: 1, after: 1};
              fixture.detectChanges();
 
              paneRect = component.getEditPane()!.getBoundingClientRect();
-             expect(paneRect.top).toBe(cellRects[0].top);
-             expect(paneRect.left).toBe(cellRects[0].left);
-             expect(paneRect.right).toBe(cellRects[2].right);
+             expectPixelsToEqual(paneRect.top, cellRects[0].top);
+             expectPixelsToEqual(paneRect.left, cellRects[0].left);
+             expectPixelsToEqual(paneRect.right, cellRects[2].right);
              clearLeftoverTimers();
            }));
 

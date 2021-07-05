@@ -28,7 +28,7 @@ export const WHITE_ON_BLACK_CSS_CLASS = 'cdk-high-contrast-white-on-black';
 export const HIGH_CONTRAST_MODE_ACTIVE_CSS_CLASS = 'cdk-high-contrast-active';
 
 /**
- * Service to determine whether the browser is currently in a high-constrast-mode environment.
+ * Service to determine whether the browser is currently in a high-contrast-mode environment.
  *
  * Microsoft Windows supports an accessibility feature called "High Contrast Mode". This mode
  * changes the appearance of all applications, including web applications, to dramatically increase
@@ -40,13 +40,18 @@ export const HIGH_CONTRAST_MODE_ACTIVE_CSS_CLASS = 'cdk-high-contrast-active';
  */
 @Injectable({providedIn: 'root'})
 export class HighContrastModeDetector {
+  /**
+   * Figuring out the high contrast mode and adding the body classes can cause
+   * some expensive layouts. This flag is used to ensure that we only do it once.
+   */
+  private _hasCheckedHighContrastMode: boolean;
   private _document: Document;
 
   constructor(private _platform: Platform, @Inject(DOCUMENT) document: any) {
     this._document = document;
   }
 
-  /** Gets the current high-constrast-mode for the page. */
+  /** Gets the current high-contrast-mode for the page. */
   getHighContrastMode(): HighContrastMode {
     if (!this._platform.isBrowser) {
       return HighContrastMode.NONE;
@@ -62,10 +67,13 @@ export class HighContrastModeDetector {
 
     // Get the computed style for the background color, collapsing spaces to normalize between
     // browsers. Once we get this color, we no longer need the test element. Access the `window`
-    // via the document so we can fake it in tests.
-    const documentWindow = this._document.defaultView!;
+    // via the document so we can fake it in tests. Note that we have extra null checks, because
+    // this logic will likely run during app bootstrap and throwing can break the entire app.
+    const documentWindow = this._document.defaultView || window;
+    const computedStyle = (documentWindow && documentWindow.getComputedStyle) ?
+        documentWindow.getComputedStyle(testElement) : null;
     const computedColor =
-        (documentWindow.getComputedStyle(testElement).backgroundColor || '').replace(/ /g, '');
+        (computedStyle && computedStyle.backgroundColor || '').replace(/ /g, '');
     this._document.body.removeChild(testElement);
 
     switch (computedColor) {
@@ -77,12 +85,13 @@ export class HighContrastModeDetector {
 
   /** Applies CSS classes indicating high-contrast mode to document body (browser-only). */
   _applyBodyHighContrastModeCssClasses(): void {
-    if (this._platform.isBrowser && this._document.body) {
+    if (!this._hasCheckedHighContrastMode && this._platform.isBrowser && this._document.body) {
       const bodyClasses = this._document.body.classList;
       // IE11 doesn't support `classList` operations with multiple arguments
       bodyClasses.remove(HIGH_CONTRAST_MODE_ACTIVE_CSS_CLASS);
       bodyClasses.remove(BLACK_ON_WHITE_CSS_CLASS);
       bodyClasses.remove(WHITE_ON_BLACK_CSS_CLASS);
+      this._hasCheckedHighContrastMode = true;
 
       const mode = this.getHighContrastMode();
       if (mode === HighContrastMode.BLACK_ON_WHITE) {

@@ -29,11 +29,20 @@ import {
   Output,
   ViewChild,
   ViewEncapsulation,
+  OnDestroy,
 } from '@angular/core';
 import {DateAdapter} from '@angular/material/core';
 import {Directionality} from '@angular/cdk/bidi';
-import {MatCalendarBody, MatCalendarCell} from './calendar-body';
+import {
+  MatCalendarBody,
+  MatCalendarCell,
+  MatCalendarUserEvent,
+  MatCalendarCellClassFunction,
+} from './calendar-body';
 import {createMissingDateImplError} from './datepicker-errors';
+import {Subscription} from 'rxjs';
+import {startWith} from 'rxjs/operators';
+import {DateRange} from './date-selection-model';
 
 export const yearsPerPage = 24;
 
@@ -50,14 +59,18 @@ export const yearsPerRow = 4;
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class MatMultiYearView<D> implements AfterContentInit {
+export class MatMultiYearView<D> implements AfterContentInit, OnDestroy {
+  private _rerenderSubscription = Subscription.EMPTY;
+
   /** The date to display in this multi-year view (everything other than the year is ignored). */
   @Input()
   get activeDate(): D { return this._activeDate; }
   set activeDate(value: D) {
     let oldActiveDate = this._activeDate;
     const validDate =
-        this._getValidDateOrNull(this._dateAdapter.deserialize(value)) || this._dateAdapter.today();
+      this._dateAdapter.getValidDateOrNull(
+        this._dateAdapter.deserialize(value)
+      ) || this._dateAdapter.today();
     this._activeDate = this._dateAdapter.clampDate(validDate, this.minDate, this.maxDate);
 
     if (!isSameMultiYearView(
@@ -69,18 +82,24 @@ export class MatMultiYearView<D> implements AfterContentInit {
 
   /** The currently selected date. */
   @Input()
-  get selected(): D | null { return this._selected; }
-  set selected(value: D | null) {
-    this._selected = this._getValidDateOrNull(this._dateAdapter.deserialize(value));
-    this._selectedYear = this._selected && this._dateAdapter.getYear(this._selected);
+  get selected(): DateRange<D> | D | null { return this._selected; }
+  set selected(value: DateRange<D> | D | null) {
+    if (value instanceof DateRange) {
+      this._selected = value;
+    } else {
+      this._selected = this._dateAdapter.getValidDateOrNull(this._dateAdapter.deserialize(value));
+    }
+
+    this._setSelectedYear(value);
   }
-  private _selected: D | null;
+  private _selected: DateRange<D> | D | null;
+
 
   /** The minimum selectable date. */
   @Input()
   get minDate(): D | null { return this._minDate; }
   set minDate(value: D | null) {
-    this._minDate = this._getValidDateOrNull(this._dateAdapter.deserialize(value));
+    this._minDate = this._dateAdapter.getValidDateOrNull(this._dateAdapter.deserialize(value));
   }
   private _minDate: D | null;
 
@@ -88,12 +107,15 @@ export class MatMultiYearView<D> implements AfterContentInit {
   @Input()
   get maxDate(): D | null { return this._maxDate; }
   set maxDate(value: D | null) {
-    this._maxDate = this._getValidDateOrNull(this._dateAdapter.deserialize(value));
+    this._maxDate = this._dateAdapter.getValidDateOrNull(this._dateAdapter.deserialize(value));
   }
   private _maxDate: D | null;
 
   /** A function used to filter which dates are selectable. */
   @Input() dateFilter: (date: D) => boolean;
+
+  /** Function that can be used to add custom CSS classes to date cells. */
+  @Input() dateClass: MatCalendarCellClassFunction<D>;
 
   /** Emits when a new year is selected. */
   @Output() readonly selectedChange: EventEmitter<D> = new EventEmitter<D>();
@@ -119,7 +141,7 @@ export class MatMultiYearView<D> implements AfterContentInit {
   constructor(private _changeDetectorRef: ChangeDetectorRef,
               @Optional() public _dateAdapter: DateAdapter<D>,
               @Optional() private _dir?: Directionality) {
-    if (!this._dateAdapter) {
+    if (!this._dateAdapter && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw createMissingDateImplError('DateAdapter');
     }
 
@@ -127,7 +149,13 @@ export class MatMultiYearView<D> implements AfterContentInit {
   }
 
   ngAfterContentInit() {
-    this._init();
+    this._rerenderSubscription = this._dateAdapter.localeChanges
+      .pipe(startWith(null))
+      .subscribe(() => this._init());
+  }
+
+  ngOnDestroy() {
+    this._rerenderSubscription.unsubscribe();
   }
 
   /** Initializes this multi-year view. */
@@ -156,7 +184,8 @@ export class MatMultiYearView<D> implements AfterContentInit {
   }
 
   /** Handles when a new year is selected. */
-  _yearSelected(year: number) {
+  _yearSelected(event: MatCalendarUserEvent<number>) {
+    const year = event.value;
     this.yearSelected.emit(this._dateAdapter.createDate(year, 0, 1));
     let month = this._dateAdapter.getMonth(this.activeDate);
     let daysInMonth =
@@ -204,7 +233,7 @@ export class MatMultiYearView<D> implements AfterContentInit {
         break;
       case ENTER:
       case SPACE:
-        this._yearSelected(this._dateAdapter.getYear(this._activeDate));
+        this._yearSelected({value: this._dateAdapter.getYear(this._activeDate), event});
         break;
       default:
         // Don't prevent default or focus active cell on keys that we don't explicitly handle.
@@ -230,8 +259,11 @@ export class MatMultiYearView<D> implements AfterContentInit {
 
   /** Creates an MatCalendarCell for the given year. */
   private _createCellForYear(year: number) {
-    let yearName = this._dateAdapter.getYearName(this._dateAdapter.createDate(year, 0, 1));
-    return new MatCalendarCell(year, yearName, yearName, this._shouldEnableYear(year));
+    const date = this._dateAdapter.createDate(year, 0, 1);
+    const yearName = this._dateAdapter.getYearName(date);
+    const cellClasses = this.dateClass ? this.dateClass(date, 'multi-year') : undefined;
+
+    return new MatCalendarCell(year, yearName, yearName, this._shouldEnableYear(year), cellClasses);
   }
 
   /** Whether the given year is enabled. */
@@ -261,17 +293,24 @@ export class MatMultiYearView<D> implements AfterContentInit {
     return false;
   }
 
-  /**
-   * @param obj The object to check.
-   * @returns The given object if it is both a date instance and valid, otherwise null.
-   */
-  private _getValidDateOrNull(obj: any): D | null {
-    return (this._dateAdapter.isDateInstance(obj) && this._dateAdapter.isValid(obj)) ? obj : null;
-  }
-
   /** Determines whether the user has the RTL layout direction. */
   private _isRtl() {
     return this._dir && this._dir.value === 'rtl';
+  }
+
+  /** Sets the currently-highlighted year based on a model value. */
+  private _setSelectedYear(value: DateRange<D> | D | null) {
+    this._selectedYear = null;
+
+    if (value instanceof DateRange) {
+      const displayValue = value.start || value.end;
+
+      if (displayValue) {
+        this._selectedYear = this._dateAdapter.getYear(displayValue);
+      }
+    } else if (value) {
+      this._selectedYear = this._dateAdapter.getYear(value);
+    }
   }
 }
 

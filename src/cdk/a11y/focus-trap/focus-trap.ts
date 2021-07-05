@@ -7,6 +7,7 @@
  */
 
 import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
+import {_getFocusedElementPierceShadowDom} from '@angular/cdk/platform';
 import {DOCUMENT} from '@angular/common';
 import {
   AfterContentInit,
@@ -18,7 +19,8 @@ import {
   NgZone,
   OnDestroy,
   DoCheck,
-  isDevMode,
+  SimpleChanges,
+  OnChanges,
 } from '@angular/core';
 import {take} from 'rxjs/operators';
 import {InteractivityChecker} from '../interactivity-checker/interactivity-checker';
@@ -29,7 +31,10 @@ import {InteractivityChecker} from '../interactivity-checker/interactivity-check
  *
  * This class currently uses a relatively simple approach to focus trapping.
  * It assumes that the tab order is the same as DOM order, which is not necessarily true.
- * Things like `tabIndex > 0`, flex `order`, and shadow roots can cause to two to misalign.
+ * Things like `tabIndex > 0`, flex `order`, and shadow roots can cause the two to be misaligned.
+ *
+ * @deprecated Use `ConfigurableFocusTrap` instead.
+ * @breaking-change 11.0.0
  */
 export class FocusTrap {
   private _startAnchor: HTMLElement | null;
@@ -50,13 +55,13 @@ export class FocusTrap {
       this._toggleAnchorTabIndex(value, this._endAnchor);
     }
   }
-  private _enabled: boolean = true;
+  protected _enabled: boolean = true;
 
   constructor(
-    private _element: HTMLElement,
+    readonly _element: HTMLElement,
     private _checker: InteractivityChecker,
-    private _ngZone: NgZone,
-    private _document: Document,
+    readonly _ngZone: NgZone,
+    readonly _document: Document,
     deferAnchors = false) {
 
     if (!deferAnchors) {
@@ -86,12 +91,13 @@ export class FocusTrap {
     }
 
     this._startAnchor = this._endAnchor = null;
+    this._hasAttached = false;
   }
 
   /**
    * Inserts the anchors into the DOM. This is usually done automatically
    * in the constructor, but can be deferred for cases like directives with `*ngIf`.
-   * @returns Whether the focus trap managed to attach successfuly. This may not be the case
+   * @returns Whether the focus trap managed to attach successfully. This may not be the case
    * if the target element isn't currently in the DOM.
    */
   attachAnchors(): boolean {
@@ -125,11 +131,11 @@ export class FocusTrap {
    * Waits for the zone to stabilize, then either focuses the first element that the
    * user specified, or the first tabbable element.
    * @returns Returns a promise that resolves with a boolean, depending
-   * on whether focus was moved successfuly.
+   * on whether focus was moved successfully.
    */
-  focusInitialElementWhenReady(): Promise<boolean> {
+  focusInitialElementWhenReady(options?: FocusOptions): Promise<boolean> {
     return new Promise<boolean>(resolve => {
-      this._executeOnStable(() => resolve(this.focusInitialElement()));
+      this._executeOnStable(() => resolve(this.focusInitialElement(options)));
     });
   }
 
@@ -137,11 +143,11 @@ export class FocusTrap {
    * Waits for the zone to stabilize, then focuses
    * the first tabbable element within the focus trap region.
    * @returns Returns a promise that resolves with a boolean, depending
-   * on whether focus was moved successfuly.
+   * on whether focus was moved successfully.
    */
-  focusFirstTabbableElementWhenReady(): Promise<boolean> {
+  focusFirstTabbableElementWhenReady(options?: FocusOptions): Promise<boolean> {
     return new Promise<boolean>(resolve => {
-      this._executeOnStable(() => resolve(this.focusFirstTabbableElement()));
+      this._executeOnStable(() => resolve(this.focusFirstTabbableElement(options)));
     });
   }
 
@@ -149,11 +155,11 @@ export class FocusTrap {
    * Waits for the zone to stabilize, then focuses
    * the last tabbable element within the focus trap region.
    * @returns Returns a promise that resolves with a boolean, depending
-   * on whether focus was moved successfuly.
+   * on whether focus was moved successfully.
    */
-  focusLastTabbableElementWhenReady(): Promise<boolean> {
+  focusLastTabbableElementWhenReady(options?: FocusOptions): Promise<boolean> {
     return new Promise<boolean>(resolve => {
-      this._executeOnStable(() => resolve(this.focusLastTabbableElement()));
+      this._executeOnStable(() => resolve(this.focusLastTabbableElement(options)));
     });
   }
 
@@ -190,9 +196,9 @@ export class FocusTrap {
 
   /**
    * Focuses the element that should be focused when the focus trap is initialized.
-   * @returns Whether focus was moved successfuly.
+   * @returns Whether focus was moved successfully.
    */
-  focusInitialElement(): boolean {
+  focusInitialElement(options?: FocusOptions): boolean {
     // Contains the deprecated version of selector, for temporary backwards comparability.
     const redirectToElement = this._element.querySelector(`[cdk-focus-initial], ` +
                                                           `[cdkFocusInitial]`) as HTMLElement;
@@ -207,26 +213,33 @@ export class FocusTrap {
 
       // Warn the consumer if the element they've pointed to
       // isn't focusable, when not in production mode.
-      if (isDevMode() && !this._checker.isFocusable(redirectToElement)) {
+      if ((typeof ngDevMode === 'undefined' || ngDevMode) &&
+        !this._checker.isFocusable(redirectToElement)) {
         console.warn(`Element matching '[cdkFocusInitial]' is not focusable.`, redirectToElement);
       }
 
-      redirectToElement.focus();
+      if (!this._checker.isFocusable(redirectToElement)) {
+        const focusableChild = this._getFirstTabbableElement(redirectToElement) as HTMLElement;
+        focusableChild?.focus(options);
+        return !!focusableChild;
+      }
+
+      redirectToElement.focus(options);
       return true;
     }
 
-    return this.focusFirstTabbableElement();
+    return this.focusFirstTabbableElement(options);
   }
 
   /**
    * Focuses the first tabbable element within the focus trap region.
-   * @returns Whether focus was moved successfuly.
+   * @returns Whether focus was moved successfully.
    */
-  focusFirstTabbableElement(): boolean {
+  focusFirstTabbableElement(options?: FocusOptions): boolean {
     const redirectToElement = this._getRegionBoundary('start');
 
     if (redirectToElement) {
-      redirectToElement.focus();
+      redirectToElement.focus(options);
     }
 
     return !!redirectToElement;
@@ -234,20 +247,20 @@ export class FocusTrap {
 
   /**
    * Focuses the last tabbable element within the focus trap region.
-   * @returns Whether focus was moved successfuly.
+   * @returns Whether focus was moved successfully.
    */
-  focusLastTabbableElement(): boolean {
+  focusLastTabbableElement(options?: FocusOptions): boolean {
     const redirectToElement = this._getRegionBoundary('end');
 
     if (redirectToElement) {
-      redirectToElement.focus();
+      redirectToElement.focus(options);
     }
 
     return !!redirectToElement;
   }
 
   /**
-   * Checks whether the focus trap has successfuly been attached.
+   * Checks whether the focus trap has successfully been attached.
    */
   hasAttached(): boolean {
     return this._hasAttached;
@@ -319,18 +332,32 @@ export class FocusTrap {
     isEnabled ? anchor.setAttribute('tabindex', '0') : anchor.removeAttribute('tabindex');
   }
 
+  /**
+   * Toggles the`tabindex` of both anchors to either trap Tab focus or allow it to escape.
+   * @param enabled: Whether the anchors should trap Tab.
+   */
+  protected toggleAnchors(enabled: boolean) {
+    if (this._startAnchor && this._endAnchor) {
+      this._toggleAnchorTabIndex(enabled, this._startAnchor);
+      this._toggleAnchorTabIndex(enabled, this._endAnchor);
+    }
+  }
+
   /** Executes a function when the zone is stable. */
   private _executeOnStable(fn: () => any): void {
     if (this._ngZone.isStable) {
       fn();
     } else {
-      this._ngZone.onStable.asObservable().pipe(take(1)).subscribe(fn);
+      this._ngZone.onStable.pipe(take(1)).subscribe(fn);
     }
   }
 }
 
-
-/** Factory that allows easy instantiation of focus traps. */
+/**
+ * Factory that allows easy instantiation of focus traps.
+ * @deprecated Use `ConfigurableFocusTrapFactory` instead.
+ * @breaking-change 11.0.0
+ */
 @Injectable({providedIn: 'root'})
 export class FocusTrapFactory {
   private _document: Document;
@@ -361,9 +388,7 @@ export class FocusTrapFactory {
   selector: '[cdkTrapFocus]',
   exportAs: 'cdkTrapFocus',
 })
-export class CdkTrapFocus implements OnDestroy, AfterContentInit, DoCheck {
-  private _document: Document;
-
+export class CdkTrapFocus implements OnDestroy, AfterContentInit, OnChanges, DoCheck {
   /** Underlying FocusTrap instance. */
   focusTrap: FocusTrap;
 
@@ -376,7 +401,7 @@ export class CdkTrapFocus implements OnDestroy, AfterContentInit, DoCheck {
   set enabled(value: boolean) { this.focusTrap.enabled = coerceBooleanProperty(value); }
 
   /**
-   * Whether the directive should automatially move focus into the trapped region upon
+   * Whether the directive should automatically move focus into the trapped region upon
    * initialization and return focus to the previous activeElement upon destruction.
    */
   @Input('cdkTrapFocusAutoCapture')
@@ -387,9 +412,11 @@ export class CdkTrapFocus implements OnDestroy, AfterContentInit, DoCheck {
   constructor(
       private _elementRef: ElementRef<HTMLElement>,
       private _focusTrapFactory: FocusTrapFactory,
+      /**
+       * @deprecated No longer being used. To be removed.
+       * @breaking-change 13.0.0
+       */
       @Inject(DOCUMENT) _document: any) {
-
-    this._document = _document;
     this.focusTrap = this._focusTrapFactory.create(this._elementRef.nativeElement, true);
   }
 
@@ -408,8 +435,7 @@ export class CdkTrapFocus implements OnDestroy, AfterContentInit, DoCheck {
     this.focusTrap.attachAnchors();
 
     if (this.autoCapture) {
-      this._previouslyFocusedElement = this._document.activeElement as HTMLElement;
-      this.focusTrap.focusInitialElementWhenReady();
+      this._captureFocus();
     }
   }
 
@@ -417,6 +443,20 @@ export class CdkTrapFocus implements OnDestroy, AfterContentInit, DoCheck {
     if (!this.focusTrap.hasAttached()) {
       this.focusTrap.attachAnchors();
     }
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    const autoCaptureChange = changes['autoCapture'];
+
+    if (autoCaptureChange && !autoCaptureChange.firstChange && this.autoCapture &&
+        this.focusTrap.hasAttached()) {
+      this._captureFocus();
+    }
+  }
+
+  private _captureFocus() {
+    this._previouslyFocusedElement = _getFocusedElementPierceShadowDom();
+    this.focusTrap.focusInitialElementWhenReady();
   }
 
   static ngAcceptInputType_enabled: BooleanInput;

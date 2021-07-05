@@ -10,7 +10,6 @@ import {FocusKeyManager} from '@angular/cdk/a11y';
 import {Directionality} from '@angular/cdk/bidi';
 import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
 import {SelectionModel} from '@angular/cdk/collections';
-import {BACKSPACE, END, HOME} from '@angular/cdk/keycodes';
 import {
   AfterContentInit,
   ChangeDetectionStrategy,
@@ -32,7 +31,6 @@ import {
 import {ControlValueAccessor, FormGroupDirective, NgControl, NgForm} from '@angular/forms';
 import {
   CanUpdateErrorState,
-  CanUpdateErrorStateCtor,
   ErrorStateMatcher,
   mixinErrorState,
 } from '@angular/material/core';
@@ -42,18 +40,15 @@ import {startWith, takeUntil} from 'rxjs/operators';
 import {MatChip, MatChipEvent, MatChipSelectionChange} from './chip';
 import {MatChipTextControl} from './chip-text-control';
 
-
 // Boilerplate for applying mixins to MatChipList.
 /** @docs-private */
-class MatChipListBase {
+const _MatChipListBase = mixinErrorState(class {
   constructor(public _defaultErrorStateMatcher: ErrorStateMatcher,
               public _parentForm: NgForm,
               public _parentFormGroup: FormGroupDirective,
               /** @docs-private */
               public ngControl: NgControl) {}
-}
-const _MatChipListMixinBase: CanUpdateErrorStateCtor & typeof MatChipListBase =
-    mixinErrorState(MatChipListBase);
+});
 
 
 // Increasing integer for generating unique ids for chip-list components.
@@ -67,7 +62,6 @@ export class MatChipListChange {
     /** Value of the chip list when the event was emitted. */
     public value: any) { }
 }
-
 
 /**
  * A material design chips component (named ChipList for its similarity to the List component).
@@ -99,7 +93,7 @@ export class MatChipListChange {
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class MatChipList extends _MatChipListMixinBase implements MatFormFieldControl<any>,
+export class MatChipList extends _MatChipListBase implements MatFormFieldControl<any>,
   ControlValueAccessor, AfterContentInit, DoCheck, OnInit, OnDestroy, CanUpdateErrorState {
   /**
    * Implemented as part of MatFormFieldControl.
@@ -115,7 +109,7 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
   private _lastDestroyedChipIndex: number | null = null;
 
   /** Subject that emits when the component has been destroyed. */
-  private _destroyed = new Subject<void>();
+  private readonly _destroyed = new Subject<void>();
 
   /** Subscription to focus changes in the chips. */
   private _chipFocusSubscription: Subscription | null;
@@ -167,7 +161,7 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
   get role(): string | null { return this.empty ? null : 'listbox'; }
 
   /** An object used to control when error messages are shown. */
-  @Input() errorStateMatcher: ErrorStateMatcher;
+  @Input() override errorStateMatcher: ErrorStateMatcher;
 
   /** Whether the user should be allowed to select multiple chips. */
   @Input()
@@ -250,7 +244,7 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
    * @docs-private
    */
   get empty(): boolean {
-    return (!this._chipInput || this._chipInput.empty) && this.chips.length === 0;
+    return (!this._chipInput || this._chipInput.empty) && (!this.chips || this.chips.length === 0);
   }
 
   /**
@@ -316,15 +310,14 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
   }
 
   /** Event emitted when the selected chip list value has been changed by the user. */
-  @Output() readonly change: EventEmitter<MatChipListChange> =
-      new EventEmitter<MatChipListChange>();
+  @Output() readonly change = new EventEmitter<MatChipListChange>();
 
   /**
    * Event that emits whenever the raw value of the chip-list changes. This is here primarily
    * to facilitate the two-way binding for the `value` input.
    * @docs-private
    */
-  @Output() readonly valueChange: EventEmitter<any> = new EventEmitter<any>();
+  @Output() readonly valueChange = new EventEmitter<any>();
 
   /** The chip components contained within this chip list. */
   @ContentChildren(MatChip, {
@@ -339,8 +332,7 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
               @Optional() _parentForm: NgForm,
               @Optional() _parentFormGroup: FormGroupDirective,
               _defaultErrorStateMatcher: ErrorStateMatcher,
-              /** @docs-private */
-              @Optional() @Self() public ngControl: NgControl) {
+              @Optional() @Self() ngControl: NgControl) {
     super(_defaultErrorStateMatcher, _parentForm, _parentFormGroup, ngControl);
     if (this.ngControl) {
       this.ngControl.valueAccessor = this;
@@ -351,6 +343,7 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
     this._keyManager = new FocusKeyManager<MatChip>(this.chips)
       .withWrap()
       .withVerticalOrientation()
+      .withHomeAndEnd()
       .withHorizontalOrientation(this._dir ? this._dir.value : 'ltr');
 
     if (this._dir) {
@@ -399,6 +392,10 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
       // error triggers that we can't subscribe to (e.g. parent form submissions). This means
       // that whatever logic is in here has to be super lean or we risk destroying the performance.
       this.updateErrorState();
+
+      if (this.ngControl.disabled !== this._disabled) {
+        this.disabled = !!this.ngControl.disabled;
+      }
     }
   }
 
@@ -410,10 +407,13 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
     this._dropSubscriptions();
   }
 
-
   /** Associates an HTML input element with this chip list. */
   registerInput(inputElement: MatChipTextControl): void {
     this._chipInput = inputElement;
+
+    // We use this attribute to match the chip list to its input in test harnesses.
+    // Set the attribute directly here to avoid "changed after checked" errors.
+    this._elementRef.nativeElement.setAttribute('data-mat-chip-input', inputElement.id);
   }
 
   /**
@@ -490,25 +490,11 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
   _keydown(event: KeyboardEvent) {
     const target = event.target as HTMLElement;
 
-    // If they are on an empty input and hit backspace, focus the last chip
-    if (event.keyCode === BACKSPACE && this._isInputEmpty(target)) {
-      this._keyManager.setLastItemActive();
-      event.preventDefault();
-    } else if (target && target.classList.contains('mat-chip')) {
-      if (event.keyCode === HOME) {
-        this._keyManager.setFirstItemActive();
-        event.preventDefault();
-      } else if (event.keyCode === END) {
-        this._keyManager.setLastItemActive();
-        event.preventDefault();
-      } else {
-        this._keyManager.onKeydown(event);
-      }
-
+    if (target && target.classList.contains('mat-chip')) {
+      this._keyManager.onKeydown(event);
       this.stateChanges.next();
     }
   }
-
 
   /**
    * Check the tab index as you should not be allowed to focus an empty list.
@@ -544,15 +530,6 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
    */
   private _isValidIndex(index: number): boolean {
     return index >= 0 && index < this.chips.length;
-  }
-
-  private _isInputEmpty(element: HTMLElement): boolean {
-    if (element && element.nodeName.toLowerCase() === 'input') {
-      let input = element as HTMLInputElement;
-      return !input.value;
-    }
-
-    return false;
   }
 
   _setSelectionByValue(value: any, isUserInput: boolean = true) {
@@ -797,14 +774,14 @@ export class MatChipList extends _MatChipListMixinBase implements MatFormFieldCo
 
   /** Checks whether any of the chips is focused. */
   private _hasFocusedChip() {
-    return this.chips.some(chip => chip._hasFocus);
+    return this.chips && this.chips.some(chip => chip._hasFocus);
   }
 
   /** Syncs the list's state with the individual chips. */
   private _syncChipsState() {
     if (this.chips) {
       this.chips.forEach(chip => {
-        chip.disabled = this._disabled;
+        chip._chipListDisabled = this._disabled;
         chip._chipListMultiple = this.multiple;
       });
     }

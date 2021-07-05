@@ -23,12 +23,12 @@ class MyTel {
 @Component({
   selector: 'example-tel-input',
   template: `
-    <div [formGroup]="parts">
-      <input class="area" formControlName="area" size="3">
+    <div role="group" [formGroup]="parts">
+      <input class="area" formControlName="area" maxlength="3">
       <span>&ndash;</span>
-      <input class="exchange" formControlName="exchange" size="3">
+      <input class="exchange" formControlName="exchange" maxlength="3">
       <span>&ndash;</span>
-      <input class="subscriber" formControlName="subscriber" size="4">
+      <input class="subscriber" formControlName="subscriber" maxlength="4">
     </div>
   `,
   styles: [`
@@ -42,10 +42,11 @@ class MyTel {
       outline: none;
       font: inherit;
       text-align: center;
+      color: currentColor;
     }
   `],
 })
-class MyTelInput {
+export class MyTelInput {
   parts: FormGroup;
 
   @Input()
@@ -71,7 +72,7 @@ class MyTelInput {
 }
 ```
 
-### Providing our component as a MatFormFieldControl
+## Providing our component as a MatFormFieldControl
 
 The first step is to provide our new component as an implementation of the `MatFormFieldControl`
 interface that the `<mat-form-field>` knows how to work with. To do this, we will have our class
@@ -85,12 +86,12 @@ a provider to our component so that the form field will be able to inject it as 
   ...
   providers: [{provide: MatFormFieldControl, useExisting: MyTelInput}],
 })
-class MyTelInput implements MatFormFieldControl<MyTel> {
+export class MyTelInput implements MatFormFieldControl<MyTel> {
   ...
 }
 ```
 
-This sets up our component so it can work with `<mat-form-field>`, but now we need to implement the
+This sets up our component, so it can work with `<mat-form-field>`, but now we need to implement the
 various methods and properties declared by the interface we just implemented. To learn more about
 the `MatFormFieldControl` interface, see the
 [form field API documentation](https://material.angular.io/components/form-field/api).
@@ -184,7 +185,7 @@ constructor(
 
 Note that if your component implements `ControlValueAccessor`, it may already be set up to provide
 `NG_VALUE_ACCESSOR` (in the `providers` part of the component's decorator, or possibly in a module
-declaration). If so you may get a *cannot instantiate cyclic dependency* error.
+declaration). If so, you may get a *cannot instantiate cyclic dependency* error.
 
 To resolve this, remove the `NG_VALUE_ACCESSOR` provider and instead set the value accessor directly:
 
@@ -201,7 +202,7 @@ To resolve this, remove the `NG_VALUE_ACCESSOR` provider and instead set the val
     // },
   ],
 })
-class MyTelInput implements MatFormFieldControl<MyTel> {
+export class MyTelInput implements MatFormFieldControl<MyTel>, ControlValueAccessor {
   constructor(
     ...,
     @Optional() @Self() public ngControl: NgControl,
@@ -223,33 +224,40 @@ For additional information about `ControlValueAccessor` see the [API docs](https
 
 #### `focused`
 
-This property indicates whether or not the form field control should be considered to be in a
+This property indicates whether the form field control should be considered to be in a
 focused state. When it is in a focused state, the form field is displayed with a solid color
 underline. For the purposes of our component, we want to consider it focused if any of the part
-inputs are focused. We can use the `FocusMonitor` from `@angular/cdk` to easily check this. We also
-need to remember to emit on the `stateChanges` stream so change detection can happen.
+inputs are focused. We can use the `focusin` and `focusout` events to easily check this. We also
+need to remember to emit on the `stateChanges` when the focused stated changes stream so change
+detection can happen.
+
+In addition to updating the focused state, we use the `focusin` and `focusout` methods to update the
+internal touched state of our component, which we'll use to determine the error state.
 
 ```ts
 focused = false;
 
-constructor(fb: FormBuilder, private fm: FocusMonitor, private elRef: ElementRef<HTMLElement>) {
-  ...
-  fm.monitor(elRef.nativeElement, true).subscribe(origin => {
-    this.focused = !!origin;
+onFocusIn(event: FocusEvent) {
+  if (!this.focused) {
+    this.focused = true;
     this.stateChanges.next();
-  });
+  }
 }
 
-ngOnDestroy() {
-  ...
-  this.fm.stopMonitoring(this.elRef.nativeElement);
+onFocusOut(event: FocusEvent) {
+  if (!this._elementRef.nativeElement.contains(event.relatedTarget as Element)) {
+    this.touched = true;
+    this.focused = false;
+    this.onTouched();
+    this.stateChanges.next();
+  }
 }
 ```
 
 #### `empty`
 
 This property indicates whether the form field control is empty. For our control, we'll consider it
-empty if all of the parts are empty.
+empty if all the parts are empty.
 
 ```ts
 get empty() {
@@ -262,7 +270,7 @@ get empty() {
 
 This property is used to indicate whether the label should be in the floating position. We'll
 use the same logic as `matInput` and float the placeholder when the input is focused or non-empty.
-Since the placeholder will be overlapping our control when when it's not floating, we should hide
+Since the placeholder will be overlapping our control when it's not floating, we should hide
 the `–` characters when it's not floating.
 
 ```ts
@@ -318,20 +326,22 @@ private _disabled = false;
 
 #### `errorState`
 
-This property indicates whether the associated `NgControl` is in an error state. Since we're not
-using an `NgControl` in this example, we don't need to do anything other than just set it to `false`.
+This property indicates whether the associated `NgControl` is in an error state. In this example,
+we show an error if the input is invalid and our component has been touched.
 
 ```ts
-errorState = false;
+get errorState(): boolean {
+  return this.parts.invalid && this.touched;
+}
 ```
 
 #### `controlType`
 
 This property allows us to specify a unique string for the type of control in form field. The
-`<mat-form-field>` will add an additional class based on this type that can be used to easily apply
+`<mat-form-field>` will add a class based on this type that can be used to easily apply
 special styles to a `<mat-form-field>` that contains a specific type of control. In this example
 we'll use `example-tel-input` as our control type which will result in the form field adding the
-class `mat-form-field-example-tel-input`.
+class `mat-form-field-type-example-tel-input`.
 
 ```ts
 controlType = 'example-tel-input';
@@ -339,15 +349,32 @@ controlType = 'example-tel-input';
 
 #### `setDescribedByIds(ids: string[])`
 
-This method is used by the `<mat-form-field>` to specify the IDs that should be used for the
-`aria-describedby` attribute of your component. The method has one parameter, the list of IDs, we
-just need to apply the given IDs to our host element.
+This method is used by the `<mat-form-field>` to set element ids that should be used for the
+`aria-describedby` attribute of your control. The ids are controlled through the form field
+as hints or errors are conditionally displayed and should be reflected in the control's
+`aria-describedby` attribute for an improved accessibility experience. 
+
+The `setDescribedByIds` method is invoked whenever the control's state changes. Custom controls
+need to implement this method and update the `aria-describedby` attribute based on the specified
+element ids. Below is an example that shows how this can be achieved.
+
+Note that the method by default will not respect element ids that have been set manually on the
+control element through the `aria-describedby` attribute. To ensure that your control does not
+accidentally override existing element ids specified by consumers of your control, create an
+input called `userAriaDescribedby`  like followed:
 
 ```ts
-@HostBinding('attr.aria-describedby') describedBy = '';
+@Input('aria-describedby') userAriaDescribedBy: string;
+```
 
+The form field will then pick up the user specified `aria-describedby` ids and merge
+them with ids for hints or errors whenever `setDescribedByIds` is invoked.
+
+```ts
 setDescribedByIds(ids: string[]) {
-  this.describedBy = ids.join(' ');
+  const controlElement = this._elementRef.nativeElement
+    .querySelector('.example-tel-input-container')!;
+  controlElement.setAttribute('aria-describedby', ids.join(' '));
 }
 ```
 
@@ -366,10 +393,45 @@ onContainerClick(event: MouseEvent) {
 }
 ```
 
+### Improving accessibility
+
+Our custom form field control consists of multiple inputs that describe segments of a phone
+number. For accessibility purposes, we put those inputs as part of a `div` element with
+`role="group"`. This ensures that screen reader users can tell that all those inputs belong
+together.
+
+One significant piece of information is missing for screen reader users though. They won't be able
+to tell what this input group represents. To improve this, we should add a label for the group
+element using either `aria-label` or `aria-labelledby`.
+
+It's recommended to link the group to the label that is displayed as part of the parent
+`<mat-form-field>`. This ensures that explicitly specified labels (using `<mat-label>`) are
+actually used for labelling the control.
+
+In our concrete example, we add an attribute binding for `aria-labelledby` and bind it
+to the label element id provided by the parent `<mat-form-field>`.
+
+```typescript
+export class MyTelInput implements MatFormFieldControl<MyTel> {
+  ...
+
+  constructor(...
+              @Optional() public parentFormField: MatFormField) {
+```
+
+```html
+@Component({
+  selector: 'example-tel-input',
+  template: `
+    <div role="group" [formGroup]="parts"
+         [attr.aria-describedby]="describedBy"
+         [attr.aria-labelledby]="parentFormField?.getLabelId()">
+```
+
 ### Trying it out
 
 Now that we've fully implemented the interface, we're ready to try our component out! All we need to
-do is place it inside of a `<mat-form-field>`
+do is place it inside a `<mat-form-field>`
 
 ```html
 <mat-form-field>
@@ -377,7 +439,7 @@ do is place it inside of a `<mat-form-field>`
 </mat-form-field>
 ```
 
-We also get all of the features that come with `<mat-form-field>` such as floating placeholder,
+We also get all the features that come with `<mat-form-field>` such as floating placeholder,
 prefix, suffix, hints, and errors (if we've given the form field an `NgControl` and correctly report
 the error state).
 

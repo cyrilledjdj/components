@@ -10,7 +10,9 @@ import {ThemePalette} from '@angular/material/core';
 
 /** Default `mat-checkbox` options that can be overridden. */
 export interface MatCheckboxDefaultOptions {
+  /** Default theme color palette to be used for checkboxes. */
   color?: ThemePalette;
+  /** Default checkbox click action for checkboxes. */
   clickAction?: MatCheckboxClickAction;
 }
 
@@ -37,11 +39,3 @@ export function MAT_CHECKBOX_DEFAULT_OPTIONS_FACTORY(): MatCheckboxDefaultOption
  * undefined: Same as `check-indeterminate`.
  */
 export type MatCheckboxClickAction = 'noop' | 'check' | 'check-indeterminate' | undefined;
-
-/**
- * Injection token that can be used to specify the checkbox click behavior.
- * @deprecated Injection token will be removed, use `MAT_CHECKBOX_DEFAULT_OPTIONS` instead.
- * @breaking-change 10.0.0
- */
-export const MAT_CHECKBOX_CLICK_ACTION =
-    new InjectionToken<MatCheckboxClickAction>('mat-checkbox-click-action');

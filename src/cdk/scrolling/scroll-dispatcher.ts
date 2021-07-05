@@ -6,12 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {coerceElement} from '@angular/cdk/coercion';
 import {Platform} from '@angular/cdk/platform';
-import {ElementRef, Injectable, NgZone, OnDestroy} from '@angular/core';
+import {ElementRef, Injectable, NgZone, OnDestroy, Optional, Inject} from '@angular/core';
 import {fromEvent, of as observableOf, Subject, Subscription, Observable, Observer} from 'rxjs';
 import {auditTime, filter} from 'rxjs/operators';
 import {CdkScrollable} from './scrollable';
-
+import {DOCUMENT} from '@angular/common';
 
 /** Time in ms to throttle the scrolling events by default. */
 export const DEFAULT_SCROLL_TIME = 20;
@@ -22,10 +23,17 @@ export const DEFAULT_SCROLL_TIME = 20;
  */
 @Injectable({providedIn: 'root'})
 export class ScrollDispatcher implements OnDestroy {
-  constructor(private _ngZone: NgZone, private _platform: Platform) { }
+  /** Used to reference correct document/window */
+  protected _document: Document;
+
+  constructor(private _ngZone: NgZone,
+              private _platform: Platform,
+              @Optional() @Inject(DOCUMENT) document: any) {
+    this._document = document;
+  }
 
   /** Subject for notifying that a registered scrollable reference element has been scrolled. */
-  private _scrolled = new Subject<CdkScrollable|void>();
+  private readonly _scrolled = new Subject<CdkScrollable|void>();
 
   /** Keeps track of the global `scroll` and `resize` subscriptions. */
   _globalSubscription: Subscription | null = null;
@@ -112,11 +120,13 @@ export class ScrollDispatcher implements OnDestroy {
   /**
    * Returns an observable that emits whenever any of the
    * scrollable ancestors of an element are scrolled.
-   * @param elementRef Element whose ancestors to listen for.
+   * @param elementOrElementRef Element whose ancestors to listen for.
    * @param auditTimeInMs Time to throttle the scroll events.
    */
-  ancestorScrolled(elementRef: ElementRef, auditTimeInMs?: number): Observable<CdkScrollable|void> {
-    const ancestors = this.getAncestorScrollContainers(elementRef);
+  ancestorScrolled(
+      elementOrElementRef: ElementRef|HTMLElement,
+      auditTimeInMs?: number): Observable<CdkScrollable|void> {
+    const ancestors = this.getAncestorScrollContainers(elementOrElementRef);
 
     return this.scrolled(auditTimeInMs).pipe(filter(target => {
       return !target || ancestors.indexOf(target) > -1;
@@ -124,11 +134,11 @@ export class ScrollDispatcher implements OnDestroy {
   }
 
   /** Returns all registered Scrollables that contain the provided element. */
-  getAncestorScrollContainers(elementRef: ElementRef): CdkScrollable[] {
+  getAncestorScrollContainers(elementOrElementRef: ElementRef|HTMLElement): CdkScrollable[] {
     const scrollingContainers: CdkScrollable[] = [];
 
     this.scrollContainers.forEach((_subscription: Subscription, scrollable: CdkScrollable) => {
-      if (this._scrollableContainsElement(scrollable, elementRef)) {
+      if (this._scrollableContainsElement(scrollable, elementOrElementRef)) {
         scrollingContainers.push(scrollable);
       }
     });
@@ -136,9 +146,16 @@ export class ScrollDispatcher implements OnDestroy {
     return scrollingContainers;
   }
 
+  /** Use defaultView of injected document if available or fallback to global window reference */
+  private _getWindow(): Window {
+    return this._document.defaultView || window;
+  }
+
   /** Returns true if the element is contained within the provided Scrollable. */
-  private _scrollableContainsElement(scrollable: CdkScrollable, elementRef: ElementRef): boolean {
-    let element: HTMLElement | null = elementRef.nativeElement;
+  private _scrollableContainsElement(
+      scrollable: CdkScrollable,
+      elementOrElementRef: ElementRef|HTMLElement): boolean {
+    let element: HTMLElement | null = coerceElement(elementOrElementRef);
     let scrollableElement = scrollable.getElementRef().nativeElement;
 
     // Traverse through the element parents until we reach null, checking if any of the elements
@@ -153,6 +170,7 @@ export class ScrollDispatcher implements OnDestroy {
   /** Sets up the global scroll listeners. */
   private _addGlobalListener() {
     this._globalSubscription = this._ngZone.runOutsideAngular(() => {
+      const window = this._getWindow();
       return fromEvent(window.document, 'scroll').subscribe(() => this._scrolled.next());
     });
   }

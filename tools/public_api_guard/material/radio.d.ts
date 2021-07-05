@@ -1,32 +1,34 @@
-export declare const MAT_RADIO_DEFAULT_OPTIONS: InjectionToken<MatRadioDefaultOptions>;
-
-export declare function MAT_RADIO_DEFAULT_OPTIONS_FACTORY(): MatRadioDefaultOptions;
-
-export declare const MAT_RADIO_GROUP_CONTROL_VALUE_ACCESSOR: any;
-
-export declare class MatRadioButton extends _MatRadioButtonMixinBase implements OnInit, AfterViewInit, OnDestroy, CanDisableRipple, HasTabIndex {
-    _animationMode?: string | undefined;
+export declare abstract class _MatRadioButtonBase extends _MatRadioButtonMixinBase implements OnInit, AfterViewInit, OnDestroy, CanDisableRipple, HasTabIndex {
+    protected _changeDetector: ChangeDetectorRef;
     _inputElement: ElementRef<HTMLInputElement>;
+    _noopAnimations: boolean;
     ariaDescribedby: string;
     ariaLabel: string;
     ariaLabelledby: string;
     readonly change: EventEmitter<MatRadioChange>;
-    checked: boolean;
-    color: ThemePalette;
-    disabled: boolean;
+    get checked(): boolean;
+    set checked(value: boolean);
+    get color(): ThemePalette;
+    set color(newValue: ThemePalette);
+    get disabled(): boolean;
+    set disabled(value: boolean);
     id: string;
-    readonly inputId: string;
-    labelPosition: 'before' | 'after';
+    get inputId(): string;
+    get labelPosition(): 'before' | 'after';
+    set labelPosition(value: 'before' | 'after');
     name: string;
-    radioGroup: MatRadioGroup;
-    required: boolean;
-    value: any;
-    constructor(radioGroup: MatRadioGroup, elementRef: ElementRef, _changeDetector: ChangeDetectorRef, _focusMonitor: FocusMonitor, _radioDispatcher: UniqueSelectionDispatcher, _animationMode?: string | undefined, _providerOverride?: MatRadioDefaultOptions | undefined);
+    radioGroup: _MatRadioGroupBase<_MatRadioButtonBase>;
+    get required(): boolean;
+    set required(value: boolean);
+    get value(): any;
+    set value(value: any);
+    constructor(radioGroup: _MatRadioGroupBase<_MatRadioButtonBase>, elementRef: ElementRef, _changeDetector: ChangeDetectorRef, _focusMonitor: FocusMonitor, _radioDispatcher: UniqueSelectionDispatcher, animationMode?: string, _providerOverride?: MatRadioDefaultOptions | undefined, tabIndex?: string);
     _isRippleDisabled(): boolean;
     _markForCheck(): void;
-    _onInputChange(event: Event): void;
     _onInputClick(event: Event): void;
-    focus(options?: FocusOptions): void;
+    _onInputInteraction(event: Event): void;
+    protected _setDisabled(value: boolean): void;
+    focus(options?: FocusOptions, origin?: FocusOrigin): void;
     ngAfterViewInit(): void;
     ngOnDestroy(): void;
     ngOnInit(): void;
@@ -34,34 +36,29 @@ export declare class MatRadioButton extends _MatRadioButtonMixinBase implements 
     static ngAcceptInputType_disableRipple: BooleanInput;
     static ngAcceptInputType_disabled: BooleanInput;
     static ngAcceptInputType_required: BooleanInput;
-    static ɵcmp: i0.ɵɵComponentDefWithMeta<MatRadioButton, "mat-radio-button", ["matRadioButton"], { 'disableRipple': "disableRipple", 'tabIndex': "tabIndex", 'id': "id", 'name': "name", 'ariaLabel': "aria-label", 'ariaLabelledby': "aria-labelledby", 'ariaDescribedby': "aria-describedby", 'checked': "checked", 'value': "value", 'labelPosition': "labelPosition", 'disabled': "disabled", 'required': "required", 'color': "color" }, { 'change': "change" }, never>;
-    static ɵfac: i0.ɵɵFactoryDef<MatRadioButton>;
+    static ngAcceptInputType_tabIndex: NumberInput;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<_MatRadioButtonBase, never, never, { "id": "id"; "name": "name"; "ariaLabel": "aria-label"; "ariaLabelledby": "aria-labelledby"; "ariaDescribedby": "aria-describedby"; "checked": "checked"; "value": "value"; "labelPosition": "labelPosition"; "disabled": "disabled"; "required": "required"; "color": "color"; }, { "change": "change"; }, never>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<_MatRadioButtonBase, never>;
 }
 
-export declare class MatRadioChange {
-    source: MatRadioButton;
-    value: any;
-    constructor(
-    source: MatRadioButton,
-    value: any);
-}
-
-export interface MatRadioDefaultOptions {
-    color: ThemePalette;
-}
-
-export declare class MatRadioGroup implements AfterContentInit, ControlValueAccessor {
+export declare abstract class _MatRadioGroupBase<T extends _MatRadioButtonBase> implements AfterContentInit, ControlValueAccessor {
     _controlValueAccessorChangeFn: (value: any) => void;
-    _radios: QueryList<MatRadioButton>;
+    abstract _radios: QueryList<T>;
     readonly change: EventEmitter<MatRadioChange>;
     color: ThemePalette;
-    disabled: boolean;
-    labelPosition: 'before' | 'after';
-    name: string;
+    get disabled(): boolean;
+    set disabled(value: boolean);
+    get labelPosition(): 'before' | 'after';
+    set labelPosition(v: 'before' | 'after');
+    get name(): string;
+    set name(value: string);
     onTouched: () => any;
-    required: boolean;
-    selected: MatRadioButton | null;
-    value: any;
+    get required(): boolean;
+    set required(value: boolean);
+    get selected(): T | null;
+    set selected(selected: T | null);
+    get value(): any;
+    set value(newValue: any);
     constructor(_changeDetector: ChangeDetectorRef);
     _checkSelectedRadioButton(): void;
     _emitChangeEvent(): void;
@@ -74,11 +71,44 @@ export declare class MatRadioGroup implements AfterContentInit, ControlValueAcce
     writeValue(value: any): void;
     static ngAcceptInputType_disabled: BooleanInput;
     static ngAcceptInputType_required: BooleanInput;
-    static ɵdir: i0.ɵɵDirectiveDefWithMeta<MatRadioGroup, "mat-radio-group", ["matRadioGroup"], { 'color': "color", 'name': "name", 'labelPosition': "labelPosition", 'value': "value", 'selected': "selected", 'disabled': "disabled", 'required': "required" }, { 'change': "change" }, ["_radios"]>;
-    static ɵfac: i0.ɵɵFactoryDef<MatRadioGroup>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<_MatRadioGroupBase<any>, never, never, { "color": "color"; "name": "name"; "labelPosition": "labelPosition"; "value": "value"; "selected": "selected"; "disabled": "disabled"; "required": "required"; }, { "change": "change"; }, never>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<_MatRadioGroupBase<any>, never>;
+}
+
+export declare const MAT_RADIO_DEFAULT_OPTIONS: InjectionToken<MatRadioDefaultOptions>;
+
+export declare function MAT_RADIO_DEFAULT_OPTIONS_FACTORY(): MatRadioDefaultOptions;
+
+export declare const MAT_RADIO_GROUP: InjectionToken<_MatRadioGroupBase<_MatRadioButtonBase>>;
+
+export declare const MAT_RADIO_GROUP_CONTROL_VALUE_ACCESSOR: any;
+
+export declare class MatRadioButton extends _MatRadioButtonBase {
+    constructor(radioGroup: MatRadioGroup, elementRef: ElementRef, changeDetector: ChangeDetectorRef, focusMonitor: FocusMonitor, radioDispatcher: UniqueSelectionDispatcher, animationMode?: string, providerOverride?: MatRadioDefaultOptions, tabIndex?: string);
+    static ɵcmp: i0.ɵɵComponentDeclaration<MatRadioButton, "mat-radio-button", ["matRadioButton"], { "disableRipple": "disableRipple"; "tabIndex": "tabIndex"; }, {}, never, ["*"]>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<MatRadioButton, [{ optional: true; }, null, null, null, null, { optional: true; }, { optional: true; }, { attribute: "tabindex"; }]>;
+}
+
+export declare class MatRadioChange {
+    source: _MatRadioButtonBase;
+    value: any;
+    constructor(
+    source: _MatRadioButtonBase,
+    value: any);
+}
+
+export interface MatRadioDefaultOptions {
+    color: ThemePalette;
+}
+
+export declare class MatRadioGroup extends _MatRadioGroupBase<MatRadioButton> {
+    _radios: QueryList<MatRadioButton>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<MatRadioGroup, "mat-radio-group", ["matRadioGroup"], {}, {}, ["_radios"]>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<MatRadioGroup, never>;
 }
 
 export declare class MatRadioModule {
-    static ɵinj: i0.ɵɵInjectorDef<MatRadioModule>;
-    static ɵmod: i0.ɵɵNgModuleDefWithMeta<MatRadioModule, [typeof i1.MatRadioGroup, typeof i1.MatRadioButton], [typeof i2.CommonModule, typeof i3.MatRippleModule, typeof i3.MatCommonModule], [typeof i1.MatRadioGroup, typeof i1.MatRadioButton, typeof i3.MatCommonModule]>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<MatRadioModule, never>;
+    static ɵinj: i0.ɵɵInjectorDeclaration<MatRadioModule>;
+    static ɵmod: i0.ɵɵNgModuleDeclaration<MatRadioModule, [typeof i1.MatRadioGroup, typeof i1.MatRadioButton], [typeof i2.MatRippleModule, typeof i2.MatCommonModule], [typeof i1.MatRadioGroup, typeof i1.MatRadioButton, typeof i2.MatCommonModule]>;
 }

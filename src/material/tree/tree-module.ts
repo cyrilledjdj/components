@@ -9,7 +9,6 @@
 import {NgModule} from '@angular/core';
 
 import {CdkTreeModule} from '@angular/cdk/tree';
-import {CommonModule} from '@angular/common';
 import {MatCommonModule} from '@angular/material/core';
 import {MatNestedTreeNode, MatTreeNodeDef, MatTreeNode} from './node';
 import {MatTree} from './tree';
@@ -28,8 +27,8 @@ const MAT_TREE_DIRECTIVES = [
 ];
 
 @NgModule({
-  imports: [CdkTreeModule, CommonModule, MatCommonModule],
-  exports: MAT_TREE_DIRECTIVES,
+  imports: [CdkTreeModule, MatCommonModule],
+  exports: [MatCommonModule, MAT_TREE_DIRECTIVES],
   declarations: MAT_TREE_DIRECTIVES,
 })
 export class MatTreeModule {}

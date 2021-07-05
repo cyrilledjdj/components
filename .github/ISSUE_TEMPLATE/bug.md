@@ -1,11 +1,15 @@
 ---
 name: Bug Report
-about: Report a bug found in Angular Material or the CDK
+title: "bug(COMPONENT): TITLE"
+about: Report a bug in Angular Material or the CDK
+labels: needs triage
 ---
 
 #### Reproduction
 
-Use StackBlitz to reproduce your issue: https://stackblitz.com/fork/components-issue
+Use StackBlitz to reproduce your issue: 
+- Components: https://stackblitz.com/fork/components-issue
+- Harnesses: https://stackblitz.com/fork/harness-issue
 
 Steps to reproduce:
 1. 

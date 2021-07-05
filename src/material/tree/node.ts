@@ -17,23 +17,21 @@ import {
   AfterContentInit,
   Attribute,
   Directive,
+  DoCheck,
   ElementRef,
   Input,
   IterableDiffers,
-  OnDestroy,
+  OnDestroy, OnInit,
 } from '@angular/core';
 import {
   CanDisable,
-  CanDisableCtor,
   HasTabIndex,
-  HasTabIndexCtor,
   mixinDisabled,
   mixinTabIndex,
 } from '@angular/material/core';
-import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
+import {BooleanInput, coerceBooleanProperty, NumberInput} from '@angular/cdk/coercion';
 
-const _MatTreeNodeMixinBase: HasTabIndexCtor & CanDisableCtor & typeof CdkTreeNode =
-    mixinTabIndex(mixinDisabled(CdkTreeNode));
+const _MatTreeNodeBase = mixinTabIndex(mixinDisabled(CdkTreeNode));
 
 /**
  * Wrapper for the CdkTree node with Material design styles.
@@ -41,32 +39,47 @@ const _MatTreeNodeMixinBase: HasTabIndexCtor & CanDisableCtor & typeof CdkTreeNo
 @Directive({
   selector: 'mat-tree-node',
   exportAs: 'matTreeNode',
-  inputs: ['disabled', 'tabIndex'],
-  host: {
-    '[attr.aria-expanded]': 'isExpanded',
-    '[attr.aria-level]': 'role === "treeitem" ? level : null',
-    '[attr.role]': 'role',
-    'class': 'mat-tree-node'
-  },
+  inputs: ['role', 'disabled', 'tabIndex'],
   providers: [{provide: CdkTreeNode, useExisting: MatTreeNode}]
 })
-export class MatTreeNode<T> extends _MatTreeNodeMixinBase<T>
-    implements CanDisable, HasTabIndex {
-  @Input() role: 'treeitem' | 'group' = 'treeitem';
+export class MatTreeNode<T, K = T> extends _MatTreeNodeBase<T, K>
+    implements CanDisable, DoCheck, HasTabIndex, OnInit, OnDestroy {
 
-  constructor(protected _elementRef: ElementRef<HTMLElement>,
-              protected _tree: CdkTree<T>,
+
+  constructor(elementRef: ElementRef<HTMLElement>,
+              tree: CdkTree<T, K>,
               @Attribute('tabindex') tabIndex: string) {
-    super(_elementRef, _tree);
+    super(elementRef, tree);
 
     this.tabIndex = Number(tabIndex) || 0;
+    // The classes are directly added here instead of in the host property because classes on
+    // the host property are not inherited with View Engine. It is not set as a @HostBinding because
+    // it is not set by the time it's children nodes try to read the class from it.
+    // TODO: move to host after View Engine deprecation
+    elementRef.nativeElement.classList.add('mat-tree-node');
+  }
+
+  // This is a workaround for https://github.com/angular/angular/issues/23091
+  // In aot mode, the lifecycle hooks from parent class are not called.
+  override ngOnInit() {
+    super.ngOnInit();
+  }
+
+  override ngDoCheck() {
+    super.ngDoCheck();
+  }
+
+  override ngOnDestroy() {
+    super.ngOnDestroy();
   }
 
   static ngAcceptInputType_disabled: BooleanInput;
+  static ngAcceptInputType_tabIndex: NumberInput;
 }
 
 /**
  * Wrapper for the CdkTree node definition with Material design styles.
+ * Captures the node's template and a when predicate that describes when this node should be used.
  */
 @Directive({
   selector: '[matTreeNodeDef]',
@@ -85,19 +98,15 @@ export class MatTreeNodeDef<T> extends CdkTreeNodeDef<T> {
 @Directive({
   selector: 'mat-nested-tree-node',
   exportAs: 'matNestedTreeNode',
-  host: {
-    '[attr.aria-expanded]': 'isExpanded',
-    '[attr.role]': 'role',
-    'class': 'mat-nested-tree-node',
-  },
+  inputs: ['role', 'disabled', 'tabIndex'],
   providers: [
     {provide: CdkNestedTreeNode, useExisting: MatNestedTreeNode},
     {provide: CdkTreeNode, useExisting: MatNestedTreeNode},
     {provide: CDK_TREE_NODE_OUTLET_NODE, useExisting: MatNestedTreeNode}
   ]
 })
-export class MatNestedTreeNode<T> extends CdkNestedTreeNode<T> implements AfterContentInit,
-  OnDestroy {
+export class MatNestedTreeNode<T, K = T> extends CdkNestedTreeNode<T, K>
+    implements AfterContentInit, DoCheck, OnDestroy, OnInit {
   @Input('matNestedTreeNode') node: T;
 
   /** Whether the node is disabled. */
@@ -115,22 +124,35 @@ export class MatNestedTreeNode<T> extends CdkNestedTreeNode<T> implements AfterC
   }
   private _tabIndex: number;
 
-  constructor(protected _elementRef: ElementRef<HTMLElement>,
-              protected _tree: CdkTree<T>,
-              protected _differs: IterableDiffers,
+  constructor(elementRef: ElementRef<HTMLElement>,
+              tree: CdkTree<T, K>,
+              differs: IterableDiffers,
               @Attribute('tabindex') tabIndex: string) {
-    super(_elementRef, _tree, _differs);
+    super(elementRef, tree, differs);
     this.tabIndex = Number(tabIndex) || 0;
+    // The classes are directly added here instead of in the host property because classes on
+    // the host property are not inherited with View Engine. It is not set as a @HostBinding because
+    // it is not set by the time it's children nodes try to read the class from it.
+    // TODO: move to host after View Engine deprecation
+    elementRef.nativeElement.classList.add('mat-nested-tree-node');
   }
 
-  // This is a workaround for https://github.com/angular/angular/issues/23091
+  // This is a workaround for https://github.com/angular/angular/issues/19145
   // In aot mode, the lifecycle hooks from parent class are not called.
-  // TODO(tinayuangao): Remove when the angular issue #23091 is fixed
-  ngAfterContentInit() {
+  // TODO(tinayuangao): Remove when the angular issue #19145 is fixed
+  override ngOnInit() {
+    super.ngOnInit();
+  }
+
+  override ngDoCheck() {
+    super.ngDoCheck();
+  }
+
+  override ngAfterContentInit() {
     super.ngAfterContentInit();
   }
 
-  ngOnDestroy() {
+  override ngOnDestroy() {
     super.ngOnDestroy();
   }
 

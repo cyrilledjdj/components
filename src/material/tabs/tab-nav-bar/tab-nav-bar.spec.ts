@@ -1,4 +1,4 @@
-import {async, ComponentFixture, fakeAsync, TestBed, tick} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, fakeAsync, TestBed, tick} from '@angular/core/testing';
 import {Component, ViewChild, ViewChildren, QueryList} from '@angular/core';
 import {MAT_RIPPLE_GLOBAL_OPTIONS, RippleGlobalOptions} from '@angular/material/core';
 import {By} from '@angular/platform-browser';
@@ -13,7 +13,7 @@ describe('MatTabNavBar', () => {
   let dirChange = new Subject();
   let globalRippleOptions: RippleGlobalOptions;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     globalRippleOptions = {};
 
     TestBed.configureTestingModule({
@@ -27,8 +27,7 @@ describe('MatTabNavBar', () => {
       ],
       providers: [
         {provide: MAT_RIPPLE_GLOBAL_OPTIONS, useFactory: () => globalRippleOptions},
-        {provide: Directionality, useFactory: () =>
-            ({value: dir, change: dirChange.asObservable()})},
+        {provide: Directionality, useFactory: () => ({value: dir, change: dirChange})},
       ]
     });
 
@@ -56,8 +55,8 @@ describe('MatTabNavBar', () => {
     });
 
     it('should add the active class if active', () => {
-      let tabLink1 = fixture.debugElement.queryAll(By.css('a'))[0];
-      let tabLink2 = fixture.debugElement.queryAll(By.css('a'))[1];
+      const tabLink1 = fixture.debugElement.queryAll(By.css('a'))[0];
+      const tabLink2 = fixture.debugElement.queryAll(By.css('a'))[1];
       const tabLinkElements = fixture.debugElement.queryAll(By.css('a'))
         .map(tabLinkDebugEl => tabLinkDebugEl.nativeElement);
 
@@ -73,8 +72,8 @@ describe('MatTabNavBar', () => {
     });
 
     it('should toggle aria-current based on active state', () => {
-      let tabLink1 = fixture.debugElement.queryAll(By.css('a'))[0];
-      let tabLink2 = fixture.debugElement.queryAll(By.css('a'))[1];
+      const tabLink1 = fixture.debugElement.queryAll(By.css('a'))[0];
+      const tabLink2 = fixture.debugElement.queryAll(By.css('a'))[1];
       const tabLinkElements = fixture.debugElement.queryAll(By.css('a'))
         .map(tabLinkDebugEl => tabLinkDebugEl.nativeElement);
 
@@ -142,27 +141,29 @@ describe('MatTabNavBar', () => {
       expect(tabLinkElement.classList).toContain('mat-tab-disabled');
     });
 
-    it('should re-align the ink bar when the direction changes', () => {
+    it('should re-align the ink bar when the direction changes', fakeAsync(() => {
       const inkBar = fixture.componentInstance.tabNavBar._inkBar;
 
       spyOn(inkBar, 'alignToElement');
 
       dirChange.next();
+      tick();
       fixture.detectChanges();
 
       expect(inkBar.alignToElement).toHaveBeenCalled();
-    });
+    }));
 
-    it('should re-align the ink bar when the tabs list change', () => {
+    it('should re-align the ink bar when the tabs list change', fakeAsync(() => {
       const inkBar = fixture.componentInstance.tabNavBar._inkBar;
 
       spyOn(inkBar, 'alignToElement');
 
       fixture.componentInstance.tabs = [1, 2, 3, 4];
       fixture.detectChanges();
+      tick();
 
       expect(inkBar.alignToElement).toHaveBeenCalled();
-    });
+    }));
 
     it('should re-align the ink bar when the tab labels change the width', done => {
       const inkBar = fixture.componentInstance.tabNavBar._inkBar;
@@ -201,6 +202,13 @@ describe('MatTabNavBar', () => {
       expect(inkBar.hide).toHaveBeenCalled();
     });
 
+    it('should update the focusIndex when a tab receives focus directly', () => {
+      const thirdLink = fixture.debugElement.queryAll(By.css('a'))[2];
+      dispatchFakeEvent(thirdLink.nativeElement, 'focus');
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.tabNavBar.focusIndex).toBe(2);
+    });
   });
 
   it('should hide the ink bar if no tabs are active on init', fakeAsync(() => {
@@ -213,10 +221,10 @@ describe('MatTabNavBar', () => {
   }));
 
   it('should clean up the ripple event handlers on destroy', () => {
-    let fixture: ComponentFixture<TabLinkWithNgIf> = TestBed.createComponent(TabLinkWithNgIf);
+    const fixture: ComponentFixture<TabLinkWithNgIf> = TestBed.createComponent(TabLinkWithNgIf);
     fixture.detectChanges();
 
-    let link = fixture.debugElement.nativeElement.querySelector('.mat-tab-link');
+    const link = fixture.debugElement.nativeElement.querySelector('.mat-tab-link');
 
     fixture.componentInstance.isDestroyed = true;
     fixture.detectChanges();
@@ -228,7 +236,7 @@ describe('MatTabNavBar', () => {
   });
 
   it('should support the native tabindex attribute', () => {
-      const fixture = TestBed.createComponent(TabLinkWithNativeTabindexAttr);
+    const fixture = TestBed.createComponent(TabLinkWithNativeTabindexAttr);
     fixture.detectChanges();
 
     const tabLink = fixture.debugElement.query(By.directive(MatTabLink))!
@@ -332,6 +340,14 @@ describe('MatTabNavBar', () => {
 
       expect(fixture.componentInstance.tabLinks.toArray().every(tabLink => tabLink.rippleDisabled))
         .toBe(true, 'Expected every tab link to have ripples disabled');
+    });
+
+    it('should have a focus indicator', () => {
+      const tabLinkNativeElements =
+          [...fixture.debugElement.nativeElement.querySelectorAll('.mat-tab-link')];
+
+      expect(tabLinkNativeElements
+          .every(element => element.classList.contains('mat-focus-indicator'))).toBe(true);
     });
   });
 });

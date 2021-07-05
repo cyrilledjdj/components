@@ -28,7 +28,7 @@ import {
 import {ANIMATION_MODULE_TYPE} from '@angular/platform-browser/animations';
 import {MatTab} from './tab';
 import {MatTabHeader} from './tab-header';
-import {BooleanInput, coerceBooleanProperty, NumberInput} from '@angular/cdk/coercion';
+import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
 
 /**
  * Material design tab-group component. Supports basic tab pairs (label + content) and includes
@@ -77,8 +77,4 @@ export class MatTabGroup extends _MatTabGroupBase {
   }
 
   static ngAcceptInputType_fitInkBarToContent: BooleanInput;
-  static ngAcceptInputType_dynamicHeight: BooleanInput;
-  static ngAcceptInputType_animationDuration: NumberInput;
-  static ngAcceptInputType_selectedIndex: NumberInput;
-  static ngAcceptInputType_disableRipple: BooleanInput;
 }

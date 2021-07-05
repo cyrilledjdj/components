@@ -1,6 +1,6 @@
-package(default_visibility = ["//visibility:public"])
-
 load("//tools:defaults.bzl", "ng_module")
+
+package(default_visibility = ["//visibility:public"])
 
 ng_module(
     name = "mdc-slider",
@@ -10,7 +10,7 @@ ng_module(
     ],
     deps = [
         "//src/material-experimental/mdc-slider",
-        "//src/material/tabs",
+        "//src/material-experimental/mdc-tabs",
         "@npm//@angular/forms",
         "@npm//@angular/router",
     ],

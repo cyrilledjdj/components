@@ -7,9 +7,10 @@
  */
 
 import {Platform} from '@angular/cdk/platform';
-import {Injectable, NgZone, OnDestroy} from '@angular/core';
-import {merge, of as observableOf, fromEvent, Observable, Subscription} from 'rxjs';
+import {Injectable, NgZone, OnDestroy, Optional, Inject} from '@angular/core';
+import {Observable, Subject} from 'rxjs';
 import {auditTime} from 'rxjs/operators';
+import {DOCUMENT} from '@angular/common';
 
 /** Time in ms to throttle the resize events by default. */
 export const DEFAULT_RESIZE_TIME = 20;
@@ -30,25 +31,45 @@ export class ViewportRuler implements OnDestroy {
   private _viewportSize: {width: number; height: number};
 
   /** Stream of viewport change events. */
-  private _change: Observable<Event>;
+  private readonly _change = new Subject<Event>();
 
-  /** Subscription to streams that invalidate the cached viewport dimensions. */
-  private _invalidateCache: Subscription;
+  /** Event listener that will be used to handle the viewport change events. */
+  private _changeListener = (event: Event) => {
+    this._change.next(event);
+  }
 
-  constructor(private _platform: Platform, ngZone: NgZone) {
+  /** Used to reference correct document/window */
+  protected _document: Document;
+
+  constructor(private _platform: Platform,
+              ngZone: NgZone,
+              @Optional() @Inject(DOCUMENT) document: any) {
+    this._document = document;
+
     ngZone.runOutsideAngular(() => {
-      this._change = _platform.isBrowser ?
-          merge(fromEvent(window, 'resize'), fromEvent(window, 'orientationchange')) :
-          observableOf();
+      if (_platform.isBrowser) {
+        const window = this._getWindow();
 
-      // Note that we need to do the subscription inside `runOutsideAngular`
-      // since subscribing is what causes the event listener to be added.
-      this._invalidateCache = this.change().subscribe(() => this._updateViewportSize());
+        // Note that bind the events ourselves, rather than going through something like RxJS's
+        // `fromEvent` so that we can ensure that they're bound outside of the NgZone.
+        window.addEventListener('resize', this._changeListener);
+        window.addEventListener('orientationchange', this._changeListener);
+      }
+
+      // We don't need to keep track of the subscription,
+      // because we complete the `change` stream on destroy.
+      this.change().subscribe(() => this._updateViewportSize());
     });
   }
 
   ngOnDestroy() {
-    this._invalidateCache.unsubscribe();
+    if (this._platform.isBrowser) {
+      const window = this._getWindow();
+      window.removeEventListener('resize', this._changeListener);
+      window.removeEventListener('orientationchange', this._changeListener);
+    }
+
+    this._change.complete();
   }
 
   /** Returns the viewport's width and height. */
@@ -105,6 +126,8 @@ export class ViewportRuler implements OnDestroy {
     // `scrollTop` and `scrollLeft` is inconsistent. However, using the bounding rect of
     // `document.documentElement` works consistently, where the `top` and `left` values will
     // equal negative the scroll position.
+    const document = this._document;
+    const window = this._getWindow();
     const documentElement = document.documentElement!;
     const documentRect = documentElement.getBoundingClientRect();
 
@@ -119,14 +142,21 @@ export class ViewportRuler implements OnDestroy {
 
   /**
    * Returns a stream that emits whenever the size of the viewport changes.
+   * This stream emits outside of the Angular zone.
    * @param throttleTime Time in milliseconds to throttle the stream.
    */
   change(throttleTime: number = DEFAULT_RESIZE_TIME): Observable<Event> {
     return throttleTime > 0 ? this._change.pipe(auditTime(throttleTime)) : this._change;
   }
 
+  /** Use defaultView of injected document if available or fallback to global window reference */
+  private _getWindow(): Window {
+    return this._document.defaultView || window;
+  }
+
   /** Updates the cached viewport size. */
   private _updateViewportSize() {
+    const window = this._getWindow();
     this._viewportSize = this._platform.isBrowser ?
         {width: window.innerWidth, height: window.innerHeight} :
         {width: 0, height: 0};

@@ -2,7 +2,7 @@ import {Component} from '@angular/core';
 import {CdkDragDrop, moveItemInArray} from '@angular/cdk/drag-drop';
 
 /**
- * @title Drag&Drop custom placeholer
+ * @title Drag&Drop custom placeholder
  */
 @Component({
   selector: 'cdk-drag-drop-custom-placeholder-example',
@@ -18,7 +18,8 @@ export class CdkDragDropCustomPlaceholderExample {
     'Episode V - The Empire Strikes Back',
     'Episode VI - Return of the Jedi',
     'Episode VII - The Force Awakens',
-    'Episode VIII - The Last Jedi'
+    'Episode VIII - The Last Jedi',
+    'Episode IX – The Rise of Skywalker'
   ];
 
   drop(event: CdkDragDrop<string[]>) {

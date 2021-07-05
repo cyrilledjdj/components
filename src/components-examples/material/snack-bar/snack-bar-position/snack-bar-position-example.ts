@@ -14,15 +14,13 @@ import {
   styleUrls: ['snack-bar-position-example.css'],
 })
 export class SnackBarPositionExample {
-
   horizontalPosition: MatSnackBarHorizontalPosition = 'start';
   verticalPosition: MatSnackBarVerticalPosition = 'bottom';
 
   constructor(private _snackBar: MatSnackBar) {}
 
   openSnackBar() {
-    this._snackBar.open('Canonball!!', 'End now', {
-      duration: 500,
+    this._snackBar.open('Cannonball!!', 'Splash', {
       horizontalPosition: this.horizontalPosition,
       verticalPosition: this.verticalPosition,
     });

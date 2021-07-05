@@ -1,3 +1,7 @@
+export declare function _getFocusedElementPierceShadowDom(): HTMLElement | null;
+
+export declare function _getShadowRoot(element: HTMLElement): ShadowRoot | null;
+
 export declare function _supportsShadowDom(): boolean;
 
 export declare function getRtlScrollAxisType(): RtlScrollAxisType;
@@ -16,17 +20,18 @@ export declare class Platform {
     TRIDENT: boolean;
     WEBKIT: boolean;
     isBrowser: boolean;
-    constructor(_platformId?: Object | undefined);
-    static ɵfac: i0.ɵɵFactoryDef<Platform>;
-    static ɵprov: i0.ɵɵInjectableDef<Platform>;
+    constructor(_platformId: Object);
+    static ɵfac: i0.ɵɵFactoryDeclaration<Platform, never>;
+    static ɵprov: i0.ɵɵInjectableDeclaration<Platform>;
 }
 
 export declare class PlatformModule {
-    static ɵinj: i0.ɵɵInjectorDef<PlatformModule>;
-    static ɵmod: i0.ɵɵNgModuleDefWithMeta<PlatformModule, never, never, never>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<PlatformModule, never>;
+    static ɵinj: i0.ɵɵInjectorDeclaration<PlatformModule>;
+    static ɵmod: i0.ɵɵNgModuleDeclaration<PlatformModule, never, never, never>;
 }
 
-export declare enum RtlScrollAxisType {
+export declare const enum RtlScrollAxisType {
     NORMAL = 0,
     NEGATED = 1,
     INVERTED = 2

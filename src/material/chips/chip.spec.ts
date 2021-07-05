@@ -2,7 +2,7 @@ import {Directionality} from '@angular/cdk/bidi';
 import {BACKSPACE, DELETE, SPACE} from '@angular/cdk/keycodes';
 import {createKeyboardEvent, dispatchFakeEvent} from '@angular/cdk/testing/private';
 import {Component, DebugElement, ViewChild} from '@angular/core';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 import {MAT_RIPPLE_GLOBAL_OPTIONS, RippleGlobalOptions} from '@angular/material/core';
 import {By} from '@angular/platform-browser';
 import {Subject} from 'rxjs';
@@ -15,14 +15,18 @@ describe('MatChip', () => {
   let chipNativeElement: HTMLElement;
   let chipInstance: MatChip;
   let globalRippleOptions: RippleGlobalOptions;
-
   let dir = 'ltr';
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     globalRippleOptions = {};
     TestBed.configureTestingModule({
       imports: [MatChipsModule],
-      declarations: [BasicChip, SingleChip],
+      declarations: [
+        BasicChip,
+        SingleChip,
+        BasicChipWithStaticTabindex,
+        BasicChipWithBoundTabindex,
+      ],
       providers: [
         {provide: MAT_RIPPLE_GLOBAL_OPTIONS, useFactory: () => globalRippleOptions},
         {provide: Directionality, useFactory: () => ({
@@ -36,21 +40,37 @@ describe('MatChip', () => {
   }));
 
   describe('MatBasicChip', () => {
-
-    beforeEach(() => {
+    it('adds a class to indicate that it is a basic chip', () => {
       fixture = TestBed.createComponent(BasicChip);
       fixture.detectChanges();
 
-      chipDebugElement = fixture.debugElement.query(By.directive(MatChip))!;
-      chipNativeElement = chipDebugElement.nativeElement;
-      chipInstance = chipDebugElement.injector.get<MatChip>(MatChip);
+      const chip = fixture.nativeElement.querySelector('mat-basic-chip');
+      expect(chip.classList).toContain('mat-chip');
+      expect(chip.classList).toContain('mat-basic-chip');
     });
 
-    it('adds the `mat-basic-chip` class', () => {
-      expect(chipNativeElement.classList).toContain('mat-chip');
-      expect(chipNativeElement.classList).toContain('mat-basic-chip');
+    it('should be able to set a static tabindex', () => {
+      fixture = TestBed.createComponent(BasicChipWithStaticTabindex);
+      fixture.detectChanges();
+
+      const chip = fixture.nativeElement.querySelector('mat-basic-chip');
+      expect(chip.getAttribute('tabindex')).toBe('3');
+    });
+
+    it('should be able to set a dynamic tabindex', () => {
+      fixture = TestBed.createComponent(BasicChipWithBoundTabindex);
+      fixture.detectChanges();
+
+      const chip = fixture.nativeElement.querySelector('mat-basic-chip');
+      expect(chip.getAttribute('tabindex')).toBe('12');
+
+      fixture.componentInstance.tabindex = 15;
+      fixture.detectChanges();
+
+      expect(chip.getAttribute('tabindex')).toBe('15');
     });
   });
+
 
   describe('MatChip', () => {
     let testComponent: SingleChip;
@@ -231,7 +251,7 @@ describe('MatChip', () => {
         });
 
         it('should selects/deselects the currently focused chip on SPACE', () => {
-          const SPACE_EVENT: KeyboardEvent = createKeyboardEvent('keydown', SPACE) as KeyboardEvent;
+          const SPACE_EVENT = createKeyboardEvent('keydown', SPACE);
           const CHIP_SELECTED_EVENT: MatChipSelectionChange = {
             source: chipInstance,
             isUserInput: true,
@@ -293,7 +313,7 @@ describe('MatChip', () => {
         });
 
         it('SPACE ignores selection', () => {
-          const SPACE_EVENT: KeyboardEvent = createKeyboardEvent('keydown', SPACE) as KeyboardEvent;
+          const SPACE_EVENT = createKeyboardEvent('keydown', SPACE);
 
           spyOn(testComponent, 'chipSelectionChange');
 
@@ -317,7 +337,7 @@ describe('MatChip', () => {
         });
 
         it('DELETE emits the (removed) event', () => {
-          const DELETE_EVENT = createKeyboardEvent('keydown', DELETE) as KeyboardEvent;
+          const DELETE_EVENT = createKeyboardEvent('keydown', DELETE);
 
           spyOn(testComponent, 'chipRemove');
 
@@ -329,7 +349,7 @@ describe('MatChip', () => {
         });
 
         it('BACKSPACE emits the (removed) event', () => {
-          const BACKSPACE_EVENT = createKeyboardEvent('keydown', BACKSPACE) as KeyboardEvent;
+          const BACKSPACE_EVENT = createKeyboardEvent('keydown', BACKSPACE);
 
           spyOn(testComponent, 'chipRemove');
 
@@ -348,7 +368,7 @@ describe('MatChip', () => {
         });
 
         it('DELETE does not emit the (removed) event', () => {
-          const DELETE_EVENT = createKeyboardEvent('keydown', DELETE) as KeyboardEvent;
+          const DELETE_EVENT = createKeyboardEvent('keydown', DELETE);
 
           spyOn(testComponent, 'chipRemove');
 
@@ -360,7 +380,7 @@ describe('MatChip', () => {
         });
 
         it('BACKSPACE does not emit the (removed) event', () => {
-          const BACKSPACE_EVENT = createKeyboardEvent('keydown', BACKSPACE) as KeyboardEvent;
+          const BACKSPACE_EVENT = createKeyboardEvent('keydown', BACKSPACE);
 
           spyOn(testComponent, 'chipRemove');
 
@@ -390,6 +410,10 @@ describe('MatChip', () => {
         expect(chipNativeElement.getAttribute('tabindex')).toBeFalsy();
       });
 
+    });
+
+    it('should have a focus indicator', () => {
+      expect(chipNativeElement.classList.contains('mat-focus-indicator')).toBe(true);
     });
   });
 });
@@ -426,7 +450,20 @@ class SingleChip {
 }
 
 @Component({
-  template: `<mat-basic-chip>{{name}}</mat-basic-chip>`
+  template: `<mat-basic-chip>Hello</mat-basic-chip>`
 })
 class BasicChip {
+}
+
+@Component({
+  template: `<mat-basic-chip tabindex="3">Hello</mat-basic-chip>`
+})
+class BasicChipWithStaticTabindex {
+}
+
+@Component({
+  template: `<mat-basic-chip [tabIndex]="tabindex">Hello</mat-basic-chip>`
+})
+class BasicChipWithBoundTabindex {
+  tabindex = 12;
 }

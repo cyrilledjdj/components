@@ -6,8 +6,6 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {FocusMonitor} from '@angular/cdk/a11y';
-import {CommonModule} from '@angular/common';
 import {NgModule} from '@angular/core';
 import {CdkTreeNodeOutlet} from './outlet';
 import {CdkTreeNodePadding} from './padding';
@@ -27,9 +25,7 @@ const EXPORTED_DECLARATIONS = [
 ];
 
 @NgModule({
-  imports: [CommonModule],
   exports: EXPORTED_DECLARATIONS,
   declarations: EXPORTED_DECLARATIONS,
-  providers: [FocusMonitor, CdkTreeNodeDef]
 })
 export class CdkTreeModule {}

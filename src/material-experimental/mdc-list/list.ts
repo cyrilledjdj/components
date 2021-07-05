@@ -6,49 +6,39 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ChangeDetectionStrategy, Component, Directive, ViewEncapsulation} from '@angular/core';
+import {Platform} from '@angular/cdk/platform';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ContentChildren,
+  ElementRef,
+  Inject,
+  NgZone,
+  Optional,
+  QueryList,
+  ViewChild,
+  ViewEncapsulation
+} from '@angular/core';
+import {
+  MatLine,
+  MAT_RIPPLE_GLOBAL_OPTIONS,
+  RippleGlobalOptions,
+} from '@angular/material-experimental/mdc-core';
 import {MatListBase, MatListItemBase} from './list-base';
-
-/**
- * Directive whose purpose is to add the mat- CSS styling to this selector.
- * @docs-private
- */
-@Directive({
-  selector: '[mat-list-avatar], [matListAvatar]',
-  host: {'class': 'mat-mdc-list-avatar'}
-})
-export class MatListAvatarCssMatStyler {}
-
-/**
- * Directive whose purpose is to add the mat- CSS styling to this selector.
- * @docs-private
- */
-@Directive({
-  selector: '[mat-list-icon], [matListIcon]',
-  host: {'class': 'mat-mdc-list-icon'}
-})
-export class MatListIconCssMatStyler {}
-
-/**
- * Directive whose purpose is to add the mat- CSS styling to this selector.
- * @docs-private
- */
-@Directive({
-  selector: '[mat-subheader], [matSubheader]',
-  host: {'class': 'mat-mdc-subheader'}
-})
-export class MatListSubheaderCssMatStyler {}
 
 @Component({
   selector: 'mat-list',
   exportAs: 'matList',
-  templateUrl: 'list.html',
+  template: '<ng-content></ng-content>',
   host: {
-    'class': 'mat-mdc-list mat-mdc-list-base',
+    'class': 'mat-mdc-list mat-mdc-list-base mdc-list',
   },
   styleUrls: ['list.css'],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [
+    {provide: MatListBase, useExisting: MatList},
+  ]
 })
 export class MatList extends MatListBase {}
 
@@ -56,10 +46,30 @@ export class MatList extends MatListBase {}
   selector: 'mat-list-item, a[mat-list-item], button[mat-list-item]',
   exportAs: 'matListItem',
   host: {
-    'class': 'mat-mdc-list-item',
+    'class': 'mat-mdc-list-item mdc-list-item',
+    '[class.mdc-list-item--with-leading-avatar]': '_avatars.length !== 0',
+    '[class.mdc-list-item--with-leading-icon]': '_icons.length !== 0',
+    // If there are projected lines, we project the remaining content into the `mdc-list-item__end`
+    // container. In order to make sure the container aligns properly (if there is content), we add
+    // the trailing meta class. Note that we also add this even if there is no projected `meta`
+    // content. This is because there is no good way to check for remaining projected content.
+    '[class.mdc-list-item--with-trailing-meta]': 'lines.length !== 0',
   },
   templateUrl: 'list-item.html',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class MatListItem extends MatListItemBase {}
+export class MatListItem extends MatListItemBase {
+  @ContentChildren(MatLine, {read: ElementRef, descendants: true}) lines:
+      QueryList<ElementRef<Element>>;
+  @ViewChild('text') _itemText: ElementRef<HTMLElement>;
+
+  constructor(
+    element: ElementRef,
+    ngZone: NgZone,
+    listBase: MatListBase,
+    platform: Platform,
+    @Optional() @Inject(MAT_RIPPLE_GLOBAL_OPTIONS) globalRippleOptions?: RippleGlobalOptions) {
+    super(element, ngZone, listBase, platform, globalRippleOptions);
+  }
+}

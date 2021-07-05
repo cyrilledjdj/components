@@ -7,29 +7,27 @@
  */
 
 import {ChangeDetectionStrategy, Component, ViewEncapsulation} from '@angular/core';
-import {MatList} from './list';
 import {MatListBase} from './list-base';
 
 @Component({
   selector: 'mat-nav-list',
-  /**
-   * @deprecated `matList` export will be removed, use `matNavList`
-   * @breaking-change 11.0.0
-   */
-  exportAs: 'matNavList, matList',
-  templateUrl: 'list.html',
+  exportAs: 'matNavList',
+  template: '<ng-content></ng-content>',
   host: {
-    'class': 'mat-mdc-nav-list mat-mdc-list-base',
+    'class': 'mat-mdc-nav-list mat-mdc-list-base mdc-list',
   },
   styleUrls: ['list.css'],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
-    /**
-     * @deprecated Provider for `MatList` will be removed, use `MatNavList` instead.
-     * @breaking-change 11.0.0
-     */
-    {provide: MatList, useExisting: MatNavList}
+    {provide: MatListBase, useExisting: MatNavList},
   ]
 })
-export class MatNavList extends MatListBase {}
+export class MatNavList extends MatListBase {
+  // An navigation list is considered interactive, but does not extend the interactive list
+  // base class. We do this because as per MDC, items of interactive lists are only reachable
+  // through keyboard shortcuts. We want all items for the navigation list to be reachable
+  // through tab key as we do not intend to provide any special accessibility treatment. The
+  // accessibility treatment depends on how the end-user will interact with it.
+  override _isNonInteractive = false;
+}

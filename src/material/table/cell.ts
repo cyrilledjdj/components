@@ -6,8 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {BooleanInput} from '@angular/cdk/coercion';
-import {Directive, ElementRef, Input} from '@angular/core';
+import {Directive, Input} from '@angular/core';
 import {
   CdkCell,
   CdkCellDef,
@@ -60,10 +59,20 @@ export class MatFooterCellDef extends CdkFooterCellDef {}
 })
 export class MatColumnDef extends CdkColumnDef {
   /** Unique name for this column. */
-  @Input('matColumnDef') name: string;
+  @Input('matColumnDef')
+  override get name(): string { return this._name; }
+  override set name(name: string) { this._setNameInput(name); }
 
-  static ngAcceptInputType_sticky: BooleanInput;
-  static ngAcceptInputType_stickyEnd: BooleanInput;
+  /**
+   * Add "mat-column-" prefix in addition to "cdk-column-" prefix.
+   * In the future, this will only add "mat-column-" and columnCssClassName
+   * will change from type string[] to string.
+   * @docs-private
+   */
+  protected override _updateColumnCssClassName() {
+    super._updateColumnCssClassName();
+    this._columnCssClassName!.push(`mat-column-${this.cssClassFriendlyName}`);
+  }
 }
 
 /** Header cell template container that adds the right classes and role. */
@@ -74,13 +83,7 @@ export class MatColumnDef extends CdkColumnDef {
     'role': 'columnheader',
   },
 })
-export class MatHeaderCell extends CdkHeaderCell {
-  constructor(columnDef: CdkColumnDef,
-              elementRef: ElementRef<HTMLElement>) {
-    super(columnDef, elementRef);
-    elementRef.nativeElement.classList.add(`mat-column-${columnDef.cssClassFriendlyName}`);
-  }
-}
+export class MatHeaderCell extends CdkHeaderCell {}
 
 /** Footer cell template container that adds the right classes and role. */
 @Directive({
@@ -90,13 +93,7 @@ export class MatHeaderCell extends CdkHeaderCell {
     'role': 'gridcell',
   },
 })
-export class MatFooterCell extends CdkFooterCell {
-  constructor(columnDef: CdkColumnDef,
-              elementRef: ElementRef) {
-    super(columnDef, elementRef);
-    elementRef.nativeElement.classList.add(`mat-column-${columnDef.cssClassFriendlyName}`);
-  }
-}
+export class MatFooterCell extends CdkFooterCell {}
 
 /** Cell template container that adds the right classes and role. */
 @Directive({
@@ -106,10 +103,4 @@ export class MatFooterCell extends CdkFooterCell {
     'role': 'gridcell',
   },
 })
-export class MatCell extends CdkCell {
-  constructor(columnDef: CdkColumnDef,
-              elementRef: ElementRef<HTMLElement>) {
-    super(columnDef, elementRef);
-    elementRef.nativeElement.classList.add(`mat-column-${columnDef.cssClassFriendlyName}`);
-  }
-}
+export class MatCell extends CdkCell {}

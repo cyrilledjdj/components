@@ -1,4 +1,4 @@
-import {ComponentHarness, HarnessLoader} from '@angular/cdk/testing';
+import {ComponentHarness, HarnessLoader, parallel} from '@angular/cdk/testing';
 import {TestbedHarnessEnvironment} from '@angular/cdk/testing/testbed';
 import {Component} from '@angular/core';
 import {ComponentFixture, TestBed} from '@angular/core/testing';
@@ -187,8 +187,7 @@ export function runHarnessTests(
   it('should be able to get harness loader for content of panel', async () => {
     const panel =
         await loader.getHarness(expansionPanelHarness.with({selector: '#standalonePanel'}));
-    const contentHarnessLoader = await panel.getHarnessLoaderForContent();
-    const matchedHarnesses = await contentHarnessLoader.getAllHarnesses(TestContentHarness);
+    const matchedHarnesses = await panel.getAllHarnesses(TestContentHarness);
     expect(matchedHarnesses.length).toBe(1);
     expect(await matchedHarnesses[0].getText()).toBe('Part of expansion panel');
   });
@@ -213,10 +212,12 @@ export function runHarnessTests(
     const standalonePanel =
         await loader.getHarness(expansionPanelHarness.with({selector: '#standalonePanel'}));
     const expansionPanels = [standalonePanel, ...await accordion.getExpansionPanels()];
-    let toggleIndicatorChecks = await Promise.all(expansionPanels.map(p => p.hasToggleIndicator()));
+    let toggleIndicatorChecks = await parallel(() => {
+      return expansionPanels.map(p => p.hasToggleIndicator());
+    });
     expect(toggleIndicatorChecks.every(s => s)).toBe(true);
     fixture.componentInstance.hideToggleIndicators = true;
-    toggleIndicatorChecks = await Promise.all(expansionPanels.map(p => p.hasToggleIndicator()));
+    toggleIndicatorChecks = await parallel(() => expansionPanels.map(p => p.hasToggleIndicator()));
     expect(toggleIndicatorChecks.every(s => !s)).toBe(true);
   });
 
@@ -226,10 +227,12 @@ export function runHarnessTests(
         await loader.getHarness(expansionPanelHarness.with({selector: '#standalonePanel'}));
     const expansionPanels = [standalonePanel, ...await accordion.getExpansionPanels()];
     let togglePositions =
-        await Promise.all(expansionPanels.map(p => p.getToggleIndicatorPosition()));
+        await parallel(() => expansionPanels.map(p => p.getToggleIndicatorPosition()));
     expect(togglePositions.every(p => p === 'after')).toBe(true);
     fixture.componentInstance.toggleIndicatorsPosition = 'before';
-    togglePositions = await Promise.all(expansionPanels.map(p => p.getToggleIndicatorPosition()));
+    togglePositions = await parallel(() => {
+      return expansionPanels.map(p => p.getToggleIndicatorPosition());
+    });
     expect(togglePositions.every(p => p === 'before')).toBe(true);
   });
 

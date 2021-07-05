@@ -1,12 +1,12 @@
-package(default_visibility = ["//visibility:public"])
-
-load("@build_bazel_rules_nodejs//:defs.bzl", "npm_package")
+load("@build_bazel_rules_nodejs//:index.bzl", "copy_to_bin", "pkg_npm")
 load("//:packages.bzl", "VERSION_PLACEHOLDER_REPLACEMENTS")
 load("//tools:defaults.bzl", "jasmine_node_test", "ts_library")
 
-filegroup(
+package(default_visibility = ["//visibility:public"])
+
+copy_to_bin(
     name = "schematics_assets",
-    srcs = ["ng-update/upgrade-rules/hammer-gestures-v9/gesture-config.template"] + glob([
+    srcs = ["ng-update/migrations/hammer-gestures-v9/gesture-config.template"] + glob([
         "ng-generate/*/files/**/*",
         "**/*.json",
     ]),
@@ -22,7 +22,11 @@ ts_library(
             "ng-generate/*/files/**/*.ts",
         ],
     ),
+    # Schematics do not need to run in browsers and can use `commonjs`
+    # as format instead the default `umd` format.
+    devmode_module = "commonjs",
     module_name = "@angular/material/schematics",
+    prodmode_module = "commonjs",
     tsconfig = ":tsconfig.json",
     deps = [
         "//src/cdk/schematics",
@@ -38,11 +42,13 @@ ts_library(
 )
 
 # This package is intended to be combined into the main @angular/material package as a dep.
-npm_package(
+pkg_npm(
     name = "npm_package",
-    srcs = [":schematics_assets"],
-    replacements = VERSION_PLACEHOLDER_REPLACEMENTS,
-    deps = [":schematics"],
+    substitutions = VERSION_PLACEHOLDER_REPLACEMENTS,
+    deps = [
+        ":schematics",
+        ":schematics_assets",
+    ],
 )
 
 ### Testing rules

@@ -8,7 +8,7 @@
 
 import {Directionality} from '@angular/cdk/bidi';
 import {coerceNumberProperty, NumberInput} from '@angular/cdk/coercion';
-import {Directive, ElementRef, Input, OnDestroy, Optional, Renderer2} from '@angular/core';
+import {Directive, ElementRef, Input, OnDestroy, Optional} from '@angular/core';
 import {takeUntil} from 'rxjs/operators';
 import {Subject} from 'rxjs';
 import {CdkTree, CdkTreeNode} from './tree';
@@ -23,12 +23,12 @@ const cssUnitPattern = /([A-Za-z%]+)$/;
 @Directive({
   selector: '[cdkTreeNodePadding]',
 })
-export class CdkTreeNodePadding<T> implements OnDestroy {
+export class CdkTreeNodePadding<T, K = T> implements OnDestroy {
   /** Current padding value applied to the element. Used to avoid unnecessarily hitting the DOM. */
   private _currentPadding: string|null;
 
   /** Subject that emits when the component has been destroyed. */
-  private _destroyed = new Subject<void>();
+  private readonly _destroyed = new Subject<void>();
 
   /** CSS units used for the indentation value. */
   indentUnits = 'px';
@@ -36,13 +36,7 @@ export class CdkTreeNodePadding<T> implements OnDestroy {
   /** The level of depth of the tree node. The padding will be `level * indent` pixels. */
   @Input('cdkTreeNodePadding')
   get level(): number { return this._level; }
-  set level(value: number) {
-    // Set to null as the fallback value so that _setPadding can fall back to the node level if the
-    // consumer set the directive as `cdkTreeNodePadding=""`. We still want to take this value if
-    // they set 0 explicitly.
-    this._level = coerceNumberProperty(value, null)!;
-    this._setPadding();
-  }
+  set level(value: number) { this._setLevelInput(value); }
   _level: number;
 
   /**
@@ -51,25 +45,11 @@ export class CdkTreeNodePadding<T> implements OnDestroy {
    */
   @Input('cdkTreeNodePaddingIndent')
   get indent(): number | string { return this._indent; }
-  set indent(indent: number | string) {
-    let value = indent;
-    let units = 'px';
-
-    if (typeof indent === 'string') {
-      const parts = indent.split(cssUnitPattern);
-      value = parts[0];
-      units = parts[1] || units;
-    }
-
-    this.indentUnits = units;
-    this._indent = coerceNumberProperty(value);
-    this._setPadding();
-  }
+  set indent(indent: number | string) { this._setIndentInput(indent); }
   _indent: number = 40;
 
-  constructor(private _treeNode: CdkTreeNode<T>,
-              private _tree: CdkTree<T>,
-              private _renderer: Renderer2,
+  constructor(private _treeNode: CdkTreeNode<T, K>,
+              private _tree: CdkTree<T, K>,
               private _element: ElementRef<HTMLElement>,
               @Optional() private _dir: Directionality) {
     this._setPadding();
@@ -104,10 +84,45 @@ export class CdkTreeNodePadding<T> implements OnDestroy {
       const element = this._element.nativeElement;
       const paddingProp = this._dir && this._dir.value === 'rtl' ? 'paddingRight' : 'paddingLeft';
       const resetProp = paddingProp === 'paddingLeft' ? 'paddingRight' : 'paddingLeft';
-      this._renderer.setStyle(element, paddingProp, padding);
-      this._renderer.setStyle(element, resetProp, null);
+      element.style[paddingProp] = padding || '';
+      element.style[resetProp] = '';
       this._currentPadding = padding;
     }
+  }
+
+  /**
+   * This has been extracted to a util because of TS 4 and VE.
+   * View Engine doesn't support property rename inheritance.
+   * TS 4.0 doesn't allow properties to override accessors or vice-versa.
+   * @docs-private
+   */
+  protected _setLevelInput(value: number) {
+    // Set to null as the fallback value so that _setPadding can fall back to the node level if the
+    // consumer set the directive as `cdkTreeNodePadding=""`. We still want to take this value if
+    // they set 0 explicitly.
+    this._level = coerceNumberProperty(value, null)!;
+    this._setPadding();
+  }
+
+  /**
+   * This has been extracted to a util because of TS 4 and VE.
+   * View Engine doesn't support property rename inheritance.
+   * TS 4.0 doesn't allow properties to override accessors or vice-versa.
+   * @docs-private
+   */
+  protected _setIndentInput(indent: number | string) {
+    let value = indent;
+    let units = 'px';
+
+    if (typeof indent === 'string') {
+      const parts = indent.split(cssUnitPattern);
+      value = parts[0];
+      units = parts[1] || units;
+    }
+
+    this.indentUnits = units;
+    this._indent = coerceNumberProperty(value);
+    this._setPadding();
   }
 
   static ngAcceptInputType_level: NumberInput;

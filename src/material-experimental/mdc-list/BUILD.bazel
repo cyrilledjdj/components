@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load("//src/e2e-app:test_suite.bzl", "e2e_test_suite")
 load(
     "//tools:defaults.bzl",
@@ -11,6 +9,8 @@ load(
     "sass_library",
 )
 
+package(default_visibility = ["//visibility:public"])
+
 ng_module(
     name = "mdc-list",
     srcs = glob(
@@ -19,12 +19,21 @@ ng_module(
             "**/*.spec.ts",
         ],
     ),
-    assets = [":list_scss"] + glob(["**/*.html"]),
+    assets = [
+        ":list_scss",
+        ":list_option_scss",
+    ] + glob(["**/*.html"]),
     module_name = "@angular/material-experimental/mdc-list",
     deps = [
+        "//src:dev_mode_types",
+        "//src/cdk/collections",
+        "//src/material-experimental/mdc-core",
+        "//src/material/divider",
+        "//src/material/list",
         "@npm//@angular/core",
         "@npm//@angular/forms",
         "@npm//@material/list",
+        "@npm//@material/ripple",
     ],
 )
 
@@ -32,6 +41,7 @@ sass_library(
     name = "mdc_list_scss_lib",
     srcs = glob(["**/_*.scss"]),
     deps = [
+        "//src/material-experimental/mdc-checkbox:mdc_checkbox_scss_lib",
         "//src/material-experimental/mdc-helpers:mdc_helpers_scss_lib",
         "//src/material-experimental/mdc-helpers:mdc_scss_deps_lib",
     ],
@@ -49,6 +59,19 @@ sass_binary(
     ],
 )
 
+sass_binary(
+    name = "list_option_scss",
+    src = "list-option.scss",
+    include_paths = [
+        "external/npm/node_modules",
+    ],
+    deps = [
+        ":mdc_list_scss_lib",
+        "//src/material-experimental/mdc-helpers:mdc_helpers_scss_lib",
+        "//src/material-experimental/mdc-helpers:mdc_scss_deps_lib",
+    ],
+)
+
 ng_test_library(
     name = "list_tests_lib",
     srcs = glob(
@@ -57,9 +80,13 @@ ng_test_library(
     ),
     deps = [
         ":mdc-list",
+        "//src/cdk/keycodes",
         "//src/cdk/testing/private",
         "//src/cdk/testing/testbed",
+        "//src/material-experimental/mdc-core",
+        "@npm//@angular/forms",
         "@npm//@angular/platform-browser",
+        "@npm//@material/list",
     ],
 )
 
@@ -67,6 +94,7 @@ ng_web_test_suite(
     name = "unit_tests",
     static_files = [
         "@npm//:node_modules/@material/list/dist/mdc.list.js",
+        "@npm//:node_modules/@material/ripple/dist/mdc.ripple.js",
     ],
     deps = [
         ":list_tests_lib",

@@ -7,10 +7,13 @@ import {MatChipsModule} from '@angular/material/chips';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
 import {ChipsAutocompleteExample} from './chips-autocomplete/chips-autocomplete-example';
-import {ChipsDragDropExample} from './chips-drag-and-drop/chips-drag-drop-example';
+import {ChipsDragDropExample} from './chips-drag-drop/chips-drag-drop-example';
 import {ChipsInputExample} from './chips-input/chips-input-example';
 import {ChipsOverviewExample} from './chips-overview/chips-overview-example';
 import {ChipsStackedExample} from './chips-stacked/chips-stacked-example';
+import {ChipsHarnessExample} from './chips-harness/chips-harness-example';
+import {ChipsFormControlExample} from './chips-form-control/chips-form-control-example';
+import {MatButtonModule} from '@angular/material/button';
 
 export {
   ChipsAutocompleteExample,
@@ -18,6 +21,8 @@ export {
   ChipsInputExample,
   ChipsOverviewExample,
   ChipsStackedExample,
+  ChipsHarnessExample,
+  ChipsFormControlExample
 };
 
 const EXAMPLES = [
@@ -26,6 +31,8 @@ const EXAMPLES = [
   ChipsInputExample,
   ChipsOverviewExample,
   ChipsStackedExample,
+  ChipsHarnessExample,
+  ChipsFormControlExample,
 ];
 
 @NgModule({
@@ -33,6 +40,7 @@ const EXAMPLES = [
     CommonModule,
     DragDropModule,
     MatAutocompleteModule,
+    MatButtonModule,
     MatChipsModule,
     MatIconModule,
     MatFormFieldModule,
@@ -40,6 +48,7 @@ const EXAMPLES = [
   ],
   declarations: EXAMPLES,
   exports: EXAMPLES,
+  entryComponents: EXAMPLES,
 })
 export class ChipsExamplesModule {
 }

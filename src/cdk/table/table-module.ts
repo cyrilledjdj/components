@@ -6,18 +6,26 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {CommonModule} from '@angular/common';
 import {NgModule} from '@angular/core';
-import {HeaderRowOutlet, DataRowOutlet, CdkTable, FooterRowOutlet} from './table';
+import {
+  HeaderRowOutlet,
+  DataRowOutlet,
+  CdkTable,
+  CdkRecycleRows,
+  FooterRowOutlet,
+  NoDataRowOutlet,
+} from './table';
 import {
   CdkCellOutlet, CdkFooterRow, CdkFooterRowDef, CdkHeaderRow, CdkHeaderRowDef, CdkRow,
-  CdkRowDef
+  CdkRowDef,
+  CdkNoDataRow
 } from './row';
 import {
   CdkColumnDef, CdkHeaderCellDef, CdkHeaderCell, CdkCell, CdkCellDef,
   CdkFooterCellDef, CdkFooterCell
 } from './cell';
 import {CdkTextColumn} from './text-column';
+import {ScrollingModule} from '@angular/cdk/scrolling';
 
 const EXPORTED_DECLARATIONS = [
   CdkTable,
@@ -39,12 +47,14 @@ const EXPORTED_DECLARATIONS = [
   HeaderRowOutlet,
   FooterRowOutlet,
   CdkTextColumn,
+  CdkNoDataRow,
+  CdkRecycleRows,
+  NoDataRowOutlet,
 ];
 
 @NgModule({
-  imports: [CommonModule],
   exports: EXPORTED_DECLARATIONS,
-  declarations: EXPORTED_DECLARATIONS
-
+  declarations: EXPORTED_DECLARATIONS,
+  imports: [ScrollingModule]
 })
 export class CdkTableModule { }

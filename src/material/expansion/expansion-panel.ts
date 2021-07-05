@@ -11,6 +11,7 @@ import {CdkAccordionItem} from '@angular/cdk/accordion';
 import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
 import {UniqueSelectionDispatcher} from '@angular/cdk/collections';
 import {TemplatePortal} from '@angular/cdk/portal';
+import {DOCUMENT} from '@angular/common';
 import {
   AfterContentInit,
   ChangeDetectionStrategy,
@@ -18,28 +19,27 @@ import {
   Component,
   ContentChild,
   Directive,
-  EventEmitter,
   ElementRef,
-  Input,
+  EventEmitter,
   Inject,
+  InjectionToken,
+  Input,
   OnChanges,
   OnDestroy,
   Optional,
   Output,
   SimpleChanges,
   SkipSelf,
+  ViewChild,
   ViewContainerRef,
   ViewEncapsulation,
-  ViewChild,
-  InjectionToken,
 } from '@angular/core';
-import {DOCUMENT} from '@angular/common';
 import {ANIMATION_MODULE_TYPE} from '@angular/platform-browser/animations';
 import {Subject} from 'rxjs';
-import {filter, startWith, take, distinctUntilChanged} from 'rxjs/operators';
+import {distinctUntilChanged, filter, startWith, take} from 'rxjs/operators';
+import {MatAccordionBase, MatAccordionTogglePosition, MAT_ACCORDION} from './accordion-base';
 import {matExpansionAnimations} from './expansion-animations';
 import {MatExpansionPanelContent} from './expansion-panel-content';
-import {MAT_ACCORDION, MatAccordionBase, MatAccordionTogglePosition} from './accordion-base';
 
 /** MatExpansionPanel's states. */
 export type MatExpansionPanelState = 'expanded' | 'collapsed';
@@ -70,16 +70,14 @@ export const MAT_EXPANSION_PANEL_DEFAULT_OPTIONS =
     new InjectionToken<MatExpansionPanelDefaultOptions>('MAT_EXPANSION_PANEL_DEFAULT_OPTIONS');
 
 /**
- * `<mat-expansion-panel>`
- *
  * This component can be used as a single element to show expandable content, or as one of
  * multiple children of an element with the MatAccordion directive attached.
  */
 @Component({
-  styleUrls: ['./expansion-panel.css'],
+  styleUrls: ['expansion-panel.css'],
   selector: 'mat-expansion-panel',
   exportAs: 'matExpansionPanel',
-  templateUrl: './expansion-panel.html',
+  templateUrl: 'expansion-panel.html',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   inputs: ['disabled', 'expanded'],
@@ -122,16 +120,16 @@ export class MatExpansionPanel extends CdkAccordionItem implements AfterContentI
   }
 
   /** An event emitted after the body's expansion animation happens. */
-  @Output() afterExpand = new EventEmitter<void>();
+  @Output() readonly afterExpand = new EventEmitter<void>();
 
   /** An event emitted after the body's collapse animation happens. */
-  @Output() afterCollapse = new EventEmitter<void>();
+  @Output() readonly afterCollapse = new EventEmitter<void>();
 
   /** Stream that emits for changes in `@Input` properties. */
   readonly _inputChanges = new Subject<SimpleChanges>();
 
   /** Optionally defined accordion the expansion panel belongs to. */
-  accordion: MatAccordionBase;
+  override accordion: MatAccordionBase;
 
   /** Content that will be rendered lazily. */
   @ContentChild(MatExpansionPanelContent) _lazyContent: MatExpansionPanelContent;
@@ -146,7 +144,7 @@ export class MatExpansionPanel extends CdkAccordionItem implements AfterContentI
   _headerId = `mat-expansion-panel-header-${uniqueId++}`;
 
   /** Stream of body animation done events. */
-  _bodyAnimationDone = new Subject<AnimationEvent>();
+  readonly _bodyAnimationDone = new Subject<AnimationEvent>();
 
   constructor(@Optional() @SkipSelf() @Inject(MAT_ACCORDION) accordion: MatAccordionBase,
               _changeDetectorRef: ChangeDetectorRef,
@@ -192,11 +190,26 @@ export class MatExpansionPanel extends CdkAccordionItem implements AfterContentI
     return this.expanded ? 'expanded' : 'collapsed';
   }
 
+  /** Toggles the expanded state of the expansion panel. */
+  override toggle(): void {
+    this.expanded = !this.expanded;
+  }
+
+  /** Sets the expanded state of the expansion panel to false. */
+  override close(): void {
+    this.expanded = false;
+  }
+
+  /** Sets the expanded state of the expansion panel to true. */
+  override open(): void {
+    this.expanded = true;
+  }
+
   ngAfterContentInit() {
     if (this._lazyContent) {
       // Render the content as soon as the panel becomes open.
       this.opened.pipe(
-        startWith(null!),
+        startWith(null),
         filter(() => this.expanded && !this._portal),
         take(1)
       ).subscribe(() => {
@@ -209,7 +222,7 @@ export class MatExpansionPanel extends CdkAccordionItem implements AfterContentI
     this._inputChanges.next(changes);
   }
 
-  ngOnDestroy() {
+  override ngOnDestroy() {
     super.ngOnDestroy();
     this._bodyAnimationDone.complete();
     this._inputChanges.complete();
@@ -227,10 +240,11 @@ export class MatExpansionPanel extends CdkAccordionItem implements AfterContentI
   }
 
   static ngAcceptInputType_hideToggle: BooleanInput;
-  static ngAcceptInputType_expanded: BooleanInput;
-  static ngAcceptInputType_disabled: BooleanInput;
 }
 
+/**
+ * Actions of a `<mat-expansion-panel>`.
+ */
 @Directive({
   selector: 'mat-action-row',
   host: {

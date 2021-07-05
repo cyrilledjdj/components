@@ -29,15 +29,12 @@ import {
   OnDestroy,
 } from '@angular/core';
 import {
-  CanColor, CanColorCtor,
-  FloatLabelType,
-  LabelOptions,
-  MAT_LABEL_GLOBAL_OPTIONS,
+  CanColor,
   mixinColor,
 } from '@angular/material/core';
 import {fromEvent, merge, Subject} from 'rxjs';
 import {startWith, take, takeUntil} from 'rxjs/operators';
-import {MatError} from './error';
+import {MAT_ERROR, MatError} from './error';
 import {matFormFieldAnimations} from './form-field-animations';
 import {MatFormFieldControl} from './form-field-control';
 import {
@@ -45,11 +42,11 @@ import {
   getMatFormFieldMissingControlError,
   getMatFormFieldPlaceholderConflictError,
 } from './form-field-errors';
-import {MatHint} from './hint';
+import {_MAT_HINT, MatHint} from './hint';
 import {MatLabel} from './label';
 import {MatPlaceholder} from './placeholder';
-import {MatPrefix} from './prefix';
-import {MatSuffix} from './suffix';
+import {MAT_PREFIX, MatPrefix} from './prefix';
+import {MAT_SUFFIX, MatSuffix} from './suffix';
 import {Platform} from '@angular/cdk/platform';
 import {NgControl} from '@angular/forms';
 import {ANIMATION_MODULE_TYPE} from '@angular/platform-browser/animations';
@@ -64,24 +61,15 @@ const outlineGapPadding = 5;
  * Boilerplate for applying mixins to MatFormField.
  * @docs-private
  */
-class MatFormFieldBase {
-  constructor(public _elementRef: ElementRef) { }
-}
+const _MatFormFieldBase = mixinColor(class {
+  constructor(public _elementRef: ElementRef) {}
+}, 'primary');
 
-/**
- * Base class to which we're applying the form field mixins.
- * @docs-private
- */
-const _MatFormFieldMixinBase: CanColorCtor & typeof MatFormFieldBase =
-    mixinColor(MatFormFieldBase, 'primary');
-
-/**
- * Possible appearance styles for the form field.
- *
- * Note: The `legacy` and `standard` appearances are deprecated. Please use `fill` or `outline`.
- * @breaking-change 11.0.0 Remove `legacy` and `standard`.
- */
+/** Possible appearance styles for the form field. */
 export type MatFormFieldAppearance = 'legacy' | 'standard' | 'fill' | 'outline';
+
+/** Possible values for the "floatLabel" form-field input. */
+export type FloatLabelType = 'always' | 'never' | 'auto';
 
 /**
  * Represents the default options for the form field that can be configured
@@ -90,6 +78,11 @@ export type MatFormFieldAppearance = 'legacy' | 'standard' | 'fill' | 'outline';
 export interface MatFormFieldDefaultOptions {
   appearance?: MatFormFieldAppearance;
   hideRequiredMarker?: boolean;
+  /**
+   * Whether the label for form-fields should by default float `always`,
+   * `never`, or `auto` (only when necessary).
+   */
+  floatLabel?: FloatLabelType;
 }
 
 /**
@@ -99,6 +92,12 @@ export interface MatFormFieldDefaultOptions {
 export const MAT_FORM_FIELD_DEFAULT_OPTIONS =
     new InjectionToken<MatFormFieldDefaultOptions>('MAT_FORM_FIELD_DEFAULT_OPTIONS');
 
+/**
+ * Injection token that can be used to inject an instances of `MatFormField`. It serves
+ * as alternative token to the actual `MatFormField` class which would cause unnecessary
+ * retention of the `MatFormField` class and its component metadata.
+ */
+export const MAT_FORM_FIELD = new InjectionToken<MatFormField>('MatFormField');
 
 /** Container for form controls that applies Material Design styling and behavior. */
 @Component({
@@ -124,15 +123,13 @@ export const MAT_FORM_FIELD_DEFAULT_OPTIONS =
     '[class.mat-form-field-appearance-outline]': 'appearance == "outline"',
     '[class.mat-form-field-appearance-legacy]': 'appearance == "legacy"',
     '[class.mat-form-field-invalid]': '_control.errorState',
-    '[class.mat-form-field-can-float]': '_canLabelFloat',
+    '[class.mat-form-field-can-float]': '_canLabelFloat()',
     '[class.mat-form-field-should-float]': '_shouldLabelFloat()',
     '[class.mat-form-field-has-label]': '_hasFloatingLabel()',
     '[class.mat-form-field-hide-placeholder]': '_hideControlPlaceholder()',
     '[class.mat-form-field-disabled]': '_control.disabled',
     '[class.mat-form-field-autofilled]': '_control.autofilled',
     '[class.mat-focused]': '_control.focused',
-    '[class.mat-accent]': 'color == "accent"',
-    '[class.mat-warn]': 'color == "warn"',
     '[class.ng-untouched]': '_shouldForward("untouched")',
     '[class.ng-touched]': '_shouldForward("touched")',
     '[class.ng-pristine]': '_shouldForward("pristine")',
@@ -145,11 +142,13 @@ export const MAT_FORM_FIELD_DEFAULT_OPTIONS =
   inputs: ['color'],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [
+    {provide: MAT_FORM_FIELD, useExisting: MatFormField},
+  ]
 })
 
-export class MatFormField extends _MatFormFieldMixinBase
+export class MatFormField extends _MatFormFieldBase
     implements AfterContentInit, AfterContentChecked, AfterViewInit, OnDestroy, CanColor {
-  private _labelOptions: LabelOptions;
 
   /**
    * Whether the outline gap needs to be calculated
@@ -160,7 +159,7 @@ export class MatFormField extends _MatFormFieldMixinBase
   /** Whether the outline gap needs to be calculated next time the zone has stabilized. */
   private _outlineGapCalculationNeededOnStable = false;
 
-  private _destroyed = new Subject<void>();
+  private readonly _destroyed = new Subject<void>();
 
   /** The form-field appearance style. */
   @Input()
@@ -188,12 +187,12 @@ export class MatFormField extends _MatFormFieldMixinBase
   private _showAlwaysAnimate = false;
 
   /** Whether the floating label should always float or not. */
-  get _shouldAlwaysFloat(): boolean {
+  _shouldAlwaysFloat(): boolean {
     return this.floatLabel === 'always' && !this._showAlwaysAnimate;
   }
 
   /** Whether the label can float or not. */
-  get _canLabelFloat(): boolean { return this.floatLabel !== 'never'; }
+  _canLabelFloat(): boolean { return this.floatLabel !== 'never'; }
 
   /** State of the mat-hint and mat-error animations. */
   _subscriptAnimationState: string = '';
@@ -208,10 +207,10 @@ export class MatFormField extends _MatFormFieldMixinBase
   private _hintLabel = '';
 
   // Unique id for the hint label.
-  _hintLabelId: string = `mat-hint-${nextUniqueId++}`;
+  readonly _hintLabelId: string = `mat-hint-${nextUniqueId++}`;
 
-  // Unique id for the internal form field label.
-  _labelId = `mat-form-field-label-${nextUniqueId++}`;
+  // Unique id for the label element.
+  readonly _labelId = `mat-form-field-label-${nextUniqueId++}`;
 
   /**
    * Whether the label should always float, never float or float as the user types.
@@ -227,7 +226,7 @@ export class MatFormField extends _MatFormFieldMixinBase
   }
   set floatLabel(value: FloatLabelType) {
     if (value !== this._floatLabel) {
-      this._floatLabel = value || this._labelOptions.float || 'auto';
+      this._floatLabel = value || this._getDefaultFloatLabelState();
       this._changeDetectorRef.markForCheck();
     }
   }
@@ -244,13 +243,13 @@ export class MatFormField extends _MatFormFieldMixinBase
 
   @ViewChild('connectionContainer', {static: true}) _connectionContainerRef: ElementRef;
   @ViewChild('inputContainer') _inputContainerRef: ElementRef;
-  @ViewChild('label') private _label: ElementRef;
+  @ViewChild('label') private _label: ElementRef<HTMLElement>;
 
   @ContentChild(MatFormFieldControl) _controlNonStatic: MatFormFieldControl<any>;
   @ContentChild(MatFormFieldControl, {static: true}) _controlStatic: MatFormFieldControl<any>;
   get _control() {
-    // TODO(crisbeto): we need this hacky workaround in order to support both Ivy
-    // and ViewEngine. We should clean this up once Ivy is the default renderer.
+    // TODO(crisbeto): we need this workaround in order to support both Ivy and ViewEngine.
+    //  We should clean this up once Ivy is the default renderer.
     return this._explicitFormFieldControl || this._controlNonStatic || this._controlStatic;
   }
   set _control(value) {
@@ -260,33 +259,42 @@ export class MatFormField extends _MatFormFieldMixinBase
 
   @ContentChild(MatLabel) _labelChildNonStatic: MatLabel;
   @ContentChild(MatLabel, {static: true}) _labelChildStatic: MatLabel;
-  get _labelChild() {
-    return this._labelChildNonStatic || this._labelChildStatic;
-  }
-
   @ContentChild(MatPlaceholder) _placeholderChild: MatPlaceholder;
-  @ContentChildren(MatError, {descendants: true}) _errorChildren: QueryList<MatError>;
-  @ContentChildren(MatHint, {descendants: true}) _hintChildren: QueryList<MatHint>;
-  @ContentChildren(MatPrefix, {descendants: true}) _prefixChildren: QueryList<MatPrefix>;
-  @ContentChildren(MatSuffix, {descendants: true}) _suffixChildren: QueryList<MatSuffix>;
+
+  @ContentChildren(MAT_ERROR, {descendants: true}) _errorChildren: QueryList<MatError>;
+  @ContentChildren(_MAT_HINT, {descendants: true}) _hintChildren: QueryList<MatHint>;
+  @ContentChildren(MAT_PREFIX, {descendants: true}) _prefixChildren: QueryList<MatPrefix>;
+  @ContentChildren(MAT_SUFFIX, {descendants: true}) _suffixChildren: QueryList<MatSuffix>;
 
   constructor(
-      public _elementRef: ElementRef, private _changeDetectorRef: ChangeDetectorRef,
-      @Optional() @Inject(MAT_LABEL_GLOBAL_OPTIONS) labelOptions: LabelOptions,
+      elementRef: ElementRef, private _changeDetectorRef: ChangeDetectorRef,
+      /**
+       * @deprecated `_labelOptions` parameter no longer being used. To be removed.
+       * @breaking-change 12.0.0
+       */
+      @Inject(ElementRef)
+          // Use `ElementRef` here so Angular has something to inject.
+          _labelOptions: any,
       @Optional() private _dir: Directionality,
       @Optional() @Inject(MAT_FORM_FIELD_DEFAULT_OPTIONS) private _defaults:
           MatFormFieldDefaultOptions, private _platform: Platform, private _ngZone: NgZone,
       @Optional() @Inject(ANIMATION_MODULE_TYPE) _animationMode: string) {
-    super(_elementRef);
+    super(elementRef);
 
-    this._labelOptions = labelOptions ? labelOptions : {};
-    this.floatLabel = this._labelOptions.float || 'auto';
+    this.floatLabel = this._getDefaultFloatLabelState();
     this._animationsEnabled = _animationMode !== 'NoopAnimations';
 
     // Set the default through here so we invoke the setter on the first run.
     this.appearance = (_defaults && _defaults.appearance) ? _defaults.appearance : 'legacy';
     this._hideRequiredMarker = (_defaults && _defaults.hideRequiredMarker != null) ?
         _defaults.hideRequiredMarker : false;
+  }
+
+  /**
+   * Gets the id of the label element. If no label is present, returns `null`.
+   */
+  getLabelId(): string|null {
+    return this._hasFloatingLabel() ? this._labelId : null;
   }
 
   /**
@@ -307,7 +315,7 @@ export class MatFormField extends _MatFormFieldMixinBase
     }
 
     // Subscribe to changes in the child control state in order to update the form field UI.
-    control.stateChanges.pipe(startWith(null!)).subscribe(() => {
+    control.stateChanges.pipe(startWith(null)).subscribe(() => {
       this._validatePlaceholders();
       this._syncDescribedByIds();
       this._changeDetectorRef.markForCheck();
@@ -324,7 +332,7 @@ export class MatFormField extends _MatFormFieldMixinBase
     // in order to avoid throwing users into an infinite loop
     // if `zone-patch-rxjs` is included.
     this._ngZone.runOutsideAngular(() => {
-      this._ngZone.onStable.asObservable().pipe(takeUntil(this._destroyed)).subscribe(() => {
+      this._ngZone.onStable.pipe(takeUntil(this._destroyed)).subscribe(() => {
         if (this._outlineGapCalculationNeededOnStable) {
           this.updateOutlineGap();
         }
@@ -391,11 +399,12 @@ export class MatFormField extends _MatFormFieldMixinBase
   }
 
   _hasLabel() {
-    return !!this._labelChild;
+    return !!(this._labelChildNonStatic || this._labelChildStatic);
   }
 
   _shouldLabelFloat() {
-    return this._canLabelFloat && (this._control.shouldLabelFloat || this._shouldAlwaysFloat);
+    return this._canLabelFloat() &&
+        ((this._control && this._control.shouldLabelFloat) || this._shouldAlwaysFloat());
   }
 
   _hideControlPlaceholder() {
@@ -417,10 +426,10 @@ export class MatFormField extends _MatFormFieldMixinBase
 
   /** Animates the placeholder up and locks it in position. */
   _animateAndLockLabel(): void {
-    if (this._hasFloatingLabel() && this._canLabelFloat) {
+    if (this._hasFloatingLabel() && this._canLabelFloat()) {
       // If animations are disabled, we shouldn't go in here,
       // because the `transitionend` will never fire.
-      if (this._animationsEnabled) {
+      if (this._animationsEnabled && this._label) {
         this._showAlwaysAnimate = true;
 
         fromEvent(this._label.nativeElement, 'transitionend').pipe(take(1)).subscribe(() => {
@@ -438,7 +447,8 @@ export class MatFormField extends _MatFormFieldMixinBase
    * or child element with the `mat-placeholder` directive).
    */
   private _validatePlaceholders() {
-    if (this._control.placeholder && this._placeholderChild) {
+    if (this._control.placeholder && this._placeholderChild &&
+      (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw getMatFormFieldPlaceholderConflictError();
     }
   }
@@ -454,7 +464,7 @@ export class MatFormField extends _MatFormFieldMixinBase
    * attribute being considered as `align="start"`.
    */
   private _validateHints() {
-    if (this._hintChildren) {
+    if (this._hintChildren && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       let startHint: MatHint;
       let endHint: MatHint;
       this._hintChildren.forEach((hint: MatHint) => {
@@ -473,6 +483,11 @@ export class MatFormField extends _MatFormFieldMixinBase
     }
   }
 
+  /** Gets the default float label state. */
+  private _getDefaultFloatLabelState(): FloatLabelType {
+    return (this._defaults && this._defaults.floatLabel) || 'auto';
+  }
+
   /**
    * Sets the list of element IDs that describe the child control. This allows the control to update
    * its `aria-describedby` attribute accordingly.
@@ -480,6 +495,12 @@ export class MatFormField extends _MatFormFieldMixinBase
   private _syncDescribedByIds() {
     if (this._control) {
       let ids: string[] = [];
+
+      // TODO(wagnermaciel): Remove the type check when we find the root cause of this bug.
+      if (this._control.userAriaDescribedBy &&
+        typeof this._control.userAriaDescribedBy === 'string') {
+        ids.push(...this._control.userAriaDescribedBy.split(' '));
+      }
 
       if (this._getDisplayedMessages() === 'hint') {
         const startHint = this._hintChildren ?
@@ -497,7 +518,7 @@ export class MatFormField extends _MatFormFieldMixinBase
           ids.push(endHint.id);
         }
       } else if (this._errorChildren) {
-        ids = this._errorChildren.map(error => error.id);
+        ids.push(...this._errorChildren.map(error => error.id));
       }
 
       this._control.setDescribedByIds(ids);
@@ -506,7 +527,7 @@ export class MatFormField extends _MatFormFieldMixinBase
 
   /** Throws an error if the form field's control is missing. */
   protected _validateControlChild() {
-    if (!this._control) {
+    if (!this._control && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw getMatFormFieldMissingControlError();
     }
   }
@@ -519,7 +540,7 @@ export class MatFormField extends _MatFormFieldMixinBase
     const labelEl = this._label ? this._label.nativeElement : null;
 
     if (this.appearance !== 'outline' || !labelEl || !labelEl.children.length ||
-        !labelEl.textContent.trim()) {
+        !labelEl.textContent!.trim()) {
       return;
     }
 
@@ -557,21 +578,22 @@ export class MatFormField extends _MatFormFieldMixinBase
       }
 
       const containerStart = this._getStartEnd(containerRect);
-      const labelStart = this._getStartEnd(labelEl.children[0].getBoundingClientRect());
+      const labelChildren = labelEl.children;
+      const labelStart = this._getStartEnd(labelChildren[0].getBoundingClientRect());
       let labelWidth = 0;
 
-      for (const child of labelEl.children) {
-        labelWidth += child.offsetWidth;
+      for (let i = 0; i < labelChildren.length; i++) {
+        labelWidth += (labelChildren[i] as HTMLElement).offsetWidth;
       }
-      startWidth = labelStart - containerStart - outlineGapPadding;
+      startWidth = Math.abs(labelStart - containerStart) - outlineGapPadding;
       gapWidth = labelWidth > 0 ? labelWidth * floatingLabelScale + outlineGapPadding * 2 : 0;
     }
 
     for (let i = 0; i < startEls.length; i++) {
-      startEls.item(i).style.width = `${startWidth}px`;
+      startEls[i].style.width = `${startWidth}px`;
     }
     for (let i = 0; i < gapEls.length; i++) {
-      gapEls.item(i).style.width = `${gapWidth}px`;
+      gapEls[i].style.width = `${gapWidth}px`;
     }
 
     this._outlineGapCalculationNeededOnStable =

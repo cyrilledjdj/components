@@ -4,7 +4,7 @@
                [disablePagination]="disablePagination"
                (indexFocused)="_focusChanged($event)"
                (selectFocusedIndex)="selectedIndex = $event">
-  <div class="mat-tab-label" role="tab" matTabLabelWrapper mat-ripple cdkMonitorElementFocus
+  <div class="mat-tab-label mat-focus-indicator" role="tab" matTabLabelWrapper mat-ripple cdkMonitorElementFocus
        *ngFor="let tab of _tabs; let i = index"
        [id]="_getTabLabelId(i)"
        [attr.tabIndex]="_getTabIndex(tab, i)"
@@ -17,7 +17,8 @@
        [class.mat-tab-label-active]="selectedIndex == i"
        [disabled]="tab.disabled"
        [matRippleDisabled]="tab.disabled || disableRipple"
-       (click)="_handleClick(tab, tabHeader, i)">
+       (click)="_handleClick(tab, tabHeader, i)"
+       (cdkFocusChange)="_tabFocusChanged($event, i)">
 
 
     <div class="mat-tab-label-content">
@@ -39,8 +40,9 @@
   <mat-tab-body role="tabpanel"
                *ngFor="let tab of _tabs; let i = index"
                [id]="_getTabContentId(i)"
+               [attr.tabindex]="(contentTabIndex != null && selectedIndex === i) ? contentTabIndex : null"
                [attr.aria-labelledby]="_getTabLabelId(i)"
-               [class.mat-tab-body-active]="selectedIndex == i"
+               [class.mat-tab-body-active]="selectedIndex === i"
                [content]="tab.content!"
                [position]="tab.position!"
                [origin]="tab.origin"

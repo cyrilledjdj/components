@@ -7,14 +7,14 @@
  */
 
 import {
-  ComponentHarness,
   HarnessPredicate,
   ComponentHarnessConstructor,
+  ContentContainerComponentHarness
 } from '@angular/cdk/testing';
 import {CellHarnessFilters} from './table-harness-filters';
 
 /** Harness for interacting with a standard Angular Material table cell. */
-export class MatCellHarness extends ComponentHarness {
+export class MatCellHarness extends ContentContainerComponentHarness {
   /** The selector for the host element of a `MatCellHarness` instance. */
   static hostSelector = '.mat-cell';
 
@@ -24,7 +24,7 @@ export class MatCellHarness extends ComponentHarness {
    * @return a `HarnessPredicate` configured with the given options.
    */
   static with(options: CellHarnessFilters = {}): HarnessPredicate<MatCellHarness> {
-    return getCellPredicate(MatCellHarness, options);
+    return MatCellHarness._getCellPredicate(MatCellHarness, options);
   }
 
   /** Gets the cell's text. */
@@ -48,12 +48,22 @@ export class MatCellHarness extends ComponentHarness {
 
     throw Error('Could not determine column name of cell.');
   }
+
+  protected static _getCellPredicate<T extends MatCellHarness>(
+    type: ComponentHarnessConstructor<T>,
+    options: CellHarnessFilters): HarnessPredicate<T> {
+    return new HarnessPredicate(type, options)
+      .addOption('text', options.text,
+          (harness, text) => HarnessPredicate.stringMatches(harness.getText(), text))
+      .addOption('columnName', options.columnName,
+          (harness, name) => HarnessPredicate.stringMatches(harness.getColumnName(), name));
+  }
 }
 
 /** Harness for interacting with a standard Angular Material table header cell. */
 export class MatHeaderCellHarness extends MatCellHarness {
   /** The selector for the host element of a `MatHeaderCellHarness` instance. */
-  static hostSelector = '.mat-header-cell';
+  static override hostSelector = '.mat-header-cell';
 
   /**
    * Gets a `HarnessPredicate` that can be used to search for
@@ -61,15 +71,15 @@ export class MatHeaderCellHarness extends MatCellHarness {
    * @param options Options for narrowing the search
    * @return a `HarnessPredicate` configured with the given options.
    */
-  static with(options: CellHarnessFilters = {}): HarnessPredicate<MatHeaderCellHarness> {
-    return getCellPredicate(MatHeaderCellHarness, options);
+  static override with(options: CellHarnessFilters = {}): HarnessPredicate<MatHeaderCellHarness> {
+    return MatHeaderCellHarness._getCellPredicate(MatHeaderCellHarness, options);
   }
 }
 
 /** Harness for interacting with a standard Angular Material table footer cell. */
 export class MatFooterCellHarness extends MatCellHarness {
   /** The selector for the host element of a `MatFooterCellHarness` instance. */
-  static hostSelector = '.mat-footer-cell';
+  static override hostSelector = '.mat-footer-cell';
 
   /**
    * Gets a `HarnessPredicate` that can be used to search for
@@ -77,16 +87,7 @@ export class MatFooterCellHarness extends MatCellHarness {
    * @param options Options for narrowing the search
    * @return a `HarnessPredicate` configured with the given options.
    */
-  static with(options: CellHarnessFilters = {}): HarnessPredicate<MatFooterCellHarness> {
-    return getCellPredicate(MatFooterCellHarness, options);
+  static override with(options: CellHarnessFilters = {}): HarnessPredicate<MatFooterCellHarness> {
+    return MatFooterCellHarness._getCellPredicate(MatFooterCellHarness, options);
   }
-}
-
-
-function getCellPredicate<T extends MatCellHarness>(
-  type: ComponentHarnessConstructor<T>,
-  options: CellHarnessFilters): HarnessPredicate<T> {
-  return new HarnessPredicate(type, options)
-    .addOption('text', options.text,
-        (harness, text) => HarnessPredicate.stringMatches(harness.getText(), text));
 }

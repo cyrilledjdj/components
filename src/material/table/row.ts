@@ -6,7 +6,6 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {BooleanInput} from '@angular/cdk/coercion';
 import {
   CDK_ROW_TEMPLATE,
   CdkFooterRow,
@@ -14,7 +13,8 @@ import {
   CdkHeaderRow,
   CdkHeaderRowDef,
   CdkRow,
-  CdkRowDef
+  CdkRowDef,
+  CdkNoDataRow
 } from '@angular/cdk/table';
 import {ChangeDetectionStrategy, Component, Directive, ViewEncapsulation} from '@angular/core';
 
@@ -27,9 +27,7 @@ import {ChangeDetectionStrategy, Component, Directive, ViewEncapsulation} from '
   providers: [{provide: CdkHeaderRowDef, useExisting: MatHeaderRowDef}],
   inputs: ['columns: matHeaderRowDef', 'sticky: matHeaderRowDefSticky'],
 })
-export class MatHeaderRowDef extends CdkHeaderRowDef {
-  static ngAcceptInputType_sticky: BooleanInput;
-}
+export class MatHeaderRowDef extends CdkHeaderRowDef {}
 
 /**
  * Footer row definition for the mat-table.
@@ -40,9 +38,7 @@ export class MatHeaderRowDef extends CdkHeaderRowDef {
   providers: [{provide: CdkFooterRowDef, useExisting: MatFooterRowDef}],
   inputs: ['columns: matFooterRowDef', 'sticky: matFooterRowDefSticky'],
 })
-export class MatFooterRowDef extends CdkFooterRowDef {
-  static ngAcceptInputType_sticky: BooleanInput;
-}
+export class MatFooterRowDef extends CdkFooterRowDef {}
 
 /**
  * Data row definition for the mat-table.
@@ -57,7 +53,7 @@ export class MatFooterRowDef extends CdkFooterRowDef {
 export class MatRowDef<T> extends CdkRowDef<T> {
 }
 
-/** Footer template container that contains the cell outlet. Adds the right class and role. */
+/** Header template container that contains the cell outlet. Adds the right class and role. */
 @Component({
   selector: 'mat-header-row, tr[mat-header-row]',
   template: CDK_ROW_TEMPLATE,
@@ -109,4 +105,12 @@ export class MatFooterRow extends CdkFooterRow {
   providers: [{provide: CdkRow, useExisting: MatRow}],
 })
 export class MatRow extends CdkRow {
+}
+
+/** Row that can be used to display a message when no data is shown in the table. */
+@Directive({
+  selector: 'ng-template[matNoDataRow]',
+  providers: [{provide: CdkNoDataRow, useExisting: MatNoDataRow}],
+})
+export class MatNoDataRow extends CdkNoDataRow {
 }

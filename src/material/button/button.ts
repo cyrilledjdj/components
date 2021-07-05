@@ -18,14 +18,12 @@ import {
   Optional,
   Inject,
   Input,
+  AfterViewInit,
 } from '@angular/core';
 import {
   CanColor,
   CanDisable,
   CanDisableRipple,
-  CanColorCtor,
-  CanDisableCtor,
-  CanDisableRippleCtor,
   MatRipple,
   mixinColor,
   mixinDisabled,
@@ -51,13 +49,9 @@ const BUTTON_HOST_ATTRIBUTES = [
 ];
 
 // Boilerplate for applying mixins to MatButton.
-/** @docs-private */
-class MatButtonBase {
+const _MatButtonBase = mixinColor(mixinDisabled(mixinDisableRipple(class {
   constructor(public _elementRef: ElementRef) {}
-}
-
-const _MatButtonMixinBase: CanDisableRippleCtor & CanDisableCtor & CanColorCtor &
-    typeof MatButtonBase = mixinColor(mixinDisabled(mixinDisableRipple(MatButtonBase)));
+})));
 
 /**
  * Material design button.
@@ -70,6 +64,11 @@ const _MatButtonMixinBase: CanDisableRippleCtor & CanDisableCtor & CanColorCtor 
   host: {
     '[attr.disabled]': 'disabled || null',
     '[class._mat-animation-noopable]': '_animationMode === "NoopAnimations"',
+    // Add a class for disabled button styling instead of the using attribute
+    // selector or pseudo-selector.  This allows users to create focusabled
+    // disabled buttons without recreating the styles.
+    '[class.mat-button-disabled]': 'disabled',
+    'class': 'mat-focus-indicator',
   },
   templateUrl: 'button.html',
   styleUrls: ['button.css'],
@@ -77,8 +76,8 @@ const _MatButtonMixinBase: CanDisableRippleCtor & CanDisableCtor & CanColorCtor 
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class MatButton extends _MatButtonMixinBase
-    implements OnDestroy, CanDisable, CanColor, CanDisableRipple, FocusableOption {
+export class MatButton extends _MatButtonBase
+    implements AfterViewInit, OnDestroy, CanDisable, CanColor, CanDisableRipple, FocusableOption {
 
   /** Whether the button is round. */
   readonly isRoundButton: boolean = this._hasHostAttributes('mat-fab', 'mat-mini-fab');
@@ -107,11 +106,13 @@ export class MatButton extends _MatButtonMixinBase
     // the class is applied to derived classes.
     elementRef.nativeElement.classList.add('mat-button-base');
 
-    this._focusMonitor.monitor(this._elementRef, true);
-
     if (this.isRoundButton) {
       this.color = DEFAULT_ROUND_BUTTON_COLOR;
     }
+  }
+
+  ngAfterViewInit() {
+    this._focusMonitor.monitor(this._elementRef, true);
   }
 
   ngOnDestroy() {
@@ -119,8 +120,12 @@ export class MatButton extends _MatButtonMixinBase
   }
 
   /** Focuses the button. */
-  focus(origin: FocusOrigin = 'program', options?: FocusOptions): void {
-    this._focusMonitor.focusVia(this._getHostElement(), origin, options);
+  focus(origin?: FocusOrigin, options?: FocusOptions): void {
+    if (origin) {
+      this._focusMonitor.focusVia(this._getHostElement(), origin, options);
+    } else {
+      this._getHostElement().focus(options);
+    }
   }
 
   _getHostElement() {
@@ -156,6 +161,8 @@ export class MatButton extends _MatButtonMixinBase
     '[attr.aria-disabled]': 'disabled.toString()',
     '(click)': '_haltDisabledEvents($event)',
     '[class._mat-animation-noopable]': '_animationMode === "NoopAnimations"',
+    '[class.mat-button-disabled]': 'disabled',
+    'class': 'mat-focus-indicator',
   },
   inputs: ['disabled', 'disableRipple', 'color'],
   templateUrl: 'button.html',
@@ -181,7 +188,4 @@ export class MatAnchor extends MatButton {
       event.stopImmediatePropagation();
     }
   }
-
-  static ngAcceptInputType_disabled: BooleanInput;
-  static ngAcceptInputType_disableRipple: BooleanInput;
 }

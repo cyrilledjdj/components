@@ -1,14 +1,10 @@
-package(default_visibility = ["//visibility:public"])
-
 load("@build_bazel_rules_nodejs//:index.bzl", "pkg_web")
-load("@build_bazel_rules_nodejs//internal/common:devmode_js_sources.bzl", "devmode_js_sources")
-load("//src/cdk:config.bzl", "CDK_ENTRYPOINTS")
-load("//src/cdk-experimental:config.bzl", "CDK_EXPERIMENTAL_ENTRYPOINTS")
-load("//src/material:config.bzl", "MATERIAL_ENTRYPOINTS")
-load("//src/material-experimental:config.bzl", "MATERIAL_EXPERIMENTAL_ENTRYPOINTS")
+load("//tools:create-system-config.bzl", "create_system_config")
 load("//tools:defaults.bzl", "ng_module", "sass_binary")
-load("//tools/bazel:expand_template.bzl", "expand_template")
+load("//tools:es5-module-output.bzl", "es5_module_output")
 load("//tools/dev-server:index.bzl", "dev_server")
+
+package(default_visibility = ["//visibility:public"])
 
 ng_module(
     name = "dev-app",
@@ -27,8 +23,13 @@ ng_module(
         "//src/dev-app/button",
         "//src/dev-app/button-toggle",
         "//src/dev-app/card",
+        "//src/dev-app/cdk-experimental-combobox",
+        "//src/dev-app/cdk-experimental-listbox",
+        "//src/dev-app/cdk-experimental-menu",
         "//src/dev-app/checkbox",
         "//src/dev-app/chips",
+        "//src/dev-app/clipboard",
+        "//src/dev-app/column-resize",
         "//src/dev-app/connected-overlay",
         "//src/dev-app/datepicker",
         "//src/dev-app/dev-app",
@@ -44,21 +45,33 @@ ng_module(
         "//src/dev-app/grid-list",
         "//src/dev-app/icon",
         "//src/dev-app/input",
+        "//src/dev-app/input-modality",
+        "//src/dev-app/layout",
         "//src/dev-app/list",
         "//src/dev-app/live-announcer",
+        "//src/dev-app/mdc-autocomplete",
         "//src/dev-app/mdc-button",
         "//src/dev-app/mdc-card",
         "//src/dev-app/mdc-checkbox",
         "//src/dev-app/mdc-chips",
+        "//src/dev-app/mdc-dialog",
+        "//src/dev-app/mdc-input",
+        "//src/dev-app/mdc-list",
         "//src/dev-app/mdc-menu",
+        "//src/dev-app/mdc-paginator",
         "//src/dev-app/mdc-progress-bar",
+        "//src/dev-app/mdc-progress-spinner",
         "//src/dev-app/mdc-radio",
+        "//src/dev-app/mdc-select",
+        "//src/dev-app/mdc-sidenav",
         "//src/dev-app/mdc-slide-toggle",
         "//src/dev-app/mdc-slider",
-        "//src/dev-app/mdc-snackbar",
+        "//src/dev-app/mdc-snack-bar",
         "//src/dev-app/mdc-table",
         "//src/dev-app/mdc-tabs",
+        "//src/dev-app/mdc-tooltip",
         "//src/dev-app/menu",
+        "//src/dev-app/menubar",
         "//src/dev-app/paginator",
         "//src/dev-app/platform",
         "//src/dev-app/popover-edit",
@@ -69,12 +82,14 @@ ng_module(
         "//src/dev-app/ripple",
         "//src/dev-app/screen-type",
         "//src/dev-app/select",
+        "//src/dev-app/selection",
         "//src/dev-app/sidenav",
         "//src/dev-app/slide-toggle",
         "//src/dev-app/slider",
         "//src/dev-app/snack-bar",
         "//src/dev-app/stepper",
         "//src/dev-app/table",
+        "//src/dev-app/table-scroll-container",
         "//src/dev-app/tabs",
         "//src/dev-app/toolbar",
         "//src/dev-app/tooltip",
@@ -83,6 +98,7 @@ ng_module(
         "//src/dev-app/virtual-scroll",
         "//src/dev-app/youtube-player",
         "//src/material/core",
+        "@npm//@angular/localize",
         "@npm//@angular/router",
     ],
 )
@@ -94,25 +110,23 @@ sass_binary(
         "external/npm/node_modules",
     ],
     deps = [
-        "//src/material-experimental/mdc-slider:mdc_slider_scss_lib",
-        "//src/material-experimental/mdc-theming:all_themes",
-        "//src/material-experimental/mdc-typography:all_typography",
-        "//src/material-experimental/popover-edit:popover_edit_scss_lib",
+        "//src/material:theming_bundle",
+        "//src/material-experimental:theming_bundle",
         "//src/material/core:theming_scss_lib",
     ],
 )
 
-expand_template(
+create_system_config(
     name = "system-config",
-    configuration_env_vars = ["angular_ivy_enabled"],
     output_name = "system-config.js",
-    substitutions = {
-        "$CDK_ENTRYPOINTS_TMPL": str(CDK_ENTRYPOINTS),
-        "$CDK_EXPERIMENTAL_ENTRYPOINTS_TMPL": str(CDK_EXPERIMENTAL_ENTRYPOINTS),
-        "$MATERIAL_ENTRYPOINTS_TMPL": str(MATERIAL_ENTRYPOINTS),
-        "$MATERIAL_EXPERIMENTAL_ENTRYPOINTS_TMPL": str(MATERIAL_EXPERIMENTAL_ENTRYPOINTS),
-    },
-    template = "system-config-tmpl.js",
+)
+
+# Variables that are going to be inlined into the dev app index.html.
+filegroup(
+    name = "variables",
+    # Note that we need the * in the pattern, because there's a lint rule which
+    # doesn't allow single files in a `glob`. We have to use a glob, because the file is optional.
+    srcs = glob(["*variables.json"]),
 )
 
 # File group for all static files which are needed to serve the dev-app. These files are
@@ -123,22 +137,23 @@ filegroup(
     srcs = [
         "favicon.ico",
         "index.html",
-        "system-rxjs-operators.js",
         ":system-config",
         ":theme",
+        ":variables",
         "//src/dev-app/icon:icon_demo_assets",
+        "//tools:system-rxjs-operators.js",
         "@npm//:node_modules/@material/animation/dist/mdc.animation.js",
         "@npm//:node_modules/@material/auto-init/dist/mdc.autoInit.js",
         "@npm//:node_modules/@material/base/dist/mdc.base.js",
         "@npm//:node_modules/@material/checkbox/dist/mdc.checkbox.js",
         "@npm//:node_modules/@material/chips/dist/mdc.chips.js",
+        "@npm//:node_modules/@material/circular-progress/dist/mdc.circularProgress.js",
         "@npm//:node_modules/@material/data-table/dist/mdc.dataTable.js",
         "@npm//:node_modules/@material/dialog/dist/mdc.dialog.js",
         "@npm//:node_modules/@material/dom/dist/mdc.dom.js",
         "@npm//:node_modules/@material/drawer/dist/mdc.drawer.js",
         "@npm//:node_modules/@material/floating-label/dist/mdc.floatingLabel.js",
         "@npm//:node_modules/@material/form-field/dist/mdc.formField.js",
-        "@npm//:node_modules/@material/grid-list/dist/mdc.gridList.js",
         "@npm//:node_modules/@material/icon-button/dist/mdc.iconButton.js",
         "@npm//:node_modules/@material/line-ripple/dist/mdc.lineRipple.js",
         "@npm//:node_modules/@material/linear-progress/dist/mdc.linearProgress.js",
@@ -157,9 +172,9 @@ filegroup(
         "@npm//:node_modules/@material/tab-scroller/dist/mdc.tabScroller.js",
         "@npm//:node_modules/@material/tab/dist/mdc.tab.js",
         "@npm//:node_modules/@material/textfield/dist/mdc.textfield.js",
+        "@npm//:node_modules/@material/tooltip/dist/mdc.tooltip.js",
         "@npm//:node_modules/@material/top-app-bar/dist/mdc.topAppBar.js",
-        "@npm//:node_modules/@webcomponents/custom-elements/custom-elements.min.js",
-        "@npm//:node_modules/core-js/client/core.js",
+        "@npm//:node_modules/core-js-bundle/index.js",
         "@npm//:node_modules/moment/min/moment-with-locales.min.js",
         "@npm//:node_modules/rxjs/bundles/rxjs.umd.min.js",
         "@npm//:node_modules/systemjs/dist/system.js",
@@ -185,7 +200,7 @@ dev_server(
 
 # Collects all ES5 JavaScript files which are required to serve the dev-app. By default,
 # ts_library and ng_module targets only expose the type definition files as outputs.
-devmode_js_sources(
+es5_module_output(
     name = "dev_app_js_sources",
     tags = ["manual"],
     deps = [":dev-app"],

@@ -7,7 +7,7 @@
  */
 
 import {NgModule} from '@angular/core';
-import {CommonModule} from '@angular/common';
+import {MatCommonModule} from '@angular/material/core';
 import {CdkEditable, CdkPopoverEditModule} from '@angular/cdk-experimental/popover-edit';
 import {
   MatPopoverEdit,
@@ -34,7 +34,7 @@ const EXPORTED_DECLARATIONS = [
 @NgModule({
   imports: [
     CdkPopoverEditModule,
-    CommonModule,
+    MatCommonModule,
   ],
   exports: [
     ...EXPORTED_DECLARATIONS,

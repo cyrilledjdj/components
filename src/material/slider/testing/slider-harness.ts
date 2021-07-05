@@ -6,14 +6,14 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ComponentHarness, HarnessPredicate} from '@angular/cdk/testing';
+import {ComponentHarness, HarnessPredicate, parallel} from '@angular/cdk/testing';
 import {coerceBooleanProperty, coerceNumberProperty} from '@angular/cdk/coercion';
 import {SliderHarnessFilters} from './slider-harness-filters';
 
 /** Harness for interacting with a standard mat-slider in tests. */
 export class MatSliderHarness extends ComponentHarness {
   /** The selector for the host element of a `MatSlider` instance. */
-  static hostSelector = 'mat-slider';
+  static hostSelector = '.mat-slider';
 
   /**
    * Gets a `HarnessPredicate` that can be used to search for a `MatSliderHarness` that meets
@@ -41,7 +41,7 @@ export class MatSliderHarness extends ComponentHarness {
    * disabled.
    */
   async getDisplayValue(): Promise<string|null> {
-    const [host, textLabel] = await Promise.all([this.host(), this._textLabel()]);
+    const [host, textLabel] = await parallel(() => [this.host(), this._textLabel()]);
     if (await host.hasClass('mat-slider-thumb-label-showing')) {
       return textLabel.text();
     }
@@ -90,7 +90,7 @@ export class MatSliderHarness extends ComponentHarness {
    */
   async setValue(value: number): Promise<void> {
     const [sliderEl, wrapperEl, orientation] =
-        await Promise.all([this.host(), this._wrapper(), this.getOrientation()]);
+        await parallel(() => [this.host(), this._wrapper(), this.getOrientation()]);
     let percentage = await this._calculatePercentage(value);
     const {height, width} = await wrapperEl.getDimensions();
     const isVertical = orientation === 'vertical';
@@ -119,9 +119,14 @@ export class MatSliderHarness extends ComponentHarness {
     return (await this.host()).blur();
   }
 
+  /** Whether the slider is focused. */
+  async isFocused(): Promise<boolean> {
+    return (await this.host()).isFocused();
+  }
+
   /** Calculates the percentage of the given value. */
   private async _calculatePercentage(value: number) {
-    const [min, max] = await Promise.all([this.getMinValue(), this.getMaxValue()]);
+    const [min, max] = await parallel(() => [this.getMinValue(), this.getMaxValue()]);
     return (value - min) / (max - min);
   }
 }

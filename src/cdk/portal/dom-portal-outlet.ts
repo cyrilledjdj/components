@@ -71,6 +71,7 @@ export class DomPortalOutlet extends BasePortalOutlet {
     // At this point the component has been instantiated, so we move it to the location in the DOM
     // where we want it to be rendered.
     this.outletElement.appendChild(this._getComponentRootNode(componentRef));
+    this._attachedPortal = portal;
 
     return componentRef;
   }
@@ -83,7 +84,6 @@ export class DomPortalOutlet extends BasePortalOutlet {
   attachTemplatePortal<C>(portal: TemplatePortal<C>): EmbeddedViewRef<C> {
     let viewContainer = portal.viewContainerRef;
     let viewRef = viewContainer.createEmbeddedView(portal.templateRef, portal.context);
-    viewRef.detectChanges();
 
     // The method `createEmbeddedView` will add the view as a child of the viewContainer.
     // But for the DomPortalOutlet the view can be added everywhere in the DOM
@@ -91,12 +91,19 @@ export class DomPortalOutlet extends BasePortalOutlet {
     // re-append the existing root nodes.
     viewRef.rootNodes.forEach(rootNode => this.outletElement.appendChild(rootNode));
 
+    // Note that we want to detect changes after the nodes have been moved so that
+    // any directives inside the portal that are looking at the DOM inside a lifecycle
+    // hook won't be invoked too early.
+    viewRef.detectChanges();
+
     this.setDisposeFn((() => {
       let index = viewContainer.indexOf(viewRef);
       if (index !== -1) {
         viewContainer.remove(index);
       }
     }));
+
+    this._attachedPortal = portal;
 
     // TODO(jelbourn): Return locals from view.
     return viewRef;
@@ -108,15 +115,15 @@ export class DomPortalOutlet extends BasePortalOutlet {
    * @deprecated To be turned into a method.
    * @breaking-change 10.0.0
    */
-  attachDomPortal = (portal: DomPortal) => {
+  override attachDomPortal = (portal: DomPortal) => {
     // @breaking-change 10.0.0 Remove check and error once the
     // `_document` constructor parameter is required.
-    if (!this._document) {
+    if (!this._document && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw Error('Cannot attach DOM portal without _document constructor parameter');
     }
 
     const element = portal.element;
-    if (!element.parentNode) {
+    if (!element.parentNode && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw Error('DOM portal content must be attached to a parent node.');
     }
 
@@ -124,8 +131,9 @@ export class DomPortalOutlet extends BasePortalOutlet {
     // that we can restore it when the portal is detached.
     const anchorNode = this._document.createComment('dom-portal');
 
-    element.parentNode.insertBefore(anchorNode, element);
+    element.parentNode!.insertBefore(anchorNode, element);
     this.outletElement.appendChild(element);
+    this._attachedPortal = portal;
 
     super.setDisposeFn(() => {
       // We can't use `replaceWith` here because IE doesn't support it.
@@ -138,7 +146,7 @@ export class DomPortalOutlet extends BasePortalOutlet {
   /**
    * Clears out a portal from the DOM.
    */
-  dispose(): void {
+  override dispose(): void {
     super.dispose();
     if (this.outletElement.parentNode != null) {
       this.outletElement.parentNode.removeChild(this.outletElement);

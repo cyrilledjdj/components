@@ -1,7 +1,8 @@
 ---
 name: Troubleshooting
+title: "help(COMPONENT): TITLE"
 about: Request for help on an issue you are facing with Angular Material or the CDK
-labels: troubleshooting
+labels: troubleshooting, needs triage
 ---
 
 <!--------
@@ -34,7 +35,9 @@ What are you seeing that does not match your expectations?
 
 We can only help if we can reproduce the problem ourselves. 
 
-Use StackBlitz to demonstrate what you are trying to do: https://stackblitz.com/fork/components-issue 
+Use StackBlitz to demonstrate what you are trying to do: 
+- Components: https://stackblitz.com/fork/components-issue 
+- Harnesses: https://stackblitz.com/fork/harness-issue
 
 Steps to reproduce:
 1. 

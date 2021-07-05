@@ -1,15 +1,18 @@
-package(default_visibility = ["//visibility:public"])
-
 load("//tools:defaults.bzl", "ng_module", "ng_package", "ng_test_library", "ng_web_test_suite")
+
+package(default_visibility = ["//visibility:public"])
 
 ng_module(
     name = "google-maps",
     srcs = glob(
         ["**/*.ts"],
-        exclude = ["**/*.spec.ts"],
+        exclude = [
+            "**/*.spec.ts",
+        ],
     ),
     module_name = "@angular/google-maps",
     deps = [
+        "//src:dev_mode_types",
         "@npm//@angular/common",
         "@npm//@angular/core",
         "@npm//@types/googlemaps",

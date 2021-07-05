@@ -6,8 +6,9 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {WorkspaceProject} from '@angular-devkit/core/src/experimental/workspace';
-
+import {ProjectDefinition} from '@angular-devkit/core/src/workspace';
+import {isJsonObject, JsonObject} from '@angular-devkit/core';
+import {Schema, Style} from '@schematics/angular/component/schema';
 
 /**
  * Returns the default options for the `@schematics/angular:component` schematic which would
@@ -16,7 +17,7 @@ import {WorkspaceProject} from '@angular-devkit/core/src/experimental/workspace'
  * This is necessary because the Angular CLI only exposes the default values for the "--style",
  * "--inlineStyle", "--skipTests" and "--inlineTemplate" options to the "component" schematic.
  */
-export function getDefaultComponentOptions(project: WorkspaceProject) {
+export function getDefaultComponentOptions(project: ProjectDefinition): Partial<Schema> {
   // Note: Not all options which are available when running "ng new" will be stored in the
   // workspace config. List of options which will be available in the configuration:
   // angular/angular-cli/blob/master/packages/schematics/angular/application/index.ts#L109-L131
@@ -30,7 +31,7 @@ export function getDefaultComponentOptions(project: WorkspaceProject) {
   }
 
   return {
-    style: getDefaultComponentOption(project, ['style', 'styleext'], 'css'),
+    style: getDefaultComponentOption<Style>(project, ['style', 'styleext'], Style.Css),
     inlineStyle: getDefaultComponentOption(project, ['inlineStyle'], false),
     inlineTemplate: getDefaultComponentOption(project, ['inlineTemplate'], false),
     skipTests: skipTests,
@@ -42,14 +43,16 @@ export function getDefaultComponentOptions(project: WorkspaceProject) {
  * by looking at the stored schematic options for `@schematics/angular:component` in the
  * CLI workspace configuration.
  */
-function getDefaultComponentOption<T>(project: WorkspaceProject, optionNames: string[],
+function getDefaultComponentOption<T>(project: ProjectDefinition, optionNames: string[],
                                       fallbackValue: T): T {
-  for (let optionName of optionNames) {
-    if (project.schematics &&
-        project.schematics['@schematics/angular:component'] &&
-        project.schematics['@schematics/angular:component'][optionName] != null) {
+  const schematicOptions = isJsonObject(project.extensions.schematics || null) ?
+      project.extensions.schematics as JsonObject : null;
+  const defaultSchematic = schematicOptions ?
+      schematicOptions['@schematics/angular:component'] as JsonObject | null : null;
 
-      return project.schematics['@schematics/angular:component'][optionName];
+  for (const optionName of optionNames) {
+    if (defaultSchematic && defaultSchematic[optionName] != null) {
+      return defaultSchematic[optionName] as unknown as T;
     }
   }
 

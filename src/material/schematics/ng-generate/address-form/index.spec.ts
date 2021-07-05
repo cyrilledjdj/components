@@ -1,5 +1,6 @@
 import {SchematicTestRunner} from '@angular-devkit/schematics/testing';
 import {createTestApp, getFileContent} from '@angular/cdk/schematics/testing';
+import {COLLECTION_PATH} from '../../paths';
 import {Schema} from './schema';
 
 describe('Material address-form schematic', () => {
@@ -11,7 +12,7 @@ describe('Material address-form schematic', () => {
   };
 
   beforeEach(() => {
-    runner = new SchematicTestRunner('schematics', require.resolve('../../collection.json'));
+    runner = new SchematicTestRunner('schematics', COLLECTION_PATH);
   });
 
   it('should create address-form files and add them to module', async () => {
@@ -43,15 +44,10 @@ describe('Material address-form schematic', () => {
 
   it('should throw if no name has been specified', async () => {
     const appTree = await createTestApp(runner);
-    let message: string|null = null;
 
-    try {
-      await runner.runSchematicAsync('address-form', {project: 'material'}, appTree).toPromise();
-    } catch (e) {
-      message = e.message;
-    }
-
-    expect(message).toMatch(/required property 'name'/);
+    await expectAsync(
+        runner.runSchematicAsync('address-form', {project: 'material'}, appTree).toPromise())
+      .toBeRejectedWithError(/required property 'name'/);
   });
 
   describe('style option', () => {

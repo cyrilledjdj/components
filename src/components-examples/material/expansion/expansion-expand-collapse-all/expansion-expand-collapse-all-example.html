@@ -2,7 +2,9 @@
   <button mat-button (click)="accordion.openAll()">Expand All</button>
   <button mat-button (click)="accordion.closeAll()">Collapse All</button>
 </div>
+<!-- #docregion multi -->
 <mat-accordion class="example-headers-align" multi>
+<!-- #enddocregion multi -->
   <mat-expansion-panel>
     <mat-expansion-panel-header>
       <mat-panel-title>
@@ -14,17 +16,20 @@
       </mat-panel-description>
     </mat-expansion-panel-header>
 
-    <mat-form-field>
-      <input matInput placeholder="First name">
+    <mat-form-field appearance="fill">
+      <mat-label>First name</mat-label>
+      <input matInput>
     </mat-form-field>
 
-    <mat-form-field>
-      <input matInput type="number" min="1" placeholder="Age">
+    <mat-form-field appearance="fill">
+      <mat-label>Age</mat-label>
+      <input matInput type="number" min="1">
     </mat-form-field>
 
   </mat-expansion-panel>
-
+<!-- #docregion disabled -->
   <mat-expansion-panel disabled>
+<!-- #enddocregion disabled -->
     <mat-expansion-panel-header>
       <mat-panel-title>
         Destination
@@ -35,8 +40,9 @@
       </mat-panel-description>
     </mat-expansion-panel-header>
 
-    <mat-form-field>
-      <input matInput placeholder="Country">
+    <mat-form-field appearance="fill">
+      <mat-label>Country</mat-label>
+      <input matInput>
     </mat-form-field>
   </mat-expansion-panel>
 
@@ -51,8 +57,9 @@
       </mat-panel-description>
     </mat-expansion-panel-header>
 
-    <mat-form-field>
-      <input matInput placeholder="Date" [matDatepicker]="picker" (focus)="picker.open()" readonly>
+    <mat-form-field appearance="fill">
+      <mat-label>Date</mat-label>
+      <input matInput [matDatepicker]="picker" (focus)="picker.open()" readonly>
     </mat-form-field>
     <mat-datepicker #picker></mat-datepicker>
   </mat-expansion-panel>

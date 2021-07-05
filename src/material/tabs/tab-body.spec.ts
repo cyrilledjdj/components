@@ -2,9 +2,11 @@ import {Direction, Directionality} from '@angular/cdk/bidi';
 import {PortalModule, TemplatePortal} from '@angular/cdk/portal';
 import {CommonModule} from '@angular/common';
 import {AfterContentInit, Component, TemplateRef, ViewChild, ViewContainerRef} from '@angular/core';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 import {MatRippleModule} from '@angular/material/core';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
+import {By} from '@angular/platform-browser';
+import {ScrollingModule, CdkScrollable} from '@angular/cdk/scrolling';
 import {MatTabBody, MatTabBodyPortal} from './tab-body';
 import {Subject} from 'rxjs';
 
@@ -13,7 +15,7 @@ describe('MatTabBody', () => {
   let dir: Direction = 'ltr';
   let dirChange: Subject<Direction> = new Subject<Direction>();
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     dir = 'ltr';
     TestBed.configureTestingModule({
       imports: [CommonModule, PortalModule, MatRippleModule, NoopAnimationsModule],
@@ -178,6 +180,33 @@ describe('MatTabBody', () => {
 
     expect(fixture.componentInstance.tabBody._position).toBe('left');
   });
+
+  it('should mark the tab body content as a scrollable container', () => {
+    TestBed
+      .resetTestingModule()
+      .configureTestingModule({
+        imports: [
+          CommonModule,
+          PortalModule,
+          MatRippleModule,
+          NoopAnimationsModule,
+          ScrollingModule
+        ],
+        declarations: [
+          MatTabBody,
+          MatTabBodyPortal,
+          SimpleTabBodyApp,
+        ]
+      })
+      .compileComponents();
+
+    const fixture = TestBed.createComponent(SimpleTabBodyApp);
+    const tabBodyContent = fixture.nativeElement.querySelector('.mat-tab-body-content');
+    const scrollable = fixture.debugElement.query(By.directive(CdkScrollable));
+
+    expect(scrollable).toBeTruthy();
+    expect(scrollable.nativeElement).toBe(tabBodyContent);
+  });
 });
 
 
@@ -193,7 +222,7 @@ class SimpleTabBodyApp implements AfterContentInit {
   origin: number | null;
 
   @ViewChild(MatTabBody) tabBody: MatTabBody;
-  @ViewChild(TemplateRef, {static: true}) template: TemplateRef<any>;
+  @ViewChild(TemplateRef) template: TemplateRef<any>;
 
   constructor(private _viewContainerRef: ViewContainerRef) { }
 

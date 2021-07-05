@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load(
     "//tools:defaults.bzl",
     "markdown_to_html",
@@ -10,6 +8,8 @@ load(
     "sass_library",
 )
 
+package(default_visibility = ["//visibility:public"])
+
 ng_module(
     name = "table",
     srcs = glob(
@@ -19,7 +19,6 @@ ng_module(
     assets = [":table.css"],
     module_name = "@angular/material/table",
     deps = [
-        "@npm//@angular/common",
         "@npm//@angular/core",
         "@npm//rxjs",
         "//src/cdk/coercion",
@@ -36,9 +35,22 @@ sass_library(
     deps = ["//src/material/core:core_scss_lib"],
 )
 
+sass_library(
+    name = "table_flex_scss_lib",
+    srcs = [
+        "_table-flex-styles.import.scss",
+        "_table-flex-styles.scss",
+    ],
+    deps = ["//src/material/core:core_scss_lib"],
+)
+
 sass_binary(
     name = "table_scss",
     src = "table.scss",
+    deps = [
+        ":table_flex_scss_lib",
+        "//src/material/core:core_scss_lib",
+    ],
 )
 
 ng_test_library(

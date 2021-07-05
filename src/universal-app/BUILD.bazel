@@ -1,11 +1,11 @@
-package(default_visibility = ["//visibility:public"])
-
-load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_test")
+load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_test")
 load("//src/cdk:config.bzl", "CDK_TARGETS")
 load("//src/cdk-experimental:config.bzl", "CDK_EXPERIMENTAL_TARGETS")
 load("//src/material:config.bzl", "MATERIAL_TARGETS")
 load("//src/material-experimental:config.bzl", "MATERIAL_EXPERIMENTAL_TARGETS")
 load("//tools:defaults.bzl", "ng_module", "sass_binary", "ts_library")
+
+package(default_visibility = ["//visibility:public"])
 
 ng_module(
     name = "kitchen-sink",
@@ -46,7 +46,7 @@ sass_binary(
         "external/npm/node_modules",
     ],
     deps = [
-        "//src/material-experimental/mdc-slider:mdc_slider_scss_lib",
+        "//src/material:theming_bundle",
         "//src/material-experimental/mdc-theming:all_themes",
         "//src/material-experimental/mdc-typography:all_typography",
         "//src/material/core:theming_scss_lib",
@@ -61,4 +61,9 @@ nodejs_test(
         ":theme_scss",
     ],
     entry_point = ":prerender.ts",
+    templated_args = [
+        # TODO(josephperrott): update dependency usages to no longer need bazel patch module resolver
+        # See: https://github.com/bazelbuild/rules_nodejs/wiki#--bazel_patch_module_resolver-now-defaults-to-false-2324
+        "--bazel_patch_module_resolver",
+    ],
 )

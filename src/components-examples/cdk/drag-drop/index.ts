@@ -38,6 +38,9 @@ import {
   CdkDragDropRootElementExample
 } from './cdk-drag-drop-root-element/cdk-drag-drop-root-element-example';
 import {CdkDragDropSortingExample} from './cdk-drag-drop-sorting/cdk-drag-drop-sorting-example';
+import {
+  CdkDragDropSortPredicateExample
+} from './cdk-drag-drop-sort-predicate/cdk-drag-drop-sort-predicate-example';
 
 export {
   CdkDragDropAxisLockExample,
@@ -56,6 +59,7 @@ export {
   CdkDragDropOverviewExample,
   CdkDragDropRootElementExample,
   CdkDragDropSortingExample,
+  CdkDragDropSortPredicateExample,
 };
 
 const EXAMPLES = [
@@ -75,6 +79,7 @@ const EXAMPLES = [
   CdkDragDropOverviewExample,
   CdkDragDropRootElementExample,
   CdkDragDropSortingExample,
+  CdkDragDropSortPredicateExample,
 ];
 
 @NgModule({
@@ -85,6 +90,7 @@ const EXAMPLES = [
   ],
   declarations: EXAMPLES,
   exports: EXAMPLES,
+  entryComponents: EXAMPLES,
 })
 export class CdkDragDropExamplesModule {
 }

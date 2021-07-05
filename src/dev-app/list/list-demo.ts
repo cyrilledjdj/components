@@ -7,6 +7,7 @@
  */
 
 import {Component} from '@angular/core';
+import {MatListOptionCheckboxPosition} from '@angular/material/list';
 
 
 @Component({
@@ -27,18 +28,20 @@ export class ListDemo {
     {name: 'Bobby', headline: 'UX designer'}
   ];
 
+  checkboxPosition: MatListOptionCheckboxPosition = 'before';
+
   messages: {from: string, subject: string, message: string, image: string}[] = [
     {
       from: 'Nancy',
       subject: 'Brunch?',
       message: 'Did you want to go on Sunday? I was thinking that might work.',
-      image: 'https://angular.io/generated/images/bios/julie-ralph.jpg'
+      image: 'https://angular.io/generated/images/bios/cindygreenekaplan.jpg'
     },
     {
       from: 'Mary',
       subject: 'Summer BBQ',
       message: 'Wish I could come, but I have some prior obligations.',
-      image: 'https://angular.io/generated/images/bios/juleskremer.jpg'
+      image: 'https://angular.io/generated/images/bios/twerske.jpg'
     },
     {
       from: 'Bobby',
@@ -69,6 +72,12 @@ export class ListDemo {
     this.selectedOptions = values;
     this.modelChangeEventCount++;
   }
+
+  toggleCheckboxPosition() {
+    this.checkboxPosition = this.checkboxPosition === 'before' ? 'after' : 'before';
+  }
+
+  favoriteOptions: string[] = [];
 
   alertItem(msg: string) {
     alert(msg);

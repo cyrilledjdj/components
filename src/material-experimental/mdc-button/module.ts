@@ -6,20 +6,21 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {CommonModule} from '@angular/common';
 import {NgModule} from '@angular/core';
-import {MatCommonModule, MatRippleModule} from '@angular/material/core';
+import {MatCommonModule, MatRippleModule} from '@angular/material-experimental/mdc-core';
 import {MatAnchor, MatButton} from './button';
-import {MatFabAnchor, MatFabButton} from './fab';
+import {MatFabAnchor, MatFabButton, MatMiniFabAnchor, MatMiniFabButton} from './fab';
 import {MatIconAnchor, MatIconButton} from './icon-button';
 
 @NgModule({
-  imports: [MatCommonModule, CommonModule, MatRippleModule],
+  imports: [MatCommonModule, MatRippleModule],
   exports: [
     MatAnchor,
     MatButton,
     MatIconAnchor,
     MatIconButton,
+    MatMiniFabAnchor,
+    MatMiniFabButton,
     MatFabAnchor,
     MatFabButton,
     MatCommonModule,
@@ -28,6 +29,8 @@ import {MatIconAnchor, MatIconButton} from './icon-button';
     MatAnchor,
     MatButton,
     MatIconAnchor,
+    MatMiniFabAnchor,
+    MatMiniFabButton,
     MatIconButton,
     MatFabAnchor,
     MatFabButton,

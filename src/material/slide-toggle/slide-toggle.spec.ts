@@ -1,7 +1,6 @@
-import {BidiModule, Direction} from '@angular/cdk/bidi';
 import {MutationObserverFactory} from '@angular/cdk/observers';
 import {dispatchFakeEvent} from '@angular/cdk/testing/private';
-import {Component} from '@angular/core';
+import {Component, DebugElement} from '@angular/core';
 import {
   ComponentFixture,
   fakeAsync,
@@ -9,9 +8,11 @@ import {
   flushMicrotasks,
   TestBed,
   tick,
+  inject,
 } from '@angular/core/testing';
 import {FormControl, FormsModule, NgModel, ReactiveFormsModule} from '@angular/forms';
 import {By} from '@angular/platform-browser';
+import {FocusMonitor} from '@angular/cdk/a11y';
 import {MatSlideToggle, MatSlideToggleChange, MatSlideToggleModule} from './index';
 import {MAT_SLIDE_TOGGLE_DEFAULT_OPTIONS} from './slide-toggle-config';
 
@@ -23,7 +24,7 @@ describe('MatSlideToggle without forms', () => {
     mutationObserverCallbacks = [];
 
     TestBed.configureTestingModule({
-      imports: [MatSlideToggleModule, BidiModule],
+      imports: [MatSlideToggleModule],
       declarations: [
         SlideToggleBasic,
         SlideToggleWithTabindexAttr,
@@ -310,6 +311,19 @@ describe('MatSlideToggle without forms', () => {
       expect(document.activeElement).toBe(inputElement);
     });
 
+    it('should not manually move focus to underlying input when focus comes from mouse or touch',
+      inject([FocusMonitor], (focusMonitor: FocusMonitor) => {
+        expect(document.activeElement).not.toBe(inputElement);
+
+        focusMonitor.focusVia(slideToggleElement, 'mouse');
+        fixture.detectChanges();
+        expect(document.activeElement).not.toBe(inputElement);
+
+        focusMonitor.focusVia(slideToggleElement, 'touch');
+        fixture.detectChanges();
+        expect(document.activeElement).not.toBe(inputElement);
+      }));
+
     it('should set a element class if labelPosition is set to before', () => {
       expect(slideToggleElement.classList).not.toContain('mat-slide-toggle-label-before');
 
@@ -319,7 +333,7 @@ describe('MatSlideToggle without forms', () => {
       expect(slideToggleElement.classList).toContain('mat-slide-toggle-label-before');
     });
 
-    it('should show ripples on label mousedown', () => {
+    it('should show ripples', () => {
       const rippleSelector = '.mat-ripple-element:not(.mat-slide-toggle-persistent-ripple)';
 
       expect(slideToggleElement.querySelectorAll(rippleSelector).length).toBe(0);
@@ -341,6 +355,13 @@ describe('MatSlideToggle without forms', () => {
       dispatchFakeEvent(labelElement, 'mouseup');
 
       expect(slideToggleElement.querySelectorAll(rippleSelector).length).toBe(0);
+    });
+
+    it('should have a focus indicator', () => {
+      const slideToggleRippleNativeElement =
+          slideToggleElement.querySelector('.mat-slide-toggle-ripple')!;
+
+      expect(slideToggleRippleNativeElement.classList.contains('mat-focus-indicator')).toBe(true);
     });
   });
 
@@ -386,8 +407,9 @@ describe('MatSlideToggle without forms', () => {
     }));
   });
 
-  describe('custom action configuration', () => {
-    it('should not change value on click when click action is noop', () => {
+  describe('default options', () => {
+    it('should not change value on click when click action is noop when using custom a ' +
+      'action configuration', () => {
       TestBed
         .resetTestingModule()
         .configureTestingModule({
@@ -424,6 +446,22 @@ describe('MatSlideToggle without forms', () => {
       expect(slideToggle.checked).toBe(false, 'Expect slide toggle value not changed');
       expect(testComponent.toggleTriggered).toBe(2, 'Expect toggle twice');
       expect(testComponent.dragTriggered).toBe(0);
+    });
+
+    it('should be able to change the default color', () => {
+      TestBed
+        .resetTestingModule()
+        .configureTestingModule({
+          imports: [MatSlideToggleModule],
+          declarations: [SlideToggleWithForm],
+          providers: [
+            {provide: MAT_SLIDE_TOGGLE_DEFAULT_OPTIONS, useValue: {color: 'warn'}},
+          ]
+        });
+      const fixture = TestBed.createComponent(SlideToggleWithForm);
+      fixture.detectChanges();
+      const slideToggle = fixture.nativeElement.querySelector('.mat-slide-toggle');
+      expect(slideToggle.classList).toContain('mat-warn');
     });
 
   });
@@ -709,6 +747,7 @@ describe('MatSlideToggle with forms', () => {
     let fixture: ComponentFixture<SlideToggleWithFormControl>;
 
     let testComponent: SlideToggleWithFormControl;
+    let slideToggleDebug: DebugElement;
     let slideToggle: MatSlideToggle;
     let inputElement: HTMLInputElement;
 
@@ -716,8 +755,10 @@ describe('MatSlideToggle with forms', () => {
       fixture = TestBed.createComponent(SlideToggleWithFormControl);
       fixture.detectChanges();
 
+      slideToggleDebug = fixture.debugElement.query(By.directive(MatSlideToggle))!;
+
       testComponent = fixture.debugElement.componentInstance;
-      slideToggle = fixture.debugElement.query(By.directive(MatSlideToggle))!.componentInstance;
+      slideToggle = slideToggleDebug.componentInstance;
       inputElement = fixture.debugElement.query(By.css('input'))!.nativeElement;
     });
 
@@ -736,6 +777,15 @@ describe('MatSlideToggle with forms', () => {
 
       expect(slideToggle.disabled).toBe(false);
       expect(inputElement.disabled).toBe(false);
+    });
+
+    it('should not change focus origin if origin not specified', () => {
+      slideToggle.focus(undefined, 'mouse');
+      slideToggle.focus();
+      fixture.detectChanges();
+
+      expect(slideToggleDebug.nativeElement.classList).toContain('cdk-focused');
+      expect(slideToggleDebug.nativeElement.classList).toContain('cdk-mouse-focused');
     });
   });
 
@@ -828,7 +878,7 @@ describe('MatSlideToggle with forms', () => {
 
 @Component({
   template: `
-    <mat-slide-toggle [dir]="direction" [required]="isRequired"
+    <mat-slide-toggle [required]="isRequired"
                      [disabled]="isDisabled"
                      [color]="slideColor"
                      [id]="slideId"
@@ -861,7 +911,6 @@ class SlideToggleBasic {
   labelPosition: string;
   toggleTriggered: number = 0;
   dragTriggered: number = 0;
-  direction: Direction = 'ltr';
 
   onSlideClick: (event?: Event) => void = () => {};
   onSlideChange = (event: MatSlideToggleChange) => this.lastEvent = event;

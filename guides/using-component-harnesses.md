@@ -88,7 +88,7 @@ it('should work', async () => {
 
 Notice the example code uses `async` and `await` syntax. All component harness APIs are
 asynchronous and return `Promise` objects. Because of this, the Angular team recommends using the
-[ES2017 `async`/`await` synax](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function)
+[ES2017 `async`/`await` syntax](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function)
 with your tests.
 
 The example above retrieves all button harnesses and uses an array index to get the harness for a
@@ -113,7 +113,7 @@ provided constraints. The particular constraint options vary depending on the ha
 harnesses support at least:
  
 - `selector` - CSS selector that the component must match (in addition to its host selector, such
-               as `[mat-button]`)
+  as `[mat-button]`)
 - `ancestor` - CSS selector for a some ancestor element above the component in the DOM
  
 In addition to these standard options, `MatButtonHarness` also supports
@@ -130,7 +130,7 @@ it('should work', async () => {
   const cancel = await loader.getHarness(MatButtonHarness.with({text: 'Cancel'}));
   // Harness for mat-button with class 'confirm' and whose text is either 'Ok' or 'Okay'.
   const okButton = await loader.getHarness(
-      MatButtonHarness.with({selector: '.confirm', text: /^(Ok|Okay)$/})
+      MatButtonHarness.with({selector: '.confirm', text: /^(Ok|Okay)$/}));
 });
 ```
 
@@ -141,7 +141,7 @@ real user could perform or to inspect component state that a real user might per
 example, `MatButtonHarness` has methods to click, focus, and blur the `mat-button`, as well as
 methods to get the text of the button and its disabled state. Because `MatButton` is a very simple
 component, these harness methods might not seem very different from working directly with the DOM.
-However more complex harnesses like `MatSelectHarness` have methods like `open` and `isOpen` which
+However, more complex harnesses like `MatSelectHarness` have methods like `open` and `isOpen` which
 capture more knowledge about the component's internals.
 
 A test using the `MatButtonHarness` to interact with a `mat-button` might look like the following:
@@ -156,7 +156,7 @@ it('should mark confirmed when ok button clicked', async () => {
 });
 ```
 
-Note that the code above has does not call `fixture.detectChanges()`, something you commonly see in
+Note that the code above does not call `fixture.detectChanges()`, something you commonly see in
 unit tests. The CDK's component harnesses automatically invoke change detection after performing
 actions and before reading state. The harness also automatically waits for the fixture to be stable,
 which will cause the test to wait for `setTimeout`, `Promise`, etc.
@@ -217,7 +217,7 @@ describe('issue-report-selector', () => {
 
   it('should switch to bug report template', async () => {
     expect(fixture.debugElement.query('bug-report-form')).toBeNull();
-    const select = await loader.getHarness(MatSelect);
+    const select = await loader.getHarness(MatSelectHarness);
     await select.open();
     const bugOption = await select.getOption({text: 'Bug'});
     await bugOption.click();
@@ -233,9 +233,9 @@ Specifically in this example, it makes the "open the mat-select" logic more obvi
 reader may not know what clicking on `.mat-select-trigger` does, but `await select.open()` is
 self-explanatory.
 
-The harnesses also make clear which option should be selected. Without the harness, you need a
-comment explaining what `options[1]` means, but with the `MatSelectHarness` you can use the `text`
-filter rather than the index and the code becomes self-documenting.
+The harnesses also make clear which option should be selected. Without the harness, you need a comment that
+explains what `options[1]` means. With `MatSelectHarness`, however, the filter API makes the code
+self-documenting.
 
 Finally, the repeated calls to `detectChanges` and `whenStable()` can obfuscate the underlying
 intent of the test. By using the harness APIs, you eliminate these calls, making the test more

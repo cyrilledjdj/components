@@ -5,20 +5,23 @@ import {MatMenuModule} from '@angular/material/menu';
 import {MenuIconsExample} from './menu-icons/menu-icons-example';
 import {MenuOverviewExample} from './menu-overview/menu-overview-example';
 import {MenuPositionExample} from './menu-position/menu-position-example';
-import {NestedMenuExample} from './nested-menu/nested-menu-example';
+import {MenuNestedExample} from './menu-nested/menu-nested-example';
+import {MenuHarnessExample} from './menu-harness/menu-harness-example';
 
 export {
+  MenuHarnessExample,
   MenuIconsExample,
   MenuOverviewExample,
   MenuPositionExample,
-  NestedMenuExample,
+  MenuNestedExample,
 };
 
 const EXAMPLES = [
+  MenuHarnessExample,
   MenuIconsExample,
   MenuOverviewExample,
   MenuPositionExample,
-  NestedMenuExample,
+  MenuNestedExample,
 ];
 
 @NgModule({
@@ -29,6 +32,7 @@ const EXAMPLES = [
   ],
   declarations: EXAMPLES,
   exports: EXAMPLES,
+  entryComponents: EXAMPLES,
 })
 export class MenuExamplesModule {
 }

@@ -16,15 +16,16 @@ import {
 } from '@angular/cdk-experimental/popover-edit';
 
 const POPOVER_EDIT_HOST_BINDINGS = {
-  'tabIndex': '0',
+  '[attr.tabindex]': 'disabled ? null : 0',
   'class': 'mat-popover-edit-cell',
-  '[attr.aria-haspopup]': 'true',
+  '[attr.aria-haspopup]': '!disabled',
 };
 
 const POPOVER_EDIT_INPUTS = [
   'template: matPopoverEdit',
   'context: matPopoverEditContext',
   'colspan: matPopoverEditColspan',
+  'disabled: matPopoverEditDisabled',
 ];
 
 const EDIT_PANE_CLASS = 'mat-edit-pane';
@@ -45,7 +46,7 @@ const MAT_ROW_HOVER_CELL_CLASS = MAT_ROW_HOVER_CLASS + '-host-cell';
   inputs: POPOVER_EDIT_INPUTS,
 })
 export class MatPopoverEdit<C> extends CdkPopoverEdit<C> {
-  protected panelClass(): string {
+  protected override panelClass(): string {
     return EDIT_PANE_CLASS;
   }
 }
@@ -61,7 +62,7 @@ export class MatPopoverEdit<C> extends CdkPopoverEdit<C> {
   inputs: POPOVER_EDIT_INPUTS,
 })
 export class MatPopoverEditTabOut<C> extends CdkPopoverEditTabOut<C> {
-  protected panelClass(): string {
+  protected override panelClass(): string {
     return EDIT_PANE_CLASS;
   }
 }
@@ -74,16 +75,16 @@ export class MatPopoverEditTabOut<C> extends CdkPopoverEditTabOut<C> {
   selector: '[matRowHoverContent]',
 })
 export class MatRowHoverContent extends CdkRowHoverContent {
-  protected initElement(element: HTMLElement) {
+  protected override initElement(element: HTMLElement) {
     super.initElement(element);
     element.classList.add(MAT_ROW_HOVER_CLASS);
   }
 
-  protected makeElementHiddenButFocusable(element: HTMLElement): void {
+  protected override makeElementHiddenButFocusable(element: HTMLElement): void {
     element.classList.remove(MAT_ROW_HOVER_ANIMATE_CLASS);
   }
 
-  protected makeElementVisible(element: HTMLElement): void {
+  protected override makeElementVisible(element: HTMLElement): void {
     _closest(this.elementRef.nativeElement!, _CELL_SELECTOR)!
         .classList.add(MAT_ROW_HOVER_CELL_CLASS);
 

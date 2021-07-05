@@ -31,11 +31,10 @@ import {
   ViewChild,
   ViewEncapsulation,
 } from '@angular/core';
+import {FocusOrigin} from '@angular/cdk/a11y';
 import {
   CanColor,
-  CanColorCtor,
   CanDisableRipple,
-  CanDisableRippleCtor,
   mixinColor,
   mixinDisableRipple,
   ThemePalette,
@@ -63,11 +62,9 @@ export type MatTabHeaderPosition = 'above' | 'below';
 
 // Boilerplate for applying mixins to MatTabGroup.
 /** @docs-private */
-class MatTabGroupMixinBase {
+const _MatTabGroupMixinBase = mixinColor(mixinDisableRipple(class {
   constructor(public _elementRef: ElementRef) {}
-}
-const _MatTabGroupMixinBase: CanColorCtor & CanDisableRippleCtor & typeof MatTabGroupMixinBase =
-    mixinColor(mixinDisableRipple(MatTabGroupMixinBase), 'primary');
+}), 'primary');
 
 interface MatTabGroupBaseHeader {
   _alignInkBarToSelectedTab: () => void;
@@ -79,7 +76,6 @@ interface MatTabGroupBaseHeader {
  * @docs-private
  */
 @Directive()
-// tslint:disable-next-line:class-name
 export abstract class _MatTabGroupBase extends _MatTabGroupMixinBase implements AfterContentInit,
     AfterContentChecked, OnDestroy, CanColor, CanDisableRipple {
 
@@ -110,7 +106,7 @@ export abstract class _MatTabGroupBase extends _MatTabGroupMixinBase implements 
   @Input()
   get dynamicHeight(): boolean { return this._dynamicHeight; }
   set dynamicHeight(value: boolean) { this._dynamicHeight = coerceBooleanProperty(value); }
-  private _dynamicHeight: boolean = false;
+  private _dynamicHeight: boolean;
 
   /** The index of the active tab. */
   @Input()
@@ -130,6 +126,19 @@ export abstract class _MatTabGroupBase extends _MatTabGroupMixinBase implements 
     this._animationDuration = /^\d+$/.test(value) ? value + 'ms' : value;
   }
   private _animationDuration: string;
+
+  /**
+   * `tabindex` to be set on the inner element that wraps the tab content. Can be used for improved
+   * accessibility when the tab does not have focusable elements or if it has scrollable content.
+   * The `tabindex` will be removed automatically for inactive tabs.
+   * Read more at https://www.w3.org/TR/wai-aria-practices/examples/tabs/tabs-2/tabs.html
+   */
+  @Input()
+  get contentTabIndex(): number | null { return this._contentTabIndex; }
+  set contentTabIndex(value: number | null) {
+    this._contentTabIndex = coerceNumberProperty(value, null);
+  }
+  private _contentTabIndex: number | null;
 
   /**
    * Whether pagination should be disabled. This can be used to avoid unnecessary
@@ -180,6 +189,9 @@ export abstract class _MatTabGroupBase extends _MatTabGroupMixinBase implements 
         defaultConfig.animationDuration : '500ms';
     this.disablePagination = defaultConfig && defaultConfig.disablePagination != null ?
         defaultConfig.disablePagination : false;
+    this.dynamicHeight = defaultConfig && defaultConfig.dynamicHeight != null ?
+        defaultConfig.dynamicHeight : false;
+    this.contentTabIndex = defaultConfig?.contentTabIndex ?? null;
   }
 
   /**
@@ -200,6 +212,10 @@ export abstract class _MatTabGroupBase extends _MatTabGroupMixinBase implements 
 
       if (!isFirstRun) {
         this.selectedTabChange.emit(this._createChangeEvent(indexToSelect));
+        // Preserve the height so page doesn't scroll up during tab change.
+        // Fixes https://stackblitz.com/edit/mat-tabs-scroll-page-top-on-tab-change
+        const wrapper = this._tabBodyWrapper.nativeElement;
+        wrapper.style.minHeight = wrapper.clientHeight + 'px';
       }
 
       // Changing these values after change detection has run
@@ -209,6 +225,9 @@ export abstract class _MatTabGroupBase extends _MatTabGroupMixinBase implements 
 
         if (!isFirstRun) {
           this.selectedIndexChange.emit(indexToSelect);
+          // Clear the min-height, this was needed during tab change to avoid
+          // unnecessary scrolling.
+          this._tabBodyWrapper.nativeElement.style.minHeight = '';
         }
       });
     }
@@ -268,9 +287,7 @@ export abstract class _MatTabGroupBase extends _MatTabGroupMixinBase implements 
       .pipe(startWith(this._allTabs))
       .subscribe((tabs: QueryList<MatTab>) => {
         this._tabs.reset(tabs.filter(tab => {
-          // @breaking-change 10.0.0 Remove null check for `_closestTabGroup`
-          // once it becomes a required parameter in MatTab.
-          return !tab._closestTabGroup || tab._closestTabGroup === this;
+          return tab._closestTabGroup === this || !tab._closestTabGroup;
         }));
         this._tabs.notifyOnChanges();
       });
@@ -286,6 +303,18 @@ export abstract class _MatTabGroupBase extends _MatTabGroupMixinBase implements 
   realignInkBar() {
     if (this._tabHeader) {
       this._tabHeader._alignInkBarToSelectedTab();
+    }
+  }
+
+  /**
+   * Sets focus to a particular tab.
+   * @param index Index of the tab to be focused.
+   */
+  focusTab(index: number) {
+    const header = this._tabHeader;
+
+    if (header) {
+      header.focusIndex = index;
     }
   }
 
@@ -375,6 +404,19 @@ export abstract class _MatTabGroupBase extends _MatTabGroupMixinBase implements 
     }
     return this.selectedIndex === idx ? 0 : -1;
   }
+
+  /** Callback for when the focused state of a tab has changed. */
+  _tabFocusChanged(focusOrigin: FocusOrigin, index: number) {
+    if (focusOrigin) {
+      this._tabHeader.focusIndex = index;
+    }
+  }
+
+  static ngAcceptInputType_dynamicHeight: BooleanInput;
+  static ngAcceptInputType_animationDuration: NumberInput;
+  static ngAcceptInputType_selectedIndex: NumberInput;
+  static ngAcceptInputType_disableRipple: BooleanInput;
+  static ngAcceptInputType_contentTabIndex: BooleanInput;
 }
 
 /**
@@ -412,9 +454,4 @@ export class MatTabGroup extends _MatTabGroupBase {
               @Optional() @Inject(ANIMATION_MODULE_TYPE) animationMode?: string) {
     super(elementRef, changeDetectorRef, defaultConfig, animationMode);
   }
-
-  static ngAcceptInputType_dynamicHeight: BooleanInput;
-  static ngAcceptInputType_animationDuration: NumberInput;
-  static ngAcceptInputType_selectedIndex: NumberInput;
-  static ngAcceptInputType_disableRipple: BooleanInput;
 }

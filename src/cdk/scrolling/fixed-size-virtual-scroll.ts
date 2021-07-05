@@ -6,7 +6,10 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {coerceNumberProperty, NumberInput} from '@angular/cdk/coercion';
+import {
+  coerceNumberProperty,
+  NumberInput
+} from '@angular/cdk/coercion';
 import {Directive, forwardRef, Input, OnChanges} from '@angular/core';
 import {Observable, Subject} from 'rxjs';
 import {distinctUntilChanged} from 'rxjs/operators';
@@ -16,7 +19,7 @@ import {CdkVirtualScrollViewport} from './virtual-scroll-viewport';
 
 /** Virtual scrolling strategy for lists with items of known fixed size. */
 export class FixedSizeVirtualScrollStrategy implements VirtualScrollStrategy {
-  private _scrolledIndexChange = new Subject<number>();
+  private readonly _scrolledIndexChange = new Subject<number>();
 
   /** @docs-private Implemented as part of VirtualScrollStrategy. */
   scrolledIndexChange: Observable<number> = this._scrolledIndexChange.pipe(distinctUntilChanged());
@@ -67,7 +70,7 @@ export class FixedSizeVirtualScrollStrategy implements VirtualScrollStrategy {
    * @param maxBufferPx The amount of buffer (in pixels) to render when rendering more.
    */
   updateItemAndBufferSize(itemSize: number, minBufferPx: number, maxBufferPx: number) {
-    if (maxBufferPx < minBufferPx) {
+    if (maxBufferPx < minBufferPx && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw Error('CDK virtual scroll: maxBufferPx must be greater than or equal to minBufferPx');
     }
     this._itemSize = itemSize;
@@ -120,12 +123,31 @@ export class FixedSizeVirtualScrollStrategy implements VirtualScrollStrategy {
       return;
     }
 
-    const scrollOffset = this._viewport.measureScrollOffset();
-    const firstVisibleIndex = scrollOffset / this._itemSize;
     const renderedRange = this._viewport.getRenderedRange();
     const newRange = {start: renderedRange.start, end: renderedRange.end};
     const viewportSize = this._viewport.getViewportSize();
     const dataLength = this._viewport.getDataLength();
+    let scrollOffset = this._viewport.measureScrollOffset();
+     // Prevent NaN as result when dividing by zero.
+    let firstVisibleIndex = (this._itemSize > 0) ? scrollOffset / this._itemSize : 0;
+
+    // If user scrolls to the bottom of the list and data changes to a smaller list
+    if (newRange.end > dataLength) {
+      // We have to recalculate the first visible index based on new data length and viewport size.
+      const maxVisibleItems = Math.ceil(viewportSize / this._itemSize);
+      const newVisibleIndex = Math.max(0,
+          Math.min(firstVisibleIndex, dataLength - maxVisibleItems));
+
+      // If first visible index changed we must update scroll offset to handle start/end buffers
+      // Current range must also be adjusted to cover the new position (bottom of new list).
+      if (firstVisibleIndex != newVisibleIndex) {
+        firstVisibleIndex = newVisibleIndex;
+        scrollOffset = newVisibleIndex * this._itemSize;
+        newRange.start = Math.floor(firstVisibleIndex);
+      }
+
+      newRange.end = Math.max(0, Math.min(dataLength, newRange.start + maxVisibleItems));
+    }
 
     const startBuffer = scrollOffset - newRange.start * this._itemSize;
     if (startBuffer < this._minBufferPx && newRange.start != 0) {

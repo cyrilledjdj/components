@@ -18,10 +18,11 @@ import {
   Optional,
   Input,
   HostListener,
+  AfterViewInit,
 } from '@angular/core';
 import {
-  CanDisable, CanDisableCtor,
-  CanDisableRipple, CanDisableRippleCtor,
+  CanDisable,
+  CanDisableRipple,
   mixinDisabled,
   mixinDisableRipple,
 } from '@angular/material/core';
@@ -31,13 +32,10 @@ import {MAT_MENU_PANEL, MatMenuPanel} from './menu-panel';
 
 // Boilerplate for applying mixins to MatMenuItem.
 /** @docs-private */
-class MatMenuItemBase {}
-const _MatMenuItemMixinBase: CanDisableRippleCtor & CanDisableCtor & typeof MatMenuItemBase =
-    mixinDisableRipple(mixinDisabled(MatMenuItemBase));
+const _MatMenuItemBase = mixinDisableRipple(mixinDisabled(class {}));
 
 /**
- * This directive is intended to be used inside an mat-menu tag.
- * It exists mostly to set the role attribute.
+ * Single item inside of a `mat-menu`. Provides the menu item styling and accessibility treatment.
  */
 @Component({
   selector: '[mat-menu-item]',
@@ -51,18 +49,17 @@ const _MatMenuItemMixinBase: CanDisableRippleCtor & CanDisableCtor & typeof MatM
     '[attr.tabindex]': '_getTabIndex()',
     '[attr.aria-disabled]': 'disabled.toString()',
     '[attr.disabled]': 'disabled || null',
+    'class': 'mat-focus-indicator',
   },
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   templateUrl: 'menu-item.html',
 })
-export class MatMenuItem extends _MatMenuItemMixinBase
-    implements FocusableOption, CanDisable, CanDisableRipple, OnDestroy {
+export class MatMenuItem extends _MatMenuItemBase
+    implements FocusableOption, CanDisable, CanDisableRipple, AfterViewInit, OnDestroy {
 
   /** ARIA role for the menu item. */
   @Input() role: 'menuitem' | 'menuitemradio' | 'menuitemcheckbox' = 'menuitem';
-
-  private _document: Document;
 
   /** Stream that emits when the menu item is hovered. */
   readonly _hovered: Subject<MatMenuItem> = new Subject<MatMenuItem>();
@@ -78,36 +75,40 @@ export class MatMenuItem extends _MatMenuItemMixinBase
 
   constructor(
     private _elementRef: ElementRef<HTMLElement>,
-    @Inject(DOCUMENT) document?: any,
+    /**
+     * @deprecated `_document` parameter is no longer being used and will be removed.
+     * @breaking-change 12.0.0
+     */
+    @Inject(DOCUMENT) _document?: any,
     private _focusMonitor?: FocusMonitor,
     @Inject(MAT_MENU_PANEL) @Optional() public _parentMenu?: MatMenuPanel<MatMenuItem>) {
 
     // @breaking-change 8.0.0 make `_focusMonitor` and `document` required params.
     super();
 
-    if (_focusMonitor) {
-      // Start monitoring the element so it gets the appropriate focused classes. We want
-      // to show the focus style for menu items only when the focus was not caused by a
-      // mouse or touch interaction.
-      _focusMonitor.monitor(this._elementRef, false);
-    }
-
     if (_parentMenu && _parentMenu.addItem) {
       _parentMenu.addItem(this);
     }
-
-    this._document = document;
   }
 
   /** Focuses the menu item. */
-  focus(origin: FocusOrigin = 'program', options?: FocusOptions): void {
-    if (this._focusMonitor) {
+  focus(origin?: FocusOrigin, options?: FocusOptions): void {
+    if (this._focusMonitor && origin) {
       this._focusMonitor.focusVia(this._getHostElement(), origin, options);
     } else {
       this._getHostElement().focus(options);
     }
 
     this._focused.next(this);
+  }
+
+  ngAfterViewInit() {
+    if (this._focusMonitor) {
+      // Start monitoring the element so it gets the appropriate focused classes. We want
+      // to show the focus style for menu items only when the focus was not caused by a
+      // mouse or touch interaction.
+      this._focusMonitor.monitor(this._elementRef, false);
+    }
   }
 
   ngOnDestroy() {
@@ -160,24 +161,16 @@ export class MatMenuItem extends _MatMenuItemMixinBase
 
   /** Gets the label to be used when determining whether the option should be focused. */
   getLabel(): string {
-    const element: HTMLElement = this._elementRef.nativeElement;
-    const textNodeType = this._document ? this._document.TEXT_NODE : 3;
-    let output = '';
+    const clone = this._elementRef.nativeElement.cloneNode(true) as HTMLElement;
+    const icons = clone.querySelectorAll('mat-icon, .material-icons');
 
-    if (element.childNodes) {
-      const length = element.childNodes.length;
-
-      // Go through all the top-level text nodes and extract their text.
-      // We skip anything that's not a text node to prevent the text from
-      // being thrown off by something like an icon.
-      for (let i = 0; i < length; i++) {
-        if (element.childNodes[i].nodeType === textNodeType) {
-          output += element.childNodes[i].textContent;
-        }
-      }
+    // Strip away icons so they don't show up in the text.
+    for (let i = 0; i < icons.length; i++) {
+      const icon = icons[i];
+      icon.parentNode?.removeChild(icon);
     }
 
-    return output.trim();
+    return clone.textContent?.trim() || '';
   }
 
   static ngAcceptInputType_disabled: BooleanInput;

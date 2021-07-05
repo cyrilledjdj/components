@@ -1,4 +1,4 @@
-/* stylelint-disable material/no-prefixes */
+// stylelint-disable material/no-prefixes
 @mixin user-select($value) {
   -webkit-user-select: $value;
   -moz-user-select: $value;
@@ -38,4 +38,19 @@
   -webkit-backface-visibility: $value;
   backface-visibility: $value;
 }
-/* stylelint-enable */
+
+@mixin position-sticky($important: false) {
+  position: -webkit-sticky #{if($important, '!important', '')};
+  position: sticky #{if($important, '!important', '')};
+}
+
+@mixin private-color-adjust($value) {
+  -webkit-print-color-adjust: $value;
+  color-adjust: $value;
+}
+
+@mixin private-background-clip($value) {
+  -webkit-background-clip: $value;
+  background-clip: $value;
+}
+// stylelint-enable

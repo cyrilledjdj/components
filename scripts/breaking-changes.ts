@@ -1,6 +1,6 @@
 import {join, relative} from 'path';
 import {readFileSync} from 'fs';
-import chalk from 'chalk';
+import * as chalk from 'chalk';
 import * as ts from 'typescript';
 import * as tsutils from 'tsutils';
 
@@ -19,7 +19,7 @@ const parsedConfig = ts.parseJsonSourceFileConfigFileContent(configFile, ts.sys,
 const summary: {[version: string]: string[]} = {};
 
 // Go through all the TS files in the project.
-parsedConfig.fileNames.forEach(fileName => {
+parsedConfig.fileNames.forEach((fileName: string) => {
   const sourceFile = ts.createSourceFile(fileName, readFileSync(fileName, 'utf8'),
       configFile.languageVersion);
   const lineRanges = tsutils.getLineRanges(sourceFile);

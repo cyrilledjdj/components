@@ -6,13 +6,16 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {HarnessPredicate} from '@angular/cdk/testing';
+import {HarnessPredicate, parallel} from '@angular/cdk/testing';
 import {MatFormFieldControlHarness} from '@angular/material/form-field/testing/control';
 import {InputHarnessFilters} from './input-harness-filters';
 
 /** Harness for interacting with a standard Material inputs in tests. */
 export class MatInputHarness extends MatFormFieldControlHarness {
-  static hostSelector = '[matInput]';
+  // TODO: We do not want to handle `select` elements with `matNativeControl` because
+  // not all methods of this harness work reasonably for native select elements.
+  // For more details. See: https://github.com/angular/components/pull/18221.
+  static hostSelector = '[matInput], input[matNativeControl], textarea[matNativeControl]';
 
   /**
    * Gets a `HarnessPredicate` that can be used to search for a `MatInputHarness` that meets
@@ -22,39 +25,39 @@ export class MatInputHarness extends MatFormFieldControlHarness {
    */
   static with(options: InputHarnessFilters = {}): HarnessPredicate<MatInputHarness> {
     return new HarnessPredicate(MatInputHarness, options)
-        .addOption('value', options.value, async (harness, value) => {
-          return (await harness.getValue()) === value;
+        .addOption('value', options.value, (harness, value) => {
+          return HarnessPredicate.stringMatches(harness.getValue(), value);
         })
-        .addOption('placeholder', options.placeholder, async (harness, placeholder) => {
-          return (await harness.getPlaceholder()) === placeholder;
+        .addOption('placeholder', options.placeholder, (harness, placeholder) => {
+          return HarnessPredicate.stringMatches(harness.getPlaceholder(), placeholder);
         });
   }
 
   /** Whether the input is disabled. */
   async isDisabled(): Promise<boolean> {
-    return (await this.host()).getProperty('disabled')!;
+    return (await this.host()).getProperty<boolean>('disabled');
   }
 
   /** Whether the input is required. */
   async isRequired(): Promise<boolean> {
-    return (await this.host()).getProperty('required')!;
+    return (await this.host()).getProperty<boolean>('required');
   }
 
   /** Whether the input is readonly. */
   async isReadonly(): Promise<boolean> {
-    return (await this.host()).getProperty('readOnly')!;
+    return (await this.host()).getProperty<boolean>('readOnly');
   }
 
   /** Gets the value of the input. */
   async getValue(): Promise<string> {
     // The "value" property of the native input is never undefined.
-    return (await (await this.host()).getProperty('value'))!;
+    return (await (await this.host()).getProperty<string>('value'));
   }
 
   /** Gets the name of the input. */
   async getName(): Promise<string> {
     // The "name" property of the native input is never undefined.
-    return (await (await this.host()).getProperty('name'))!;
+    return (await (await this.host()).getProperty<string>('name'));
   }
 
   /**
@@ -63,20 +66,24 @@ export class MatInputHarness extends MatFormFieldControlHarness {
    */
   async getType(): Promise<string> {
     // The "type" property of the native input is never undefined.
-    return (await (await this.host()).getProperty('type'))!;
+    return (await (await this.host()).getProperty<string>('type'));
   }
 
   /** Gets the placeholder of the input. */
   async getPlaceholder(): Promise<string> {
-    // The "placeholder" property of the native input is never undefined.
-    return (await (await this.host()).getProperty('placeholder'))!;
+    const host = await this.host();
+    const [nativePlaceholder, fallback] = await parallel(() => [
+      host.getProperty('placeholder'),
+      host.getAttribute('data-placeholder')
+    ]);
+    return nativePlaceholder || fallback || '';
   }
 
   /** Gets the id of the input. */
   async getId(): Promise<string> {
     // The input directive always assigns a unique id to the input in
     // case no id has been explicitly specified.
-    return (await (await this.host()).getProperty('id'))!;
+    return (await (await this.host()).getProperty<string>('id'));
   }
 
   /**
@@ -95,6 +102,11 @@ export class MatInputHarness extends MatFormFieldControlHarness {
     return (await this.host()).blur();
   }
 
+  /** Whether the input is focused. */
+  async isFocused(): Promise<boolean> {
+    return (await this.host()).isFocused();
+  }
+
   /**
    * Sets the value of the input. The value will be set by simulating
    * keypresses that correspond to the given value.
@@ -108,5 +120,10 @@ export class MatInputHarness extends MatFormFieldControlHarness {
     if (newValue) {
       await inputEl.sendKeys(newValue);
     }
+
+    // Some input types won't respond to key presses (e.g. `color`) so to be sure that the
+    // value is set, we also set the property after the keyboard sequence. Note that we don't
+    // want to do it before, because it can cause the value to be entered twice.
+    await inputEl.setInputValue(newValue);
   }
 }

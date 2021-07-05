@@ -6,7 +6,6 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {BooleanInput} from '@angular/cdk/coercion';
 import {Platform} from '@angular/cdk/platform';
 import {
   ChangeDetectionStrategy,
@@ -45,16 +44,13 @@ import {
 })
 export class MatIconButton extends MatButtonBase {
   // Set the ripple to be centered for icon buttons
-  _isRippleCentered = true;
+  override _isRippleCentered = true;
 
   constructor(
       elementRef: ElementRef, platform: Platform, ngZone: NgZone,
       @Optional() @Inject(ANIMATION_MODULE_TYPE) animationMode?: string) {
     super(elementRef, platform, ngZone, animationMode);
   }
-
-  static ngAcceptInputType_disabled: BooleanInput;
-  static ngAcceptInputType_disableRipple: BooleanInput;
 }
 
 /**
@@ -74,14 +70,11 @@ export class MatIconButton extends MatButtonBase {
 })
 export class MatIconAnchor extends MatAnchorBase {
   // Set the ripple to be centered for icon buttons
-  _isRippleCentered = true;
+  override _isRippleCentered = true;
 
   constructor(
       elementRef: ElementRef, platform: Platform, ngZone: NgZone,
       @Optional() @Inject(ANIMATION_MODULE_TYPE) animationMode?: string) {
     super(elementRef, platform, ngZone, animationMode);
   }
-
-  static ngAcceptInputType_disabled: BooleanInput;
-  static ngAcceptInputType_disableRipple: BooleanInput;
 }

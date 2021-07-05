@@ -1,4 +1,4 @@
-import {HarnessLoader} from '@angular/cdk/testing';
+import {HarnessLoader, parallel} from '@angular/cdk/testing';
 import {TestbedHarnessEnvironment} from '@angular/cdk/testing/testbed';
 import {Component} from '@angular/core';
 import {ComponentFixture, TestBed} from '@angular/core/testing';
@@ -45,7 +45,7 @@ export function runHarnessTests(
   it('should be able to filter headers by their labels via a regex', async () => {
     const sort = await loader.getHarness(sortHarness);
     const headers = await sort.getSortHeaders({label: /^C/});
-    const labels = await Promise.all(headers.map(header => header.getLabel()));
+    const labels = await parallel(() => headers.map(header => header.getLabel()));
     expect(headers.length).toBe(2);
     expect(labels).toEqual(['Calories', 'Carbs']);
   });
@@ -65,22 +65,8 @@ export function runHarnessTests(
   it('should be able to get the label of a header', async () => {
     const sort = await loader.getHarness(sortHarness);
     const headers = await sort.getSortHeaders();
-    const labels = await Promise.all(headers.map(header => header.getLabel()));
+    const labels = await parallel(() => headers.map(header => header.getLabel()));
     expect(labels).toEqual(['Dessert', 'Calories', 'Fat', 'Carbs', 'Protein']);
-  });
-
-  it('should be able to get the aria-label of a header', async () => {
-    const sort = await loader.getHarness(sortHarness);
-    const headers = await sort.getSortHeaders();
-    const labels = await Promise.all(headers.map(header => header.getAriaLabel()));
-
-    expect(labels).toEqual([
-      'Change sorting for name',
-      'Change sorting for calories',
-      'Change sorting for fat',
-      'Change sorting for carbs',
-      'Change sorting for protein'
-    ]);
   });
 
   it('should get the disabled state of a header', async () => {

@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {BooleanInput} from '@angular/cdk/coercion';
+import {coerceBooleanProperty} from '@angular/cdk/coercion';
 import {CdkTreeNodeToggle} from '@angular/cdk/tree';
 import {Directive, Input} from '@angular/core';
 
@@ -17,8 +17,13 @@ import {Directive, Input} from '@angular/core';
   selector: '[matTreeNodeToggle]',
   providers: [{provide: CdkTreeNodeToggle, useExisting: MatTreeNodeToggle}]
 })
-export class MatTreeNodeToggle<T> extends CdkTreeNodeToggle<T> {
-  @Input('matTreeNodeToggleRecursive') recursive: boolean = false;
-
-  static ngAcceptInputType_recursive: BooleanInput;
+// tslint:disable-next-line: coercion-types
+export class MatTreeNodeToggle<T, K = T> extends CdkTreeNodeToggle<T, K> {
+  @Input('matTreeNodeToggleRecursive')
+  override get recursive(): boolean { return this._recursive; }
+  override set recursive(value: boolean) {
+    // TODO: when we remove support for ViewEngine, change this setter to an input
+    // alias in the decorator metadata.
+    this._recursive = coerceBooleanProperty(value);
+  }
 }

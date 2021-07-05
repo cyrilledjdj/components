@@ -15,9 +15,9 @@ import {
   MatCheckboxChange,
   MatCheckboxModule
 } from './index';
-import {MAT_CHECKBOX_CLICK_ACTION} from './checkbox-config';
 import {MutationObserverFactory} from '@angular/cdk/observers';
 import {ThemePalette} from '@angular/material/core';
+import {MatCheckboxDefaultOptions} from './checkbox-config';
 
 
 describe('MatCheckbox', () => {
@@ -280,7 +280,8 @@ describe('MatCheckbox', () => {
     });
 
     it('should project the checkbox content into the label element', () => {
-      let label = <HTMLLabelElement>checkboxNativeElement.querySelector('.mat-checkbox-label');
+      const label =
+          <HTMLLabelElement>checkboxNativeElement.querySelector('.mat-checkbox-label');
       expect(label.textContent!.trim()).toBe('Simple checkbox');
     });
 
@@ -354,6 +355,20 @@ describe('MatCheckbox', () => {
       // by any interaction.
       expect(testComponent.onCheckboxChange).not.toHaveBeenCalled();
     }));
+
+    it('should keep the view in sync if the `checked` value changes inside the `change` listener',
+      fakeAsync(() => {
+        spyOn(testComponent, 'onCheckboxChange').and.callFake(() => {
+          checkboxInstance.checked = false;
+        });
+
+        labelElement.click();
+        fixture.detectChanges();
+        flush();
+
+        expect(inputElement.checked).toBe(false);
+        expect(checkboxNativeElement.classList).not.toContain('mat-checkbox-checked');
+      }));
 
     it('should forward the required attribute', () => {
       testComponent.isRequired = true;
@@ -465,8 +480,14 @@ describe('MatCheckbox', () => {
         expect(checkboxNativeElement.classList.contains('mat-primary')).toBe(false);
         expect(checkboxNativeElement.classList.contains('mat-accent')).toBe(true);
         expect(checkboxNativeElement.classList.contains('custom-class')).toBe(true);
-
       });
+
+      it('should default to accent if no color is passed in', () => {
+        testComponent.checkboxColor = undefined;
+        fixture.detectChanges();
+        expect(checkboxNativeElement.classList).toContain('mat-accent');
+      });
+
     });
 
     describe('state transition css classes', () => {
@@ -536,39 +557,6 @@ describe('MatCheckbox', () => {
 
         expect(checkboxNativeElement.classList)
           .not.toContain('mat-checkbox-anim-unchecked-indeterminate');
-      }));
-    });
-
-    describe(`when MAT_CHECKBOX_CLICK_ACTION is set`, () => {
-      beforeEach(() => {
-        TestBed.resetTestingModule();
-        TestBed.configureTestingModule({
-          imports: [MatCheckboxModule, FormsModule, ReactiveFormsModule],
-          declarations: [SingleCheckbox],
-          providers: [
-            {provide: MAT_CHECKBOX_CLICK_ACTION, useValue: 'check'},
-            {provide: MAT_CHECKBOX_DEFAULT_OPTIONS, useValue: {clickAction: 'noop'}}
-          ]
-        });
-
-        fixture = createComponent(SingleCheckbox);
-        fixture.detectChanges();
-
-        checkboxDebugElement = fixture.debugElement.query(By.directive(MatCheckbox))!;
-        checkboxNativeElement = checkboxDebugElement.nativeElement;
-        testComponent = fixture.debugElement.componentInstance;
-
-        inputElement = checkboxNativeElement.querySelector('input') as HTMLInputElement;
-      });
-
-      it('should override the value set in the default options', fakeAsync(() => {
-        testComponent.isIndeterminate = true;
-        inputElement.click();
-        fixture.detectChanges();
-        flush();
-
-        expect(inputElement.checked).toBe(true);
-        expect(inputElement.indeterminate).toBe(true);
       }));
     });
 
@@ -673,6 +661,13 @@ describe('MatCheckbox', () => {
         expect(checkboxNativeElement.classList).toContain('mat-checkbox-indeterminate');
       }));
     });
+
+    it('should have a focus indicator', () => {
+      const checkboxRippleNativeElement =
+          checkboxNativeElement.querySelector('.mat-checkbox-ripple')!;
+
+      expect(checkboxRippleNativeElement.classList.contains('mat-focus-indicator')).toBe(true);
+    });
   });
 
   describe('with change event and no initial value', () => {
@@ -696,7 +691,7 @@ describe('MatCheckbox', () => {
     });
 
     it('should emit the event to the change observable', () => {
-      let changeSpy = jasmine.createSpy('onChangeObservable');
+      const changeSpy = jasmine.createSpy('onChangeObservable');
 
       checkboxInstance.change.subscribe(changeSpy);
 
@@ -774,6 +769,32 @@ describe('MatCheckbox', () => {
 
       fixture.detectChanges();
       expect(inputElement.getAttribute('aria-labelledby')).toBe(null);
+    });
+  });
+
+  describe('with provided aria-describedby ', () => {
+    let checkboxDebugElement: DebugElement;
+    let checkboxNativeElement: HTMLElement;
+    let inputElement: HTMLInputElement;
+
+    it('should use the provided aria-describedby', () => {
+      fixture = createComponent(CheckboxWithAriaDescribedby);
+      checkboxDebugElement = fixture.debugElement.query(By.directive(MatCheckbox))!;
+      checkboxNativeElement = checkboxDebugElement.nativeElement;
+      inputElement = <HTMLInputElement>checkboxNativeElement.querySelector('input');
+
+      fixture.detectChanges();
+      expect(inputElement.getAttribute('aria-describedby')).toBe('some-id');
+    });
+
+    it('should not assign aria-describedby if none is provided', () => {
+      fixture = createComponent(SingleCheckbox);
+      checkboxDebugElement = fixture.debugElement.query(By.directive(MatCheckbox))!;
+      checkboxNativeElement = checkboxDebugElement.nativeElement;
+      inputElement = <HTMLInputElement>checkboxNativeElement.querySelector('input');
+
+      fixture.detectChanges();
+      expect(inputElement.getAttribute('aria-describedby')).toBe(null);
     });
   });
 
@@ -896,13 +917,28 @@ describe('MatCheckbox', () => {
     });
 
     it('should assign a unique id to each checkbox', () => {
-      let [firstId, secondId] =
+      const [firstId, secondId] =
           fixture.debugElement.queryAll(By.directive(MatCheckbox))
           .map(debugElement => debugElement.nativeElement.querySelector('input').id);
 
       expect(firstId).toMatch(/mat-checkbox-\d+-input/);
       expect(secondId).toMatch(/mat-checkbox-\d+-input/);
       expect(firstId).not.toEqual(secondId);
+    });
+
+    it('should not change focus origin if origin not specified', () => {
+      const [firstCheckboxDebugEl, secondCheckboxDebugEl] =
+             fixture.debugElement.queryAll(By.directive(MatCheckbox));
+      fixture.detectChanges();
+
+      const firstCheckboxInstance = firstCheckboxDebugEl.componentInstance as MatCheckbox;
+      const secondCheckboxInstance = secondCheckboxDebugEl.componentInstance as MatCheckbox;
+
+      firstCheckboxInstance.focus('mouse');
+      secondCheckboxInstance.focus();
+
+      expect(secondCheckboxDebugEl.nativeElement.classList).toContain('cdk-focused');
+      expect(secondCheckboxDebugEl.nativeElement.classList).toContain('cdk-mouse-focused');
     });
   });
 
@@ -1032,8 +1068,8 @@ describe('MatCheckbox', () => {
     });
 
     it('should forward name value to input element', () => {
-      let checkboxElement = fixture.debugElement.query(By.directive(MatCheckbox))!;
-      let inputElement = <HTMLInputElement> checkboxElement.nativeElement.querySelector('input');
+      const checkboxElement = fixture.debugElement.query(By.directive(MatCheckbox))!;
+      const inputElement = <HTMLInputElement> checkboxElement.nativeElement.querySelector('input');
 
       expect(inputElement.getAttribute('name')).toBe('test-name');
     });
@@ -1196,44 +1232,41 @@ describe('MatCheckbox', () => {
 
 describe('MatCheckboxDefaultOptions', () => {
   describe('when MAT_CHECKBOX_DEFAULT_OPTIONS overridden', () => {
-    beforeEach(() => {
+    function configure(defaults: MatCheckboxDefaultOptions) {
       TestBed.configureTestingModule({
         imports: [MatCheckboxModule, FormsModule],
         declarations: [SingleCheckbox, SimpleCheckbox],
-        providers: [{
-          provide: MAT_CHECKBOX_DEFAULT_OPTIONS,
-          useValue: {color: 'primary'},
-        }],
+        providers: [{provide: MAT_CHECKBOX_DEFAULT_OPTIONS, useValue: defaults}]
       });
 
       TestBed.compileComponents();
-    });
+    }
 
-    it('should override default color in Component', () => {
-      const fixture: ComponentFixture<SimpleCheckbox> =
-          TestBed.createComponent(SimpleCheckbox);
+    it('should override default color in component', () => {
+      configure({color: 'primary'});
+      const fixture: ComponentFixture<SimpleCheckbox> = TestBed.createComponent(SimpleCheckbox);
       fixture.detectChanges();
-      const checkboxDebugElement: DebugElement =
-          fixture.debugElement.query(By.directive(MatCheckbox))!;
-      expect(
-          checkboxDebugElement.nativeElement.classList
-      ).toContain('mat-primary');
+      const checkboxDebugElement = fixture.debugElement.query(By.directive(MatCheckbox))!;
+      expect(checkboxDebugElement.nativeElement.classList).toContain('mat-primary');
     });
 
     it('should not override explicit input bindings', () => {
-      const fixture: ComponentFixture<SingleCheckbox> =
-          TestBed.createComponent(SingleCheckbox);
+      configure({color: 'primary'});
+      const fixture: ComponentFixture<SingleCheckbox> = TestBed.createComponent(SingleCheckbox);
       fixture.componentInstance.checkboxColor = 'warn';
       fixture.detectChanges();
-      const checkboxDebugElement: DebugElement =
-          fixture.debugElement.query(By.directive(MatCheckbox))!;
-      expect(
-          checkboxDebugElement.nativeElement.classList
-      ).not.toContain('mat-primary');
-      expect(
-          checkboxDebugElement.nativeElement.classList
-      ).toContain('mat-warn');
+      const checkboxDebugElement = fixture.debugElement.query(By.directive(MatCheckbox))!;
+      expect(checkboxDebugElement.nativeElement.classList).not.toContain('mat-primary');
       expect(checkboxDebugElement.nativeElement.classList).toContain('mat-warn');
+      expect(checkboxDebugElement.nativeElement.classList).toContain('mat-warn');
+    });
+
+    it('should default to accent if config does not specify color', () => {
+      configure({clickAction: 'noop'});
+      const fixture: ComponentFixture<SimpleCheckbox> = TestBed.createComponent(SimpleCheckbox);
+      fixture.detectChanges();
+      const checkboxDebugElement = fixture.debugElement.query(By.directive(MatCheckbox))!;
+      expect(checkboxDebugElement.nativeElement.classList).toContain('mat-accent');
     });
   });
 });
@@ -1338,6 +1371,12 @@ class CheckboxWithAriaLabel { }
   template: `<mat-checkbox aria-labelledby="some-id"></mat-checkbox>`
 })
 class CheckboxWithAriaLabelledby {}
+
+/** Simple test component with an aria-describedby set. */
+@Component({
+  template: `<mat-checkbox aria-describedby="some-id"></mat-checkbox>`
+})
+class CheckboxWithAriaDescribedby {}
 
 /** Simple test component with name attribute */
 @Component({

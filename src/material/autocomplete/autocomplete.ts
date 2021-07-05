@@ -7,7 +7,8 @@
  */
 
 import {ActiveDescendantKeyManager} from '@angular/cdk/a11y';
-import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
+import {BooleanInput, coerceBooleanProperty, coerceStringArray} from '@angular/cdk/coercion';
+import {Platform} from '@angular/cdk/platform';
 import {
   AfterContentInit,
   ChangeDetectionStrategy,
@@ -24,15 +25,20 @@ import {
   TemplateRef,
   ViewChild,
   ViewEncapsulation,
+  OnDestroy,
+  Directive,
 } from '@angular/core';
 import {
   CanDisableRipple,
-  CanDisableRippleCtor,
+  MAT_OPTGROUP,
   MAT_OPTION_PARENT_COMPONENT,
-  MatOptgroup,
-  MatOption,
+  _MatOptgroupBase,
+  _MatOptionBase,
   mixinDisableRipple,
+  MatOption,
+  MatOptgroup,
 } from '@angular/material/core';
+import {Subscription} from 'rxjs';
 
 
 /**
@@ -45,22 +51,31 @@ let _uniqueAutocompleteIdCounter = 0;
 export class MatAutocompleteSelectedEvent {
   constructor(
     /** Reference to the autocomplete panel that emitted the event. */
-    public source: MatAutocomplete,
+    public source: _MatAutocompleteBase,
     /** Option that was selected. */
-    public option: MatOption) { }
+    public option: _MatOptionBase) { }
 }
 
+/** Event object that is emitted when an autocomplete option is activated. */
+export interface MatAutocompleteActivatedEvent {
+  /** Reference to the autocomplete panel that emitted the event. */
+  source: _MatAutocompleteBase;
+
+  /** Option that was selected. */
+  option: _MatOptionBase|null;
+}
 
 // Boilerplate for applying mixins to MatAutocomplete.
 /** @docs-private */
-class MatAutocompleteBase {}
-const _MatAutocompleteMixinBase: CanDisableRippleCtor & typeof MatAutocompleteBase =
-    mixinDisableRipple(MatAutocompleteBase);
+const _MatAutocompleteMixinBase = mixinDisableRipple(class {});
 
 /** Default `mat-autocomplete` options that can be overridden. */
 export interface MatAutocompleteDefaultOptions {
   /** Whether the first option should be highlighted when an autocomplete panel is opened. */
   autoActiveFirstOption?: boolean;
+
+  /** Class or list of classes to be applied to the autocomplete's overlay panel. */
+  overlayPanelClass?: string | string[];
 }
 
 /** Injection token to be used to override the default options for `mat-autocomplete`. */
@@ -75,26 +90,20 @@ export function MAT_AUTOCOMPLETE_DEFAULT_OPTIONS_FACTORY(): MatAutocompleteDefau
   return {autoActiveFirstOption: false};
 }
 
-@Component({
-  selector: 'mat-autocomplete',
-  templateUrl: 'autocomplete.html',
-  styleUrls: ['autocomplete.css'],
-  encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  exportAs: 'matAutocomplete',
-  inputs: ['disableRipple'],
-  host: {
-    'class': 'mat-autocomplete'
-  },
-  providers: [
-    {provide: MAT_OPTION_PARENT_COMPONENT, useExisting: MatAutocomplete}
-  ]
-})
-export class MatAutocomplete extends _MatAutocompleteMixinBase implements AfterContentInit,
-  CanDisableRipple {
+/** Base class with all of the `MatAutocomplete` functionality. */
+@Directive()
+export abstract class _MatAutocompleteBase extends _MatAutocompleteMixinBase implements
+  AfterContentInit, CanDisableRipple, OnDestroy {
+  private _activeOptionChanges = Subscription.EMPTY;
+
+  /** Class to apply to the panel when it's visible. */
+  protected abstract _visibleClass: string;
+
+  /** Class to apply to the panel when it's hidden. */
+  protected abstract _hiddenClass: string;
 
   /** Manages active item in option list based on key events. */
-  _keyManager: ActiveDescendantKeyManager<MatOption>;
+  _keyManager: ActiveDescendantKeyManager<_MatOptionBase>;
 
   /** Whether the autocomplete panel should be visible, depending on option length. */
   showPanel: boolean = false;
@@ -113,11 +122,17 @@ export class MatAutocomplete extends _MatAutocompleteMixinBase implements AfterC
   /** Element for the panel containing the autocomplete options. */
   @ViewChild('panel') panel: ElementRef;
 
-  /** @docs-private */
-  @ContentChildren(MatOption, {descendants: true}) options: QueryList<MatOption>;
+  /** Reference to all options within the autocomplete. */
+  abstract options: QueryList<_MatOptionBase>;
 
-  /** @docs-private */
-  @ContentChildren(MatOptgroup, {descendants: true}) optionGroups: QueryList<MatOptgroup>;
+  /** Reference to all option groups within the autocomplete. */
+  abstract optionGroups: QueryList<_MatOptgroupBase>;
+
+  /** Aria label of the autocomplete. */
+  @Input('aria-label') ariaLabel: string;
+
+  /** Input that can be used to specify the `aria-labelledby` attribute. */
+  @Input('aria-labelledby') ariaLabelledby: string;
 
   /** Function that maps an option's control value to its display value in the trigger. */
   @Input() displayWith: ((value: any) => string) | null = null;
@@ -149,15 +164,19 @@ export class MatAutocomplete extends _MatAutocompleteMixinBase implements AfterC
   /** Event that is emitted when the autocomplete panel is closed. */
   @Output() readonly closed: EventEmitter<void> = new EventEmitter<void>();
 
+  /** Emits whenever an option is activated using the keyboard. */
+  @Output() readonly optionActivated: EventEmitter<MatAutocompleteActivatedEvent> =
+      new EventEmitter<MatAutocompleteActivatedEvent>();
+
   /**
    * Takes classes set on the host mat-autocomplete element and applies them to the panel
    * inside the overlay container to allow for easy styling.
    */
   @Input('class')
-  set classList(value: string) {
+  set classList(value: string | string[]) {
     if (value && value.length) {
-      this._classList = value.split(' ').reduce((classList, className) => {
-        classList[className.trim()] = true;
+      this._classList = coerceStringArray(value).reduce((classList, className) => {
+        classList[className] = true;
         return classList;
       }, {} as {[key: string]: boolean});
     } else {
@@ -172,19 +191,39 @@ export class MatAutocomplete extends _MatAutocompleteMixinBase implements AfterC
   /** Unique ID to be used by autocomplete trigger's "aria-owns" property. */
   id: string = `mat-autocomplete-${_uniqueAutocompleteIdCounter++}`;
 
+  /**
+   * Tells any descendant `mat-optgroup` to use the inert a11y pattern.
+   * @docs-private
+   */
+  readonly inertGroups: boolean;
+
   constructor(
     private _changeDetectorRef: ChangeDetectorRef,
     private _elementRef: ElementRef<HTMLElement>,
-    @Inject(MAT_AUTOCOMPLETE_DEFAULT_OPTIONS) defaults: MatAutocompleteDefaultOptions) {
+    @Inject(MAT_AUTOCOMPLETE_DEFAULT_OPTIONS) defaults: MatAutocompleteDefaultOptions,
+    platform?: Platform) {
     super();
 
+    // TODO(crisbeto): the problem that the `inertGroups` option resolves is only present on
+    // Safari using VoiceOver. We should occasionally check back to see whether the bug
+    // wasn't resolved in VoiceOver, and if it has, we can remove this and the `inertGroups`
+    // option altogether.
+    this.inertGroups = platform?.SAFARI || false;
     this._autoActiveFirstOption = !!defaults.autoActiveFirstOption;
   }
 
   ngAfterContentInit() {
-    this._keyManager = new ActiveDescendantKeyManager<MatOption>(this.options).withWrap();
+    this._keyManager = new ActiveDescendantKeyManager<_MatOptionBase>(this.options).withWrap();
+    this._activeOptionChanges = this._keyManager.change.subscribe(index => {
+      this.optionActivated.emit({source: this, option: this.options.toArray()[index] || null});
+    });
+
     // Set the initial visibility state.
     this._setVisibility();
+  }
+
+  ngOnDestroy() {
+    this._activeOptionChanges.unsubscribe();
   }
 
   /**
@@ -210,18 +249,53 @@ export class MatAutocomplete extends _MatAutocompleteMixinBase implements AfterC
   }
 
   /** Emits the `select` event. */
-  _emitSelectEvent(option: MatOption): void {
+  _emitSelectEvent(option: _MatOptionBase): void {
     const event = new MatAutocompleteSelectedEvent(this, option);
     this.optionSelected.emit(event);
   }
 
+  /** Gets the aria-labelledby for the autocomplete panel. */
+  _getPanelAriaLabelledby(labelId: string | null): string | null {
+    if (this.ariaLabel) {
+      return null;
+    }
+
+    const labelExpression = labelId ? labelId + ' ' : '';
+    return this.ariaLabelledby ? labelExpression + this.ariaLabelledby : labelId;
+  }
+
+
   /** Sets the autocomplete visibility classes on a classlist based on the panel is visible. */
   private _setVisibilityClasses(classList: {[key: string]: boolean}) {
-    classList['mat-autocomplete-visible'] = this.showPanel;
-    classList['mat-autocomplete-hidden'] = !this.showPanel;
+    classList[this._visibleClass] = this.showPanel;
+    classList[this._hiddenClass] = !this.showPanel;
   }
 
   static ngAcceptInputType_autoActiveFirstOption: BooleanInput;
   static ngAcceptInputType_disableRipple: BooleanInput;
+}
+
+@Component({
+  selector: 'mat-autocomplete',
+  templateUrl: 'autocomplete.html',
+  styleUrls: ['autocomplete.css'],
+  encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  exportAs: 'matAutocomplete',
+  inputs: ['disableRipple'],
+  host: {
+    'class': 'mat-autocomplete'
+  },
+  providers: [
+    {provide: MAT_OPTION_PARENT_COMPONENT, useExisting: MatAutocomplete}
+  ]
+})
+export class MatAutocomplete extends _MatAutocompleteBase {
+  /** Reference to all option groups within the autocomplete. */
+  @ContentChildren(MAT_OPTGROUP, {descendants: true}) optionGroups: QueryList<MatOptgroup>;
+  /** Reference to all options within the autocomplete. */
+  @ContentChildren(MatOption, {descendants: true}) options: QueryList<MatOption>;
+  protected _visibleClass = 'mat-autocomplete-visible';
+  protected _hiddenClass = 'mat-autocomplete-hidden';
 }
 

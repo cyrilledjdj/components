@@ -19,9 +19,8 @@ import {
   Optional,
   Renderer2,
   SimpleChanges,
-  isDevMode,
 } from '@angular/core';
-import {CanDisable, CanDisableCtor, mixinDisabled, ThemePalette} from '@angular/material/core';
+import {CanDisable, mixinDisabled, ThemePalette} from '@angular/material/core';
 import {ANIMATION_MODULE_TYPE} from '@angular/platform-browser/animations';
 
 
@@ -29,10 +28,7 @@ let nextId = 0;
 
 // Boilerplate for applying mixins to MatBadge.
 /** @docs-private */
-class MatBadgeBase {}
-
-const _MatBadgeMixinBase:
-    CanDisableCtor & typeof MatBadgeBase = mixinDisabled(MatBadgeBase);
+const _MatBadgeBase = mixinDisabled(class {});
 
 /** Allowed position options for matBadgePosition */
 export type MatBadgePosition =
@@ -60,7 +56,7 @@ export type MatBadgeSize = 'small' | 'medium' | 'large';
     '[class.mat-badge-disabled]': 'disabled',
   },
 })
-export class MatBadge extends _MatBadgeMixinBase implements OnDestroy, OnChanges, CanDisable {
+export class MatBadge extends _MatBadgeBase implements OnDestroy, OnChanges, CanDisable {
   /** Whether the badge has any content. */
   _hasContent = false;
 
@@ -88,7 +84,7 @@ export class MatBadge extends _MatBadgeMixinBase implements OnDestroy, OnChanges
   @Input('matBadgePosition') position: MatBadgePosition = 'above after';
 
   /** The content for the badge */
-  @Input('matBadge') content: string;
+  @Input('matBadge') content: string | number | undefined | null;
 
   /** Message used to describe the decorated element via aria-describedby */
   @Input('matBadgeDescription')
@@ -131,7 +127,7 @@ export class MatBadge extends _MatBadgeMixinBase implements OnDestroy, OnChanges
       @Optional() @Inject(ANIMATION_MODULE_TYPE) private _animationMode?: string) {
       super();
 
-      if (isDevMode()) {
+      if (typeof ngDevMode === 'undefined' || ngDevMode) {
         const nativeElement = _elementRef.nativeElement;
         if (nativeElement.nodeType !== nativeElement.ELEMENT_NODE) {
           throw Error('matBadge must be attached to an element node.');
@@ -188,7 +184,7 @@ export class MatBadge extends _MatBadgeMixinBase implements OnDestroy, OnChanges
     if (!this._badgeElement) {
       this._badgeElement = this._createBadgeElement();
     } else {
-      this._badgeElement.textContent = this.content;
+      this._badgeElement.textContent = this._stringifyContent();
     }
     return this._badgeElement;
   }
@@ -203,7 +199,7 @@ export class MatBadge extends _MatBadgeMixinBase implements OnDestroy, OnChanges
     this._clearExistingBadges(contentClass);
     badgeElement.setAttribute('id', `mat-badge-content-${this._id}`);
     badgeElement.classList.add(contentClass);
-    badgeElement.textContent = this.content;
+    badgeElement.textContent = this._stringifyContent();
 
     if (this._animationMode === 'NoopAnimations') {
       badgeElement.classList.add('_mat-animation-noopable');
@@ -246,11 +242,12 @@ export class MatBadge extends _MatBadgeMixinBase implements OnDestroy, OnChanges
   /** Adds css theme class given the color to the component host */
   private _setColor(colorPalette: ThemePalette) {
     if (colorPalette !== this._color) {
+      const classList = this._elementRef.nativeElement.classList;
       if (this._color) {
-        this._elementRef.nativeElement.classList.remove(`mat-badge-${this._color}`);
+        classList.remove(`mat-badge-${this._color}`);
       }
       if (colorPalette) {
-        this._elementRef.nativeElement.classList.add(`mat-badge-${colorPalette}`);
+        classList.add(`mat-badge-${colorPalette}`);
       }
     }
   }
@@ -268,6 +265,14 @@ export class MatBadge extends _MatBadgeMixinBase implements OnDestroy, OnChanges
         element.removeChild(currentChild);
       }
     }
+  }
+
+  /** Gets the string representation of the badge content. */
+  private _stringifyContent(): string {
+    // Convert null and undefined to an empty string which is consistent
+    // with how Angular handles them in inside template interpolations.
+    const content = this.content;
+    return content == null ? '' : `${content}`;
   }
 
   static ngAcceptInputType_disabled: BooleanInput;

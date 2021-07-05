@@ -1,6 +1,6 @@
 import {Component} from '@angular/core';
 
-export interface Food {
+interface Food {
   value: string;
   viewValue: string;
 }
@@ -11,7 +11,6 @@ export interface Food {
 @Component({
   selector: 'select-overview-example',
   templateUrl: 'select-overview-example.html',
-  styleUrls: ['select-overview-example.css'],
 })
 export class SelectOverviewExample {
   foods: Food[] = [

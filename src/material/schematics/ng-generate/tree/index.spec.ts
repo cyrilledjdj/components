@@ -1,5 +1,6 @@
 import {SchematicTestRunner} from '@angular-devkit/schematics/testing';
 import {createTestApp, getFileContent} from '@angular/cdk/schematics/testing';
+import {COLLECTION_PATH} from '../../paths';
 import {Schema} from './schema';
 
 describe('Material tree schematic', () => {
@@ -11,7 +12,7 @@ describe('Material tree schematic', () => {
   };
 
   beforeEach(() => {
-    runner = new SchematicTestRunner('schematics', require.resolve('../../collection.json'));
+    runner = new SchematicTestRunner('schematics', COLLECTION_PATH);
   });
 
   it('should create tree component files and add them to module', async () => {
@@ -41,15 +42,9 @@ describe('Material tree schematic', () => {
 
   it('should throw if no name has been specified', async () => {
     const appTree = await createTestApp(runner);
-    let message: string|null = null;
 
-    try {
-      await runner.runSchematicAsync('tree', {project: 'material'}, appTree).toPromise();
-    } catch (e) {
-      message = e.message;
-    }
-
-    expect(message).toMatch(/required property 'name'/);
+    await expectAsync(runner.runSchematicAsync('tree', {project: 'material'}, appTree).toPromise())
+      .toBeRejectedWithError(/required property 'name'/);
   });
 
   describe('style option', () => {

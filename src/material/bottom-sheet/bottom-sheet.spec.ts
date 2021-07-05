@@ -1,6 +1,7 @@
 import {Directionality} from '@angular/cdk/bidi';
 import {A, ESCAPE} from '@angular/cdk/keycodes';
 import {OverlayContainer, ScrollStrategy} from '@angular/cdk/overlay';
+import {_supportsShadowDom} from '@angular/cdk/platform';
 import {ViewportRuler} from '@angular/cdk/scrolling';
 import {
   dispatchKeyboardEvent,
@@ -18,6 +19,7 @@ import {
   TemplateRef,
   ViewChild,
   ViewContainerRef,
+  ViewEncapsulation,
 } from '@angular/core';
 import {
   ComponentFixture,
@@ -28,6 +30,7 @@ import {
   TestBed,
   tick,
 } from '@angular/core/testing';
+import {By} from '@angular/platform-browser';
 import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 
 import {MAT_BOTTOM_SHEET_DEFAULT_OPTIONS, MatBottomSheet} from './bottom-sheet';
@@ -170,8 +173,7 @@ describe('MatBottomSheet', () => {
   it('should not close a bottom sheet via the escape key with a modifier', fakeAsync(() => {
     bottomSheet.open(PizzaMsg, {viewContainerRef: testViewContainerRef});
 
-    const event = createKeyboardEvent('keydown', ESCAPE);
-    Object.defineProperty(event, 'altKey', {get: () => true});
+    const event = createKeyboardEvent('keydown', ESCAPE, undefined, {alt: true});
     dispatchEvent(document.body, event);
     viewContainerFixture.detectChanges();
     flush();
@@ -187,7 +189,7 @@ describe('MatBottomSheet', () => {
 
     viewContainerFixture.detectChanges();
 
-    let backdrop = overlayContainerElement.querySelector('.cdk-overlay-backdrop') as HTMLElement;
+    const backdrop = overlayContainerElement.querySelector('.cdk-overlay-backdrop') as HTMLElement;
 
     backdrop.click();
     viewContainerFixture.detectChanges();
@@ -239,8 +241,8 @@ describe('MatBottomSheet', () => {
     const container =
         overlayContainerElement.querySelector('mat-bottom-sheet-container') as HTMLElement;
     dispatchKeyboardEvent(document.body, 'keydown', A);
-    dispatchKeyboardEvent(document.body, 'keydown', A, undefined, backdrop);
-    dispatchKeyboardEvent(document.body, 'keydown', A, undefined, container);
+    dispatchKeyboardEvent(backdrop, 'keydown', A);
+    dispatchKeyboardEvent(container, 'keydown', A);
 
     expect(spy).toHaveBeenCalledTimes(3);
   }));
@@ -250,7 +252,7 @@ describe('MatBottomSheet', () => {
 
     viewContainerFixture.detectChanges();
 
-    let overlayPane = overlayContainerElement.querySelector('.cdk-global-overlay-wrapper')!;
+    const overlayPane = overlayContainerElement.querySelector('.cdk-global-overlay-wrapper')!;
 
     expect(overlayPane.getAttribute('dir')).toBe('rtl');
   });
@@ -318,7 +320,7 @@ describe('MatBottomSheet', () => {
   }));
 
   it('should open a new bottom sheet after dismissing a previous sheet', fakeAsync(() => {
-    let config: MatBottomSheetConfig = {viewContainerRef: testViewContainerRef};
+    const config: MatBottomSheetConfig = {viewContainerRef: testViewContainerRef};
     let bottomSheetRef: MatBottomSheetRef<any> = bottomSheet.open(PizzaMsg, config);
 
     viewContainerFixture.detectChanges();
@@ -394,6 +396,20 @@ describe('MatBottomSheet', () => {
     viewContainerFixture.detectChanges();
 
     bottomSheetRef.dismiss(1337);
+    viewContainerFixture.detectChanges();
+    flush();
+
+    expect(spy).toHaveBeenCalledWith(1337);
+  }));
+
+  it('should be able to pass data when dismissing through the service', fakeAsync(() => {
+    const bottomSheetRef = bottomSheet.open<PizzaMsg, any, number>(PizzaMsg);
+    const spy = jasmine.createSpy('afterDismissed spy');
+
+    bottomSheetRef.afterDismissed().subscribe(spy);
+    viewContainerFixture.detectChanges();
+
+    bottomSheet.dismiss(1337);
     viewContainerFixture.detectChanges();
     flush();
 
@@ -479,7 +495,8 @@ describe('MatBottomSheet', () => {
 
       viewContainerFixture.detectChanges();
 
-      let backdrop = overlayContainerElement.querySelector('.cdk-overlay-backdrop') as HTMLElement;
+      const backdrop =
+          overlayContainerElement.querySelector('.cdk-overlay-backdrop') as HTMLElement;
       backdrop.click();
       viewContainerFixture.detectChanges();
       flush();
@@ -502,14 +519,15 @@ describe('MatBottomSheet', () => {
     }));
 
     it('should allow for the disableClose option to be updated while open', fakeAsync(() => {
-      let bottomSheetRef = bottomSheet.open(PizzaMsg, {
+      const bottomSheetRef = bottomSheet.open(PizzaMsg, {
         disableClose: true,
         viewContainerRef: testViewContainerRef
       });
 
       viewContainerFixture.detectChanges();
 
-      let backdrop = overlayContainerElement.querySelector('.cdk-overlay-backdrop') as HTMLElement;
+      const backdrop =
+          overlayContainerElement.querySelector('.cdk-overlay-backdrop') as HTMLElement;
       backdrop.click();
 
       expect(overlayContainerElement.querySelector('mat-bottom-sheet-container')).toBeTruthy();
@@ -728,6 +746,33 @@ describe('MatBottomSheet', () => {
       body.removeChild(otherButton);
     }));
 
+    it('should re-focus trigger element inside the shadow DOM when the bottom sheet is dismissed',
+      fakeAsync(() => {
+        if (!_supportsShadowDom()) {
+          return;
+        }
+
+        viewContainerFixture.destroy();
+        const fixture = TestBed.createComponent(ShadowDomComponent);
+        fixture.detectChanges();
+        const button = fixture.debugElement.query(By.css('button'))!.nativeElement;
+
+        button.focus();
+
+        const ref = bottomSheet.open(PizzaMsg);
+        flushMicrotasks();
+        fixture.detectChanges();
+        flushMicrotasks();
+
+        const spy = spyOn(button, 'focus').and.callThrough();
+        ref.dismiss();
+        flushMicrotasks();
+        fixture.detectChanges();
+        tick(500);
+
+        expect(spy).toHaveBeenCalled();
+      }));
+
   });
 
 });
@@ -941,6 +986,12 @@ class BottomSheetWithInjectedData {
   constructor(@Inject(MAT_BOTTOM_SHEET_DATA) public data: any) { }
 }
 
+@Component({
+  template: `<button>I'm a button</button>`,
+  encapsulation: ViewEncapsulation.ShadowDom
+})
+class ShadowDomComponent {}
+
 // Create a real (non-test) NgModule as a workaround for
 // https://github.com/angular/angular/issues/10760
 const TEST_DIRECTIVES = [
@@ -950,6 +1001,7 @@ const TEST_DIRECTIVES = [
   TacoMsg,
   DirectiveWithViewContainer,
   BottomSheetWithInjectedData,
+  ShadowDomComponent,
 ];
 
 @NgModule({

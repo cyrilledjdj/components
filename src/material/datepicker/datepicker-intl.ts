@@ -25,6 +25,9 @@ export class MatDatepickerIntl {
   /** A label for the button used to open the calendar popup (used by screen readers). */
   openCalendarLabel: string = 'Open calendar';
 
+  /** Label for the button used to close the calendar popup. */
+  closeCalendarLabel: string = 'Close calendar';
+
   /** A label for the previous month button (used by screen readers). */
   prevMonthLabel: string = 'Previous month';
 
@@ -38,10 +41,10 @@ export class MatDatepickerIntl {
   nextYearLabel: string = 'Next year';
 
   /** A label for the previous multi-year button (used by screen readers). */
-  prevMultiYearLabel: string = 'Previous 20 years';
+  prevMultiYearLabel: string = 'Previous 24 years';
 
   /** A label for the next multi-year button (used by screen readers). */
-  nextMultiYearLabel: string = 'Next 20 years';
+  nextMultiYearLabel: string = 'Next 24 years';
 
   /** A label for the 'switch to month view' button (used by screen readers). */
   switchToMonthViewLabel: string = 'Choose date';

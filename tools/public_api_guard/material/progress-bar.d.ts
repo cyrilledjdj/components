@@ -2,18 +2,19 @@ export declare const MAT_PROGRESS_BAR_LOCATION: InjectionToken<MatProgressBarLoc
 
 export declare function MAT_PROGRESS_BAR_LOCATION_FACTORY(): MatProgressBarLocation;
 
-export declare class MatProgressBar extends _MatProgressBarMixinBase implements CanColor, AfterViewInit, OnDestroy {
+export declare class MatProgressBar extends _MatProgressBarBase implements CanColor, AfterViewInit, OnDestroy {
     _animationMode?: string | undefined;
-    _elementRef: ElementRef;
     _isNoopAnimation: boolean;
     _primaryValueBar: ElementRef;
     _rectangleFillValue: string;
-    animationEnd: EventEmitter<ProgressAnimationEnd>;
-    bufferValue: number;
+    readonly animationEnd: EventEmitter<ProgressAnimationEnd>;
+    get bufferValue(): number;
+    set bufferValue(v: number);
     mode: ProgressBarMode;
     progressbarId: string;
-    value: number;
-    constructor(_elementRef: ElementRef, _ngZone: NgZone, _animationMode?: string | undefined,
+    get value(): number;
+    set value(v: number);
+    constructor(elementRef: ElementRef, _ngZone: NgZone, _animationMode?: string | undefined,
     location?: MatProgressBarLocation);
     _bufferTransform(): {
         transform: string;
@@ -24,8 +25,8 @@ export declare class MatProgressBar extends _MatProgressBarMixinBase implements 
     ngAfterViewInit(): void;
     ngOnDestroy(): void;
     static ngAcceptInputType_value: NumberInput;
-    static ɵcmp: i0.ɵɵComponentDefWithMeta<MatProgressBar, "mat-progress-bar", ["matProgressBar"], { 'color': "color", 'value': "value", 'bufferValue': "bufferValue", 'mode': "mode" }, { 'animationEnd': "animationEnd" }, never>;
-    static ɵfac: i0.ɵɵFactoryDef<MatProgressBar>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<MatProgressBar, "mat-progress-bar", ["matProgressBar"], { "color": "color"; "value": "value"; "bufferValue": "bufferValue"; "mode": "mode"; }, { "animationEnd": "animationEnd"; }, never, never>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<MatProgressBar, [null, null, { optional: true; }, { optional: true; }]>;
 }
 
 export interface MatProgressBarLocation {
@@ -33,8 +34,9 @@ export interface MatProgressBarLocation {
 }
 
 export declare class MatProgressBarModule {
-    static ɵinj: i0.ɵɵInjectorDef<MatProgressBarModule>;
-    static ɵmod: i0.ɵɵNgModuleDefWithMeta<MatProgressBarModule, [typeof i1.MatProgressBar], [typeof i2.CommonModule, typeof i3.MatCommonModule], [typeof i1.MatProgressBar, typeof i3.MatCommonModule]>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<MatProgressBarModule, never>;
+    static ɵinj: i0.ɵɵInjectorDeclaration<MatProgressBarModule>;
+    static ɵmod: i0.ɵɵNgModuleDeclaration<MatProgressBarModule, [typeof i1.MatProgressBar], [typeof i2.CommonModule, typeof i3.MatCommonModule], [typeof i1.MatProgressBar, typeof i3.MatCommonModule]>;
 }
 
 export interface ProgressAnimationEnd {

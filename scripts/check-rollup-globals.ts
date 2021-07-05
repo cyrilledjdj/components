@@ -8,7 +8,7 @@
  * be passed to this script to ensure that the rollup globals are up-to-date.
  */
 
-import chalk from 'chalk';
+import * as chalk from 'chalk';
 import {readFileSync} from 'fs';
 import * as minimatch from 'minimatch';
 import {join, relative} from 'path';
@@ -27,8 +27,10 @@ const configFile = ts.readJsonConfigFile(join(projectRoot, 'tsconfig.json'), ts.
 const parsedConfig = ts.parseJsonSourceFileConfigFileContent(configFile, ts.sys, projectRoot);
 const filesToCheckGlob = [
   'src/**/!(*.spec).ts',
-  '!src/+(a11y-demo|e2e-app|universal-app|dev-app)/**/*.ts',
+  '!src/+(e2e-app|universal-app|dev-app)/**/*.ts',
   '!src/**/schematics/**/*.ts',
+  '!src/**/tests/**/*.ts',
+  '!src/components-examples/private/localize-types.d.ts',
 ];
 
 const failures = new Map<string, string[]>();

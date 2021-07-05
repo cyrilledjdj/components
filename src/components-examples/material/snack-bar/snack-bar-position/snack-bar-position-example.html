@@ -1,5 +1,6 @@
-<mat-form-field>
-  <mat-select placeholder="Horizontal position" [(value)]="horizontalPosition">
+<mat-form-field appearance="fill">
+  <mat-label>Horizontal position</mat-label>
+  <mat-select [(value)]="horizontalPosition">
     <mat-option value="start">Start</mat-option>
     <mat-option value="center">Center</mat-option>
     <mat-option value="end">End</mat-option>
@@ -7,13 +8,14 @@
     <mat-option value="right">Right</mat-option>
   </mat-select>
 </mat-form-field>
-<mat-form-field>
-  <mat-select placeholder="Vertical position" [(value)]="verticalPosition">
+<mat-form-field appearance="fill">
+  <mat-label>Vertical position</mat-label>
+  <mat-select [(value)]="verticalPosition">
     <mat-option value="top">Top</mat-option>
     <mat-option value="bottom">Bottom</mat-option>
   </mat-select>
 </mat-form-field>
 
-<button mat-button (click)="openSnackBar()" aria-label="Show an example snack-bar">
+<button mat-stroked-button (click)="openSnackBar()" aria-label="Show an example snack-bar">
   Pool party!
 </button>

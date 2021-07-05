@@ -1,19 +1,26 @@
-package(default_visibility = ["//visibility:public"])
-
-load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
+load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("//tools:defaults.bzl", "ts_library")
+
+package(default_visibility = ["//visibility:public"])
 
 nodejs_binary(
     name = "package-docs-content",
     data = [
         ":sources",
+        "@npm//fs-extra",
     ],
     entry_point = ":package-docs-content.ts",
+    # TODO(josephperrott): update dependency usages to no longer need bazel patch module resolver
+    # See: https://github.com/bazelbuild/rules_nodejs/wiki#--bazel_patch_module_resolver-now-defaults-to-false-2324
+    templated_args = ["--bazel_patch_module_resolver"],
 )
 
 ts_library(
     name = "sources",
     srcs = glob(["**/*.ts"]),
     tsconfig = ":tsconfig.json",
-    deps = ["@npm//@types/node"],
+    deps = [
+        "@npm//@types/fs-extra",
+        "@npm//@types/node",
+    ],
 )

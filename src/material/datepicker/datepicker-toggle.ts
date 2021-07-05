@@ -23,9 +23,9 @@ import {
   ViewChild,
 } from '@angular/core';
 import {MatButton} from '@angular/material/button';
-import {merge, of as observableOf, Subscription} from 'rxjs';
-import {MatDatepicker} from './datepicker';
+import {merge, Observable, of as observableOf, Subscription} from 'rxjs';
 import {MatDatepickerIntl} from './datepicker-intl';
+import {MatDatepickerControl, MatDatepickerPanel} from './datepicker-base';
 
 
 /** Can be used to override the icon of a `matDatepickerToggle`. */
@@ -41,13 +41,16 @@ export class MatDatepickerToggleIcon {}
   styleUrls: ['datepicker-toggle.css'],
   host: {
     'class': 'mat-datepicker-toggle',
-    // Always set the tabindex to -1 so that it doesn't overlap with any custom tabindex the
-    // consumer may have provided, while still being able to receive focus.
-    '[attr.tabindex]': '-1',
+    '[attr.tabindex]': 'null',
     '[class.mat-datepicker-toggle-active]': 'datepicker && datepicker.opened',
     '[class.mat-accent]': 'datepicker && datepicker.color === "accent"',
     '[class.mat-warn]': 'datepicker && datepicker.color === "warn"',
-    '(focus)': '_button.focus()',
+    // Used by the test harness to tie this toggle to its datepicker.
+    '[attr.data-mat-calendar]': 'datepicker ? datepicker.id : null',
+    // Bind the `click` on the host, rather than the inner `button`, so that we can call
+    // `stopPropagation` on it without affecting the user's `click` handlers. We need to stop
+    // it so that the input doesn't get focused automatically by the form field (See #21836).
+    '(click)': '_open($event)',
   },
   exportAs: 'matDatepickerToggle',
   encapsulation: ViewEncapsulation.None,
@@ -57,10 +60,13 @@ export class MatDatepickerToggle<D> implements AfterContentInit, OnChanges, OnDe
   private _stateChanges = Subscription.EMPTY;
 
   /** Datepicker instance that the button will toggle. */
-  @Input('for') datepicker: MatDatepicker<D>;
+  @Input('for') datepicker: MatDatepickerPanel<MatDatepickerControl<any>, D>;
 
   /** Tabindex for the toggle. */
   @Input() tabIndex: number | null;
+
+  /** Screenreader label for the button. */
+  @Input('aria-label') ariaLabel: string;
 
   /** Whether the toggle button is disabled. */
   @Input()
@@ -116,9 +122,9 @@ export class MatDatepickerToggle<D> implements AfterContentInit, OnChanges, OnDe
   }
 
   private _watchStateChanges() {
-    const datepickerDisabled = this.datepicker ? this.datepicker._disabledChange : observableOf();
-    const inputDisabled = this.datepicker && this.datepicker._datepickerInput ?
-        this.datepicker._datepickerInput._disabledChange : observableOf();
+    const datepickerStateChanged = this.datepicker ? this.datepicker.stateChanges : observableOf();
+    const inputStateChanged = this.datepicker && this.datepicker.datepickerInput ?
+        this.datepicker.datepickerInput.stateChanges : observableOf();
     const datepickerToggled = this.datepicker ?
         merge(this.datepicker.openedStream, this.datepicker.closedStream) :
         observableOf();
@@ -126,8 +132,8 @@ export class MatDatepickerToggle<D> implements AfterContentInit, OnChanges, OnDe
     this._stateChanges.unsubscribe();
     this._stateChanges = merge(
       this._intl.changes,
-      datepickerDisabled,
-      inputDisabled,
+      datepickerStateChanged as Observable<void>,
+      inputStateChanged,
       datepickerToggled
     ).subscribe(() => this._changeDetectorRef.markForCheck());
   }

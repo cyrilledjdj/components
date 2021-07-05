@@ -29,7 +29,7 @@ component by following these steps:
    },
    ...
    ```
-   
+
 3. Import the `NgModule` for the component you want to use. For example, the checkbox:
 ```ts
   import {MatCheckboxModule} from '@angular/material-experimental/mdc-checkbox';
@@ -41,24 +41,34 @@ component by following these steps:
   export class MyModule {}
 ```
 
-4. Add use the components just as you would the normal Angular Material components. For example,
-the checkbox: 
+4. Use the components just as you would the normal Angular Material components. For example,
+the checkbox:
 ```html
   <mat-checkbox [checked]="isChecked">Check me</mat-checkbox>
 ```
 
 5. Add the theme and typography mixins to your Sass. These align with the normal Angular Material
-mixins except that they are suffixed with `-mdc`. There is currently no pre-built CSS option for
-the experimental components. For example, using the checkbox:
+mixins except that they are suffixed with `-mdc`. Some experimental components may not yet
+be included in the pre-built CSS mixin and will need to be explicitly included.
 
 ```scss
-  @import '~@angular/material/theming';
-  @import '~@angular/material-experimental/mdc-checkbox';
-  
-  $my-primary: mat-palette($mat-indigo);
-  $my-accent:  mat-palette($mat-pink, A200, A100, A400);
-  $my-theme:   mat-light-theme($my-primary, $my-accent);
-  
-  @include mat-checkbox-theme-mdc($my-theme);
-  @include mat-checkbox-typography-mdc();
+  @use '~@angular/material' as mat;
+  @use '~@angular/material-experimental' as mat-experimental;
+
+  $my-primary: mat.define-palette(mat.$indigo-palette);
+  $my-accent: mat.define-palette(mat.$pink-palette, A200, A100, A400);
+  $my-theme: mat.define-light-theme((
+    color: (
+      primary: $my-primary,
+      accent: $my-accent
+    ),
+    // Using `define-mdc-typography-config` rather than `define-typography-config` generates a
+    // typography config directly from the official Material Design styles. This includes using
+    // `rem`-based measurements rather than `px`-based ones as the spec recommends.
+    typography: mat-experimental.define-mdc-typography-config(),
+    // The density level to use in this theme, defaults to 0 if not specified.
+    density: 0
+  ));
+
+  @include mat-experimental.all-mdc-component-themes($my-theme);
 ```

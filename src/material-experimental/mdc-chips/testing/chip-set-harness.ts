@@ -8,11 +8,11 @@
 
 import {ComponentHarness, HarnessPredicate} from '@angular/cdk/testing';
 import {MatChipHarness} from './chip-harness';
-import {ChipSetHarnessFilters} from './chip-harness-filters';
+import {ChipHarnessFilters, ChipSetHarnessFilters} from './chip-harness-filters';
 
 /** Harness for interacting with a mat-chip-set in tests. */
 export class MatChipSetHarness extends ComponentHarness {
-  static hostSelector = 'mat-chip-set';
+  static hostSelector = '.mat-mdc-chip-set';
 
   /**
    * Gets a `HarnessPredicate` that can be used to search for a chip set with specific attributes.
@@ -21,10 +21,8 @@ export class MatChipSetHarness extends ComponentHarness {
     return new HarnessPredicate(MatChipSetHarness, options);
   }
 
-  private _chips = this.locatorForAll(MatChipHarness);
-
   /** Gets promise of the harnesses for the chips. */
-  async getChips(): Promise<MatChipHarness[]> {
-    return await this._chips();
+  async getChips(filter: ChipHarnessFilters = {}): Promise<MatChipHarness[]> {
+    return await this.locatorForAll(MatChipHarness.with(filter))();
   }
 }

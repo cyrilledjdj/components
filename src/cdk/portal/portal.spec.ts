@@ -1,23 +1,26 @@
-import {inject, ComponentFixture, TestBed} from '@angular/core/testing';
+import {CommonModule} from '@angular/common';
 import {
-  NgModule,
-  Component,
-  ViewChild,
-  ViewChildren,
-  QueryList,
-  ViewContainerRef,
-  ComponentFactoryResolver,
-  Optional,
-  Injector,
   ApplicationRef,
-  TemplateRef,
+  Component,
+  ComponentFactoryResolver,
   ComponentRef,
   ElementRef,
+  Injector,
+  NgModule,
+  Optional,
+  QueryList,
+  TemplateRef,
+  Type,
+  ViewChild,
+  ViewChildren,
+  ViewContainerRef,
+  Directive,
+  AfterViewInit,
 } from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {CdkPortal, CdkPortalOutlet, PortalModule} from './portal-directives';
-import {Portal, ComponentPortal, TemplatePortal, DomPortal} from './portal';
+import {ComponentFixture, inject, TestBed} from '@angular/core/testing';
 import {DomPortalOutlet} from './dom-portal-outlet';
+import {ComponentPortal, DomPortal, Portal, TemplatePortal} from './portal';
+import {CdkPortal, CdkPortalOutlet, PortalModule} from './portal-directives';
 
 
 describe('Portals', () => {
@@ -34,6 +37,7 @@ describe('Portals', () => {
 
     beforeEach(() => {
       fixture = TestBed.createComponent(PortalTestApp);
+      fixture.detectChanges();
 
       inject([ComponentFactoryResolver], (cfr: ComponentFactoryResolver) => {
         componentFactoryResolver = cfr;
@@ -97,6 +101,7 @@ describe('Portals', () => {
           .not.toBe(initialParent, 'Expected portal to be out of the initial parent on attach.');
       expect(hostContainer.contains(innerContent))
           .toBe(true, 'Expected content to be inside the outlet on attach.');
+      expect(testAppComponent.portalOutlet.hasAttached()).toBe(true);
 
       testAppComponent.selectedPortal = undefined;
       fixture.detectChanges();
@@ -105,6 +110,7 @@ describe('Portals', () => {
           .toBe(initialParent, 'Expected portal to be back inside initial parent on detach.');
       expect(hostContainer.contains(innerContent))
           .toBe(false, 'Expected content to be removed from outlet on detach.');
+      expect(testAppComponent.portalOutlet.hasAttached()).toBe(false);
     });
 
     it('should throw when trying to load an element without a parent into a DOM portal', () => {
@@ -345,6 +351,7 @@ describe('Portals', () => {
       fixture.destroy();
 
       const unboundFixture = TestBed.createComponent(UnboundPortalTestApp);
+      unboundFixture.detectChanges();
 
       // Note: calling `detectChanges` here will cause a false positive.
       // What we're testing is attaching before the first CD cycle.
@@ -377,10 +384,9 @@ describe('Portals', () => {
     it('should use the `ComponentFactoryResolver` from the portal, if available', () => {
       const spy = jasmine.createSpy('resolveComponentFactorySpy');
       const portal = new ComponentPortal(PizzaMsg, undefined, undefined, {
-        resolveComponentFactory: (...args: any[]) => {
+        resolveComponentFactory: <T>(...args: [Type<T>]) => {
           spy();
-          return componentFactoryResolver.resolveComponentFactory
-              .apply(componentFactoryResolver, args);
+          return componentFactoryResolver.resolveComponentFactory(...args);
         }
       });
 
@@ -404,7 +410,7 @@ describe('Portals', () => {
     let componentFactoryResolver: ComponentFactoryResolver;
     let someViewContainerRef: ViewContainerRef;
     let someInjector: Injector;
-    let someFixture: ComponentFixture<any>;
+    let someFixture: ComponentFixture<ArbitraryViewContainerRefComponent>;
     let someDomElement: HTMLElement;
     let host: DomPortalOutlet;
     let injector: Injector;
@@ -438,6 +444,19 @@ describe('Portals', () => {
       host.detach();
 
       expect(someDomElement.innerHTML).toBe('');
+    });
+
+    it('should move the DOM nodes before running change detection', () => {
+      someFixture.detectChanges();
+      let portal = new TemplatePortal(someFixture.componentInstance.template, someViewContainerRef);
+
+      host.attachTemplatePortal(portal);
+      someFixture.detectChanges();
+
+      expect(someFixture.componentInstance.saveParentNodeOnInit.parentOnViewInit)
+          .toBe(someDomElement);
+
+      host.dispose();
     });
 
     it('should attach and detach a component portal with a given injector', () => {
@@ -560,10 +579,9 @@ describe('Portals', () => {
     it('should use the `ComponentFactoryResolver` from the portal, if available', () => {
       const spy = jasmine.createSpy('resolveComponentFactorySpy');
       const portal = new ComponentPortal(PizzaMsg, undefined, undefined, {
-        resolveComponentFactory: (...args: any[]) => {
+        resolveComponentFactory: <T>(...args: [Type<T>]) => {
           spy();
-          return componentFactoryResolver.resolveComponentFactory
-              .apply(componentFactoryResolver, args);
+          return componentFactoryResolver.resolveComponentFactory(...args);
         }
       });
 
@@ -608,6 +626,30 @@ describe('Portals', () => {
       expect(() => host.detach()).not.toThrow();
     });
 
+    it('should set hasAttached when the various portal types are attached', () => {
+      const fixture = TestBed.createComponent(PortalTestApp);
+      fixture.detectChanges();
+      const viewContainerRef = fixture.componentInstance.viewContainerRef;
+
+      expect(host.hasAttached()).toBe(false);
+
+      host.attachComponentPortal(new ComponentPortal(PizzaMsg, viewContainerRef));
+      expect(host.hasAttached()).toBe(true);
+
+      host.detach();
+      expect(host.hasAttached()).toBe(false);
+
+      host.attachTemplatePortal(
+          new TemplatePortal(fixture.componentInstance.templateRef, viewContainerRef));
+      expect(host.hasAttached()).toBe(true);
+
+      host.detach();
+      expect(host.hasAttached()).toBe(false);
+
+      host.attachDomPortal(new DomPortal(fixture.componentInstance.domPortalContent));
+      expect(host.hasAttached()).toBe(true);
+    });
+
   });
 });
 
@@ -635,12 +677,38 @@ class PizzaMsg {
   constructor(@Optional() public snack: Chocolate) { }
 }
 
+/**
+ * Saves the parent node that the directive was attached to on init.
+ * Useful to see where the element was in the DOM when it was first attached.
+ */
+@Directive({
+  selector: '[savesParentNodeOnInit]'
+})
+class SaveParentNodeOnInit implements AfterViewInit {
+  parentOnViewInit: HTMLElement;
+
+  constructor(private _elementRef: ElementRef<HTMLElement>) {}
+
+  ngAfterViewInit() {
+    this.parentOnViewInit = this._elementRef.nativeElement.parentElement!;
+  }
+}
+
 /** Simple component to grab an arbitrary ViewContainerRef */
 @Component({
   selector: 'some-placeholder',
-  template: '<p>Hello</p>'
+  template: `
+    <p>Hello</p>
+
+    <ng-template #template>
+      <div savesParentNodeOnInit></div>
+    </ng-template>
+  `
 })
 class ArbitraryViewContainerRefComponent {
+  @ViewChild('template') template: TemplateRef<any>;
+  @ViewChild(SaveParentNodeOnInit) saveParentNodeOnInit: SaveParentNodeOnInit;
+
   constructor(public viewContainerRef: ViewContainerRef, public injector: Injector) { }
 }
 
@@ -677,10 +745,10 @@ class ArbitraryViewContainerRefComponent {
 })
 class PortalTestApp {
   @ViewChildren(CdkPortal) portals: QueryList<CdkPortal>;
-  @ViewChild(CdkPortalOutlet, {static: true}) portalOutlet: CdkPortalOutlet;
-  @ViewChild('templateRef', {read: TemplateRef, static: true}) templateRef: TemplateRef<any>;
-  @ViewChild('domPortalContent', {static: true}) domPortalContent: ElementRef<HTMLElement>;
-  @ViewChild('alternateContainer', {read: ViewContainerRef, static: true})
+  @ViewChild(CdkPortalOutlet) portalOutlet: CdkPortalOutlet;
+  @ViewChild('templateRef', {read: TemplateRef}) templateRef: TemplateRef<any>;
+  @ViewChild('domPortalContent') domPortalContent: ElementRef<HTMLElement>;
+  @ViewChild('alternateContainer', {read: ViewContainerRef})
   alternateContainer: ViewContainerRef;
 
   selectedPortal: Portal<any>|undefined;
@@ -688,7 +756,7 @@ class PortalTestApp {
   fruits = ['Apple', 'Pineapple', 'Durian'];
   attachedSpy = jasmine.createSpy('attached spy');
 
-  constructor(public injector: Injector) { }
+  constructor(public viewContainerRef: ViewContainerRef, public injector: Injector) { }
 
   get cakePortal() {
     return this.portals.first;
@@ -717,7 +785,7 @@ class PortalTestApp {
   `,
 })
 class UnboundPortalTestApp {
-  @ViewChild(CdkPortalOutlet, {static: true}) portalOutlet: CdkPortalOutlet;
+  @ViewChild(CdkPortalOutlet) portalOutlet: CdkPortalOutlet;
 }
 
 // Create a real (non-test) NgModule as a workaround for
@@ -732,7 +800,7 @@ const TEST_COMPONENTS = [
 @NgModule({
   imports: [CommonModule, PortalModule],
   exports: TEST_COMPONENTS,
-  declarations: TEST_COMPONENTS,
+  declarations: [...TEST_COMPONENTS, SaveParentNodeOnInit],
   entryComponents: TEST_COMPONENTS,
 })
 class PortalTestModule { }

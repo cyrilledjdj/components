@@ -5,8 +5,9 @@ import * as minimatch from 'minimatch';
 
 /**
  * Rule that enforces certain decorator properties to be defined and to match a pattern.
- * Properties can be forbidden by prefixing their name with a `!`. Supports whitelisting
- * files via the third argument, as well as validating all the arguments by passing in a regex. E.g.
+ * Properties can be forbidden by prefixing their name with a `!`. Supports specifying a matcher for
+ * filtering valid files via the third argument, as well as validating all the arguments by passing
+ * in a regex. E.g.
  *
  * ```
  * "validate-decorators": [true, {
@@ -79,7 +80,7 @@ class Walker extends Lint.RuleWalker {
                     fileGlobs.some(p => minimatch(relativeFilePath, p));
   }
 
-  visitClassDeclaration(node: ts.ClassDeclaration) {
+  override visitClassDeclaration(node: ts.ClassDeclaration) {
     if (this._enabled) {
       if (node.decorators) {
         node.decorators.forEach(decorator => this._validateDecorator(decorator));

@@ -1,10 +1,10 @@
 export declare class BreakpointObserver implements OnDestroy {
     constructor(_mediaMatcher: MediaMatcher, _zone: NgZone);
-    isMatched(value: string | string[]): boolean;
+    isMatched(value: string | readonly string[]): boolean;
     ngOnDestroy(): void;
-    observe(value: string | string[]): Observable<BreakpointState>;
-    static ɵfac: i0.ɵɵFactoryDef<BreakpointObserver>;
-    static ɵprov: i0.ɵɵInjectableDef<BreakpointObserver>;
+    observe(value: string | readonly string[]): Observable<BreakpointState>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<BreakpointObserver, never>;
+    static ɵprov: i0.ɵɵInjectableDeclaration<BreakpointObserver>;
 }
 
 export declare const Breakpoints: {
@@ -32,13 +32,14 @@ export interface BreakpointState {
 }
 
 export declare class LayoutModule {
-    static ɵinj: i0.ɵɵInjectorDef<LayoutModule>;
-    static ɵmod: i0.ɵɵNgModuleDefWithMeta<LayoutModule, never, never, never>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<LayoutModule, never>;
+    static ɵinj: i0.ɵɵInjectorDeclaration<LayoutModule>;
+    static ɵmod: i0.ɵɵNgModuleDeclaration<LayoutModule, never, never, never>;
 }
 
 export declare class MediaMatcher {
     constructor(_platform: Platform);
     matchMedia(query: string): MediaQueryList;
-    static ɵfac: i0.ɵɵFactoryDef<MediaMatcher>;
-    static ɵprov: i0.ɵɵInjectableDef<MediaMatcher>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<MediaMatcher, never>;
+    static ɵprov: i0.ɵɵInjectableDeclaration<MediaMatcher>;
 }

@@ -1,15 +1,14 @@
-import {TestBed, async, ComponentFixture} from '@angular/core/testing';
+import {TestBed, ComponentFixture} from '@angular/core/testing';
 import {Component, DebugElement, Type} from '@angular/core';
 import {By} from '@angular/platform-browser';
 import {dispatchFakeEvent} from '@angular/cdk/testing/private';
-import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 import {MatProgressBarModule} from './index';
 import {MatProgressBar} from './progress-bar';
 
 
 describe('MDC-based MatProgressBar', () => {
   function createComponent<T>(componentType: Type<T>,
-                              imports?: Array<Type<{}>>): ComponentFixture<T> {
+                              imports?: Type<{}>[]): ComponentFixture<T> {
     TestBed.configureTestingModule({
       imports: imports || [MatProgressBarModule],
       declarations: [componentType]
@@ -17,6 +16,19 @@ describe('MDC-based MatProgressBar', () => {
 
     return TestBed.createComponent<T>(componentType);
   }
+
+  // All children need to be hidden for screen readers in order to support ChromeVox.
+  // More context in the issue: https://github.com/angular/components/issues/22165.
+  it('should have elements wrapped in aria-hidden div', () => {
+    const fixture = createComponent(BasicProgressBar);
+    const host = fixture.nativeElement as Element;
+    const element = host.children[0];
+    const children = element.children;
+    expect(children.length).toBe(3);
+
+    const ariaHidden = Array.from(children).map(child => child.getAttribute('aria-hidden'));
+    expect(ariaHidden).toEqual(['true', 'true', 'true']);
+  });
 
   describe('with animation', () => {
     describe('basic progress-bar', () => {
@@ -70,28 +82,32 @@ describe('MDC-based MatProgressBar', () => {
         const primaryStyles =
             progressElement.nativeElement.querySelector('.mdc-linear-progress__primary-bar').style;
         const bufferStyles =
-          progressElement.nativeElement.querySelector('.mdc-linear-progress__buffer').style;
+          progressElement.nativeElement.querySelector('.mdc-linear-progress__buffer-bar').style;
+
+        // Parse out and round the value since different
+        // browsers return the value with a different precision.
+        const getBufferValue = () => Math.floor(parseInt(bufferStyles.flexBasis));
 
         expect(primaryStyles.transform).toBe('scaleX(0)');
-        expect(bufferStyles.transform).toBe('scaleX(1)');
+        expect(getBufferValue()).toBe(100);
 
         progressComponent.value = 40;
         expect(primaryStyles.transform).toBe('scaleX(0.4)');
-        expect(bufferStyles.transform).toBe('scaleX(1)');
+        expect(getBufferValue()).toBe(100);
 
         progressComponent.value = 35;
         progressComponent.bufferValue = 55;
         expect(primaryStyles.transform).toBe('scaleX(0.35)');
-        expect(bufferStyles.transform).toBe('scaleX(1)');
+        expect(getBufferValue()).toBe(100);
 
         progressComponent.mode = 'buffer';
         expect(primaryStyles.transform).toBe('scaleX(0.35)');
-        expect(bufferStyles.transform).toEqual('scaleX(0.55)');
+        expect(getBufferValue()).toEqual(55);
 
         progressComponent.value = 60;
         progressComponent.bufferValue = 60;
         expect(primaryStyles.transform).toBe('scaleX(0.6)');
-        expect(bufferStyles.transform).toEqual('scaleX(0.6)');
+        expect(getBufferValue()).toEqual(60);
       });
 
       it('should remove the `aria-valuenow` attribute in indeterminate mode', () => {
@@ -213,33 +229,6 @@ describe('MDC-based MatProgressBar', () => {
     });
   });
 
-  describe('With NoopAnimations', () => {
-    let progressComponent: MatProgressBar;
-    let primaryValueBar: DebugElement;
-    let fixture: ComponentFixture<BasicProgressBar>;
-
-    beforeEach(async(() => {
-      fixture = createComponent(BasicProgressBar, [MatProgressBarModule, NoopAnimationsModule]);
-      const progressElement = fixture.debugElement.query(By.css('mat-progress-bar'))!;
-      progressComponent = progressElement.componentInstance;
-      primaryValueBar = progressElement.query(By.css('.mdc-linear-progress__primary-bar'))!;
-    }));
-
-    it('should not bind transition end listener', () => {
-      spyOn(primaryValueBar.nativeElement, 'addEventListener');
-      fixture.detectChanges();
-
-      expect(primaryValueBar.nativeElement.addEventListener).not.toHaveBeenCalled();
-    });
-
-    it('should trigger the animationEnd output on value set', () => {
-      fixture.detectChanges();
-      spyOn(progressComponent.animationEnd, 'next');
-
-      progressComponent.value = 40;
-      expect(progressComponent.animationEnd.next).toHaveBeenCalledWith({ value: 40 });
-    });
-  });
 });
 
 @Component({template: '<mat-progress-bar></mat-progress-bar>'})

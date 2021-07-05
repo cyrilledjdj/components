@@ -9,13 +9,14 @@
 import {chain, Rule, SchematicContext, Tree} from '@angular-devkit/schematics';
 import {
   addModuleImportToRootModule,
+  getAppModulePath,
   getProjectFromWorkspace,
   getProjectMainFile,
   getProjectStyleFile,
   hasNgModuleImport,
 } from '@angular/cdk/schematics';
-import {getWorkspace} from '@schematics/angular/utility/config';
-import {getAppModulePath} from '@schematics/angular/utility/ng-ast-utils';
+import {getWorkspace} from '@schematics/angular/utility/workspace';
+import {ProjectType} from '@schematics/angular/utility/workspace-models';
 import {addFontsToIndex} from './fonts/material-fonts';
 import {Schema} from './schema';
 import {addThemeToAppStyles, addTypographyClass} from './theming/theming';
@@ -33,13 +34,26 @@ const noopAnimationsModuleName = 'NoopAnimationsModule';
  *  - Adds Browser Animation to app.module
  */
 export default function(options: Schema): Rule {
-  return chain([
-    addAnimationsModule(options),
-    addThemeToAppStyles(options),
-    addFontsToIndex(options),
-    addMaterialAppStyles(options),
-    addTypographyClass(options),
-  ]);
+  return async (host: Tree, context: SchematicContext) => {
+    const workspace = await getWorkspace(host);
+    const project = getProjectFromWorkspace(workspace, options.project);
+
+    if (project.extensions.projectType === ProjectType.Application) {
+      return chain([
+        addAnimationsModule(options),
+        addThemeToAppStyles(options),
+        addFontsToIndex(options),
+        addMaterialAppStyles(options),
+        addTypographyClass(options),
+      ]);
+    }
+    context.logger.warn(
+        'Angular Material has been set up in your workspace. There is no additional setup ' +
+        'required for consuming Angular Material in your library project.\n\n' +
+        'If you intended to run the schematic on a different project, pass the `--project` ' +
+        'option.');
+    return;
+  };
 }
 
 /**
@@ -48,8 +62,8 @@ export default function(options: Schema): Rule {
  * components of Angular Material will throw an exception.
  */
 function addAnimationsModule(options: Schema) {
-  return (host: Tree, context: SchematicContext) => {
-    const workspace = getWorkspace(host);
+  return async (host: Tree, context: SchematicContext) => {
+    const workspace = await getWorkspace(host);
     const project = getProjectFromWorkspace(workspace, options.project);
     const appModulePath = getAppModulePath(host, getProjectMainFile(project));
 
@@ -74,8 +88,6 @@ function addAnimationsModule(options: Schema) {
       addModuleImportToRootModule(host, noopAnimationsModuleName,
         '@angular/platform-browser/animations', project);
     }
-
-    return host;
   };
 }
 
@@ -84,15 +96,16 @@ function addAnimationsModule(options: Schema) {
  * and reset the default browser body margin.
  */
 function addMaterialAppStyles(options: Schema) {
-  return (host: Tree, context: SchematicContext) => {
-    const workspace = getWorkspace(host);
+  return async (host: Tree, context: SchematicContext) => {
+    const workspace = await getWorkspace(host);
     const project = getProjectFromWorkspace(workspace, options.project);
     const styleFilePath = getProjectStyleFile(project);
     const logger = context.logger;
 
     if (!styleFilePath) {
       logger.error(`Could not find the default style file for this project.`);
-      logger.info(`Please consider manually setting up the Roboto font in your CSS.`);
+      logger.info(`Consider manually adding the Roboto font to your CSS.`);
+      logger.info(`More information at https://fonts.google.com/specimen/Roboto`);
       return;
     }
 
@@ -101,7 +114,7 @@ function addMaterialAppStyles(options: Schema) {
     if (!buffer) {
       logger.error(`Could not read the default style file within the project ` +
         `(${styleFilePath})`);
-      logger.info(`Please consider manually setting up the Robot font.`);
+      logger.info(`Please consider manually setting up the Roboto font.`);
       return;
     }
 

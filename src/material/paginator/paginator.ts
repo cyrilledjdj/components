@@ -22,18 +22,21 @@ import {
   OnInit,
   Output,
   ViewEncapsulation,
+  InjectionToken,
+  Inject,
+  Optional,
+  Directive,
 } from '@angular/core';
 import {Subscription} from 'rxjs';
 import {MatPaginatorIntl} from './paginator-intl';
 import {
   HasInitialized,
-  HasInitializedCtor,
   mixinInitialized,
   ThemePalette,
   mixinDisabled,
-  CanDisableCtor,
   CanDisable,
 } from '@angular/material/core';
+import {MatFormFieldAppearance} from '@angular/material/form-field';
 
 /** The default page size if there is no page size and there are no provided page size options. */
 const DEFAULT_PAGE_SIZE = 50;
@@ -59,31 +62,45 @@ export class PageEvent {
   length: number;
 }
 
-// Boilerplate for applying mixins to MatPaginator.
+
+/** Object that can be used to configure the default options for the paginator module. */
+export interface MatPaginatorDefaultOptions {
+  /** Number of items to display on a page. By default set to 50. */
+  pageSize?: number;
+
+  /** The set of provided page size options to display to the user. */
+  pageSizeOptions?: number[];
+
+  /** Whether to hide the page size selection UI from the user. */
+  hidePageSize?: boolean;
+
+  /** Whether to show the first/last buttons UI to the user. */
+  showFirstLastButtons?: boolean;
+
+  /** The default form-field appearance to apply to the page size options selector. */
+  formFieldAppearance?: MatFormFieldAppearance;
+}
+
+/** Injection token that can be used to provide the default options for the paginator module. */
+export const MAT_PAGINATOR_DEFAULT_OPTIONS =
+    new InjectionToken<MatPaginatorDefaultOptions>('MAT_PAGINATOR_DEFAULT_OPTIONS');
+
+// Boilerplate for applying mixins to _MatPaginatorBase.
 /** @docs-private */
-class MatPaginatorBase {}
-const _MatPaginatorBase: CanDisableCtor & HasInitializedCtor & typeof MatPaginatorBase =
-    mixinDisabled(mixinInitialized(MatPaginatorBase));
+const _MatPaginatorMixinBase = mixinDisabled(mixinInitialized(class {}));
 
 /**
- * Component to provide navigation between paged information. Displays the size of the current
- * page, user-selectable options to change that size, what items are being shown, and
- * navigational button to go to the previous or next page.
+ * Base class with all of the `MatPaginator` functionality.
+ * @docs-private
  */
-@Component({
-  selector: 'mat-paginator',
-  exportAs: 'matPaginator',
-  templateUrl: 'paginator.html',
-  styleUrls: ['paginator.css'],
-  inputs: ['disabled'],
-  host: {
-    'class': 'mat-paginator',
-  },
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  encapsulation: ViewEncapsulation.None,
-})
-export class MatPaginator extends _MatPaginatorBase implements OnInit, OnDestroy, CanDisable,
-  HasInitialized {
+@Directive()
+export abstract class _MatPaginatorBase<O extends {
+  pageSize?: number;
+  pageSizeOptions?: number[];
+  hidePageSize?: boolean;
+  showFirstLastButtons?: boolean;
+}> extends _MatPaginatorMixinBase implements OnInit, OnDestroy,
+    CanDisable, HasInitialized {
   private _initialized: boolean;
   private _intlChanges: Subscription;
 
@@ -150,9 +167,35 @@ export class MatPaginator extends _MatPaginatorBase implements OnInit, OnDestroy
   _displayedPageSizeOptions: number[];
 
   constructor(public _intl: MatPaginatorIntl,
-              private _changeDetectorRef: ChangeDetectorRef) {
+              private _changeDetectorRef: ChangeDetectorRef,
+              defaults?: O) {
     super();
     this._intlChanges = _intl.changes.subscribe(() => this._changeDetectorRef.markForCheck());
+
+    if (defaults) {
+      const {
+        pageSize,
+        pageSizeOptions,
+        hidePageSize,
+        showFirstLastButtons,
+      } = defaults;
+
+      if (pageSize != null) {
+        this._pageSize = pageSize;
+      }
+
+      if (pageSizeOptions != null) {
+        this._pageSizeOptions = pageSizeOptions;
+      }
+
+      if (hidePageSize != null) {
+        this._hidePageSize = hidePageSize;
+      }
+
+      if (showFirstLastButtons != null) {
+        this._showFirstLastButtons = showFirstLastButtons;
+      }
+    }
   }
 
   ngOnInit() {
@@ -294,4 +337,38 @@ export class MatPaginator extends _MatPaginatorBase implements OnInit, OnDestroy
   static ngAcceptInputType_hidePageSize: BooleanInput;
   static ngAcceptInputType_showFirstLastButtons: BooleanInput;
   static ngAcceptInputType_disabled: BooleanInput;
+}
+
+
+/**
+ * Component to provide navigation between paged information. Displays the size of the current
+ * page, user-selectable options to change that size, what items are being shown, and
+ * navigational button to go to the previous or next page.
+ */
+@Component({
+  selector: 'mat-paginator',
+  exportAs: 'matPaginator',
+  templateUrl: 'paginator.html',
+  styleUrls: ['paginator.css'],
+  inputs: ['disabled'],
+  host: {
+    'class': 'mat-paginator',
+    'role': 'group',
+  },
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None,
+})
+export class MatPaginator extends _MatPaginatorBase<MatPaginatorDefaultOptions> {
+  /** If set, styles the "page size" form field with the designated style. */
+  _formFieldAppearance?: MatFormFieldAppearance;
+
+  constructor(intl: MatPaginatorIntl,
+    changeDetectorRef: ChangeDetectorRef,
+    @Optional() @Inject(MAT_PAGINATOR_DEFAULT_OPTIONS) defaults?: MatPaginatorDefaultOptions) {
+    super(intl, changeDetectorRef, defaults);
+
+    if (defaults && defaults.formFieldAppearance != null) {
+      this._formFieldAppearance = defaults.formFieldAppearance;
+    }
+  }
 }

@@ -1,7 +1,8 @@
-package(default_visibility = ["//visibility:public"])
-
 load("//src/e2e-app:test_suite.bzl", "e2e_test_suite")
 load("//tools:defaults.bzl", "markdown_to_html", "ng_web_test_suite", "ts_library")
+load("//src/cdk/testing/tests:webdriver-test.bzl", "webdriver_test")
+
+package(default_visibility = ["//visibility:public"])
 
 ts_library(
     name = "testing",
@@ -12,6 +13,9 @@ ts_library(
         ],
     ),
     module_name = "@angular/cdk/testing",
+    deps = [
+        "@npm//rxjs",
+    ],
 )
 
 markdown_to_html(
@@ -26,12 +30,27 @@ filegroup(
 
 ng_web_test_suite(
     name = "unit_tests",
-    deps = ["//src/cdk/testing/tests:unit_test_sources"],
+    # We need to load Kagekiri statically since it is not a named AMD module and needs to
+    # be manually configured through "require.js" which is used by "karma_web_test_suite".
+    static_files = [
+        "@npm//kagekiri",
+    ],
+    deps = [
+        ":require-config.js",
+        "//src/cdk/testing/tests:unit_test_sources",
+    ],
 )
 
 e2e_test_suite(
-    name = "e2e_tests",
+    name = "protractor_e2e_tests",
     deps = [
         "//src/cdk/testing/tests:e2e_test_sources",
+    ],
+)
+
+webdriver_test(
+    name = "webdriver_e2e_tests",
+    deps = [
+        "//src/cdk/testing/tests:webdriver_test_sources",
     ],
 )

@@ -6,17 +6,24 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Constructor} from './constructor';
+import {AbstractConstructor, Constructor} from './constructor';
 import {ElementRef} from '@angular/core';
 
 /** @docs-private */
 export interface CanColor {
   /** Theme color palette for the component. */
   color: ThemePalette;
+
+  /** Default color to fall back to if no value is set. */
+  defaultColor: ThemePalette | undefined;
 }
 
-/** @docs-private */
-export type CanColorCtor = Constructor<CanColor>;
+/**
+ * @docs-private
+ * @deprecated No longer necessary to apply to mixin classes. To be made private.
+ * @breaking-change 13.0.0
+ */
+export type CanColorCtor = Constructor<CanColor> & AbstractConstructor<CanColor>;
 
 /** @docs-private */
 export interface HasElementRef {
@@ -27,14 +34,17 @@ export interface HasElementRef {
 export type ThemePalette = 'primary' | 'accent' | 'warn' | undefined;
 
 /** Mixin to augment a directive with a `color` property. */
+export function mixinColor<T extends AbstractConstructor<HasElementRef>>(
+    base: T, defaultColor?: ThemePalette): CanColorCtor & T;
 export function mixinColor<T extends Constructor<HasElementRef>>(
     base: T, defaultColor?: ThemePalette): CanColorCtor & T {
   return class extends base {
     private _color: ThemePalette;
+    defaultColor = defaultColor;
 
     get color(): ThemePalette { return this._color; }
     set color(value: ThemePalette) {
-      const colorPalette = value || defaultColor;
+      const colorPalette = value || this.defaultColor;
 
       if (colorPalette !== this._color) {
         if (this._color) {

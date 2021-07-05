@@ -1,5 +1,4 @@
 import {Platform} from '@angular/cdk/platform';
-import {expectAsyncError} from '@angular/cdk/testing/private';
 import {HarnessLoader} from '@angular/cdk/testing';
 import {TestbedHarnessEnvironment} from '@angular/cdk/testing/testbed';
 import {Component} from '@angular/core';
@@ -12,7 +11,7 @@ import {MatRadioButtonHarness, MatRadioGroupHarness} from './radio-harness';
 export function runHarnessTests(radioModule: typeof MatRadioModule,
                                 radioGroupHarness: typeof MatRadioGroupHarness,
                                 radioButtonHarness: typeof MatRadioButtonHarness) {
-  const platform = new Platform();
+  let platform: Platform;
   let fixture: ComponentFixture<MultipleRadioButtonsHarnessTest>;
   let loader: HarnessLoader;
 
@@ -24,6 +23,7 @@ export function runHarnessTests(radioModule: typeof MatRadioModule,
         })
         .compileComponents();
 
+    platform = TestBed.inject(Platform);
     fixture = TestBed.createComponent(MultipleRadioButtonsHarnessTest);
     fixture.detectChanges();
     loader = TestbedHarnessEnvironment.loader(fixture);
@@ -57,15 +57,10 @@ export function runHarnessTests(radioModule: typeof MatRadioModule,
           fixture.componentInstance.thirdGroupButtonName = 'other-name';
           fixture.detectChanges();
 
-          let errorMessage: string | null = null;
-          try {
-            await loader.getAllHarnesses(radioGroupHarness.with({name: 'third-group-name'}));
-          } catch (e) {
-            errorMessage = e.toString();
-          }
-
-          expect(errorMessage).toMatch(
-              /locator found a radio-group with name "third-group-name".*have mismatching names/);
+          await expectAsync(
+            loader.getAllHarnesses(radioGroupHarness.with({name: 'third-group-name'})))
+          .toBeRejectedWithError(
+            /locator found a radio-group with name "third-group-name".*have mismatching names/);
         });
 
     it('should get name of radio-group', async () => {
@@ -83,14 +78,8 @@ export function runHarnessTests(radioModule: typeof MatRadioModule,
       fixture.componentInstance.thirdGroupButtonName = 'other-button-name';
       fixture.detectChanges();
 
-      let errorMessage: string | null = null;
-      try {
-        await groups[2].getName();
-      } catch (e) {
-        errorMessage = e.toString();
-      }
-
-      expect(errorMessage).toMatch(/Radio buttons in radio-group have mismatching names./);
+      await expectAsync(groups[2].getName())
+        .toBeRejectedWithError(/Radio buttons in radio-group have mismatching names./);
     });
 
     it('should get id of radio-group', async () => {
@@ -149,8 +138,8 @@ export function runHarnessTests(radioModule: typeof MatRadioModule,
 
     it('should throw error when checking invalid radio button', async () => {
       const group = await loader.getHarness(radioGroupHarness.with({name: 'my-group-1-name'}));
-      await expectAsyncError(() => group.checkRadioButton({label: 'opt4'}),
-          /Error: Could not find radio button matching {"label":"opt4"}/);
+      await expectAsync(group.checkRadioButton({label: 'opt4'})).toBeRejectedWithError(
+          /Could not find radio button matching {"label":"opt4"}/);
     });
   });
 
@@ -223,17 +212,17 @@ export function runHarnessTests(radioModule: typeof MatRadioModule,
 
     it('should focus radio-button', async () => {
       const radioButton = await loader.getHarness(radioButtonHarness.with({selector: '#opt2'}));
-      expect(getActiveElementTagName()).not.toBe('input');
+      expect(await radioButton.isFocused()).toBe(false);
       await radioButton.focus();
-      expect(getActiveElementTagName()).toBe('input');
+      expect(await radioButton.isFocused()).toBe(true);
     });
 
     it('should blur radio-button', async () => {
       const radioButton = await loader.getHarness(radioButtonHarness.with({selector: '#opt2'}));
       await radioButton.focus();
-      expect(getActiveElementTagName()).toBe('input');
+      expect(await radioButton.isFocused()).toBe(true);
       await radioButton.blur();
-      expect(getActiveElementTagName()).not.toBe('input');
+      expect(await radioButton.isFocused()).toBe(false);
     });
 
     it('should check radio-button', async () => {
@@ -275,10 +264,6 @@ export function runHarnessTests(radioModule: typeof MatRadioModule,
       expect(await radioButton.isRequired()).toBe(true);
     });
   });
-}
-
-function getActiveElementTagName() {
-  return document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
 }
 
 @Component({

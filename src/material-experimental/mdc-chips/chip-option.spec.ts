@@ -2,9 +2,13 @@ import {Directionality} from '@angular/cdk/bidi';
 import {SPACE} from '@angular/cdk/keycodes';
 import {createKeyboardEvent, dispatchFakeEvent} from '@angular/cdk/testing/private';
 import {Component, DebugElement, ViewChild} from '@angular/core';
-import {async, ComponentFixture, fakeAsync, flush, TestBed} from '@angular/core/testing';
-import {MAT_RIPPLE_GLOBAL_OPTIONS, RippleGlobalOptions} from '@angular/material/core';
+import {waitForAsync, ComponentFixture, fakeAsync, flush, TestBed} from '@angular/core/testing';
+import {
+  MAT_RIPPLE_GLOBAL_OPTIONS,
+  RippleGlobalOptions,
+} from '@angular/material-experimental/mdc-core';
 import {By} from '@angular/platform-browser';
+import {deprecated} from '@material/chips';
 import {Subject} from 'rxjs';
 import {
   MatChipEvent,
@@ -21,10 +25,9 @@ describe('MDC-based Option Chips', () => {
   let chipNativeElement: HTMLElement;
   let chipInstance: MatChipOption;
   let globalRippleOptions: RippleGlobalOptions;
-
   let dir = 'ltr';
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     globalRippleOptions = {};
     TestBed.configureTestingModule({
       imports: [MatChipsModule],
@@ -170,6 +173,17 @@ describe('MDC-based Option Chips', () => {
         expect(spy).not.toHaveBeenCalled();
         subscription.unsubscribe();
       });
+
+      it('should be able to disable ripples through ripple global options at runtime', () => {
+        expect(chipInstance._isRippleDisabled())
+            .toBe(false, 'Expected chip ripples to be enabled.');
+
+        globalRippleOptions.disabled = true;
+
+        expect(chipInstance._isRippleDisabled())
+            .toBe(true, 'Expected chip ripples to be disabled.');
+      });
+
     });
 
     describe('keyboard behavior', () => {
@@ -181,7 +195,7 @@ describe('MDC-based Option Chips', () => {
         });
 
         it('should selects/deselects the currently focused chip on SPACE', () => {
-          const SPACE_EVENT: KeyboardEvent = createKeyboardEvent('keydown', SPACE) as KeyboardEvent;
+          const SPACE_EVENT = createKeyboardEvent('keydown', SPACE);
           const CHIP_SELECTED_EVENT: MatChipSelectionChange = {
             source: chipInstance,
             isUserInput: true,
@@ -234,6 +248,16 @@ describe('MDC-based Option Chips', () => {
           expect(chipNativeElement.getAttribute('aria-selected')).toBe('true');
         }));
 
+        it('should disable focus on the checkmark', fakeAsync(() => {
+          // The checkmark is only shown in multi selection mode.
+          testComponent.chipList.multiple = true;
+          flush();
+          fixture.detectChanges();
+
+          const checkmark = chipNativeElement.querySelector('.mdc-chip__checkmark-svg')!;
+          expect(checkmark.getAttribute('focusable')).toBe('false');
+        }));
+
       });
 
       describe('when selectable is false', () => {
@@ -243,7 +267,7 @@ describe('MDC-based Option Chips', () => {
         });
 
         it('SPACE ignores selection', () => {
-          const SPACE_EVENT: KeyboardEvent = createKeyboardEvent('keydown', SPACE) as KeyboardEvent;
+          const SPACE_EVENT = createKeyboardEvent('keydown', SPACE);
 
           spyOn(testComponent, 'chipSelectionChange');
 
@@ -269,6 +293,26 @@ describe('MDC-based Option Chips', () => {
         expect(chipNativeElement.getAttribute('aria-disabled')).toBe('true');
       });
     });
+
+    it('should hide the leading icon when initialized as selected', () => {
+      // We need to recreate the fixture before change detection has
+      // run so we can capture the behavior we're testing for.
+      fixture.destroy();
+      fixture = TestBed.createComponent(SingleChip);
+      testComponent = fixture.debugElement.componentInstance;
+      testComponent.selected = true;
+      fixture.detectChanges();
+      chipDebugElement = fixture.debugElement.query(By.directive(MatChipOption))!;
+      chipNativeElement = chipDebugElement.nativeElement;
+      chipInstance = chipDebugElement.injector.get<MatChipOption>(MatChipOption);
+
+      const avatar = fixture.nativeElement.querySelector('.avatar');
+      expect(avatar.classList).toContain(deprecated.chipCssClasses.HIDDEN_LEADING_ICON);
+    });
+
+    it('should have a focus indicator', () => {
+      expect(chipNativeElement.classList.contains('mat-mdc-focus-indicator')).toBe(true);
+    });
   });
 });
 
@@ -280,6 +324,7 @@ describe('MDC-based Option Chips', () => {
                  [color]="color" [selected]="selected" [disabled]="disabled"
                  (focus)="chipFocus($event)" (destroyed)="chipDestroy($event)"
                  (selectionChange)="chipSelectionChange($event)">
+          <span class="avatar" matChipAvatar></span>
           {{name}}
         </mat-chip-option>
       </div>

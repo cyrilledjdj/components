@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load(
     "//tools:defaults.bzl",
     "markdown_to_html",
@@ -9,6 +7,8 @@ load(
     "sass_binary",
     "sass_library",
 )
+
+package(default_visibility = ["//visibility:public"])
 
 ng_module(
     name = "snack-bar",
@@ -22,6 +22,7 @@ ng_module(
     ] + glob(["**/*.html"]),
     module_name = "@angular/material/snack-bar",
     deps = [
+        "//src:dev_mode_types",
         "//src/cdk/a11y",
         "//src/cdk/bidi",
         "//src/cdk/layout",
@@ -64,6 +65,7 @@ ng_test_library(
         ":snack-bar",
         "//src/cdk/a11y",
         "//src/cdk/overlay",
+        "//src/cdk/platform",
         "@npm//@angular/common",
         "@npm//@angular/platform-browser",
     ],

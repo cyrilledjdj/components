@@ -7,29 +7,9 @@
  */
 import {ElementRef, NgZone} from '@angular/core';
 import {Platform, normalizePassiveListenerOptions} from '@angular/cdk/platform';
-import {isFakeMousedownFromScreenReader} from '@angular/cdk/a11y';
+import {isFakeMousedownFromScreenReader, isFakeTouchstartFromScreenReader} from '@angular/cdk/a11y';
 import {coerceElement} from '@angular/cdk/coercion';
-import {RippleRef, RippleState} from './ripple-ref';
-
-export type RippleConfig = {
-  color?: string;
-  centered?: boolean;
-  radius?: number;
-  persistent?: boolean;
-  animation?: RippleAnimationConfig;
-  terminateOnPointerUp?: boolean;
-};
-
-/**
- * Interface that describes the configuration for the animation of a ripple.
- * There are two animation phases with different durations for the ripples.
- */
-export interface RippleAnimationConfig {
-  /** Duration in milliseconds for the enter animation (expansion from point of contact). */
-  enterDuration?: number;
-  /** Duration in milliseconds for the exit animation (fade-out). */
-  exitDuration?: number;
-}
+import {RippleRef, RippleState, RippleConfig} from './ripple-ref';
 
 /**
  * Interface that describes the target for launching ripples.
@@ -61,6 +41,12 @@ const ignoreMouseEventsTimeout = 800;
 /** Options that apply to all the event listeners that are bound by the ripple renderer. */
 const passiveEventOptions = normalizePassiveListenerOptions({passive: true});
 
+/** Events that signal that the pointer is down. */
+const pointerDownEvents = ['mousedown', 'touchstart'];
+
+/** Events that signal that the pointer is up. */
+const pointerUpEvents = ['mouseup', 'mouseleave', 'touchend', 'touchcancel'];
+
 /**
  * Helper service that performs DOM manipulations. Not intended to be used outside this module.
  * The constructor takes a reference to the ripple directive's host element and a map of DOM
@@ -68,7 +54,7 @@ const passiveEventOptions = normalizePassiveListenerOptions({passive: true});
  * This will eventually become a custom renderer once Angular support exists.
  * @docs-private
  */
-export class RippleRenderer {
+export class RippleRenderer implements EventListenerObject {
   /** Element where the ripples are being added to. */
   private _containerElement: HTMLElement;
 
@@ -78,9 +64,6 @@ export class RippleRenderer {
   /** Whether the pointer is currently down or not. */
   private _isPointerDown = false;
 
-  /** Events to be registered on the trigger element. */
-  private _triggerEvents = new Map<string, any>();
-
   /** Set of currently active ripple references. */
   private _activeRipples = new Set<RippleRef>();
 
@@ -89,6 +72,9 @@ export class RippleRenderer {
 
   /** Time in milliseconds when the last touchstart event happened. */
   private _lastTouchStartEvent: number;
+
+  /** Whether pointer-up event listeners have been registered. */
+  private _pointerUpEventsRegistered = false;
 
   /**
    * Cached dimensions of the ripple container. Set when the first
@@ -104,16 +90,6 @@ export class RippleRenderer {
     // Only do anything if we're on the browser.
     if (platform.isBrowser) {
       this._containerElement = coerceElement(elementOrElementRef);
-
-      // Specify events which need to be registered on the trigger.
-      this._triggerEvents
-        .set('mousedown', this._onMousedown)
-        .set('mouseup', this._onPointerUp)
-        .set('mouseleave', this._onPointerUp)
-
-        .set('touchstart', this._onTouchStart)
-        .set('touchend', this._onPointerUp)
-        .set('touchcancel', this._onPointerUp);
     }
   }
 
@@ -230,6 +206,15 @@ export class RippleRenderer {
     this._activeRipples.forEach(ripple => ripple.fadeOut());
   }
 
+  /** Fades out all currently active non-persistent ripples. */
+  fadeOutAllNonPersistent() {
+    this._activeRipples.forEach(ripple => {
+      if (!ripple.config.persistent) {
+        ripple.fadeOut();
+      }
+    });
+  }
+
   /** Sets up the trigger event listeners */
   setupTriggerEvents(elementOrElementRef: HTMLElement | ElementRef<HTMLElement>) {
     const element = coerceElement(elementOrElementRef);
@@ -241,17 +226,34 @@ export class RippleRenderer {
     // Remove all previously registered event listeners from the trigger element.
     this._removeTriggerEvents();
 
-    this._ngZone.runOutsideAngular(() => {
-      this._triggerEvents.forEach((fn, type) => {
-        element.addEventListener(type, fn, passiveEventOptions);
-      });
-    });
-
     this._triggerElement = element;
+    this._registerEvents(pointerDownEvents);
+  }
+
+  /**
+   * Handles all registered events.
+   * @docs-private
+   */
+  handleEvent(event: Event) {
+    if (event.type === 'mousedown') {
+      this._onMousedown(event as MouseEvent);
+    } else if (event.type === 'touchstart') {
+      this._onTouchStart(event as TouchEvent);
+    } else {
+      this._onPointerUp();
+    }
+
+    // If pointer-up events haven't been registered yet, do so now.
+    // We do this on-demand in order to reduce the total number of event listeners
+    // registered by the ripples, which speeds up the rendering time for large UIs.
+    if (!this._pointerUpEventsRegistered) {
+      this._registerEvents(pointerUpEvents);
+      this._pointerUpEventsRegistered = true;
+    }
   }
 
   /** Function being called whenever the trigger is being pressed using mouse. */
-  private _onMousedown = (event: MouseEvent) => {
+  private _onMousedown(event: MouseEvent) {
     // Screen readers will fire fake mouse events for space/enter. Skip launching a
     // ripple in this case for consistency with the non-screen-reader experience.
     const isFakeMousedown = isFakeMousedownFromScreenReader(event);
@@ -265,8 +267,8 @@ export class RippleRenderer {
   }
 
   /** Function being called whenever the trigger is being pressed using touch. */
-  private _onTouchStart = (event: TouchEvent) => {
-    if (!this._target.rippleDisabled) {
+  private _onTouchStart(event: TouchEvent) {
+    if (!this._target.rippleDisabled && !isFakeTouchstartFromScreenReader(event)) {
       // Some browsers fire mouse events after a `touchstart` event. Those synthetic mouse
       // events will launch a second ripple if we don't ignore mouse events for a specific
       // time after a touchstart event.
@@ -284,7 +286,7 @@ export class RippleRenderer {
   }
 
   /** Function being called whenever the trigger is being released. */
-  private _onPointerUp = () => {
+  private _onPointerUp() {
     if (!this._isPointerDown) {
       return;
     }
@@ -309,12 +311,27 @@ export class RippleRenderer {
     this._ngZone.runOutsideAngular(() => setTimeout(fn, delay));
   }
 
+  /** Registers event listeners for a given list of events. */
+  private _registerEvents(eventTypes: string[]) {
+    this._ngZone.runOutsideAngular(() => {
+      eventTypes.forEach((type) => {
+        this._triggerElement!.addEventListener(type, this, passiveEventOptions);
+      });
+    });
+  }
+
   /** Removes previously registered event listeners from the trigger element. */
   _removeTriggerEvents() {
     if (this._triggerElement) {
-      this._triggerEvents.forEach((fn, type) => {
-        this._triggerElement!.removeEventListener(type, fn, passiveEventOptions);
+      pointerDownEvents.forEach((type) => {
+        this._triggerElement!.removeEventListener(type, this, passiveEventOptions);
       });
+
+      if (this._pointerUpEventsRegistered) {
+        pointerUpEvents.forEach((type) => {
+          this._triggerElement!.removeEventListener(type, this, passiveEventOptions);
+        });
+      }
     }
   }
 }

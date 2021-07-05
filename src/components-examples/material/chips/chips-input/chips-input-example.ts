@@ -15,11 +15,10 @@ export interface Fruit {
   styleUrls: ['chips-input-example.css'],
 })
 export class ChipsInputExample {
-  visible = true;
   selectable = true;
   removable = true;
   addOnBlur = true;
-  readonly separatorKeysCodes: number[] = [ENTER, COMMA];
+  readonly separatorKeysCodes = [ENTER, COMMA] as const;
   fruits: Fruit[] = [
     {name: 'Lemon'},
     {name: 'Lime'},
@@ -27,18 +26,15 @@ export class ChipsInputExample {
   ];
 
   add(event: MatChipInputEvent): void {
-    const input = event.input;
-    const value = event.value;
+    const value = (event.value || '').trim();
 
     // Add our fruit
-    if ((value || '').trim()) {
-      this.fruits.push({name: value.trim()});
+    if (value) {
+      this.fruits.push({name: value});
     }
 
-    // Reset the input value
-    if (input) {
-      input.value = '';
-    }
+    // Clear the input value
+    event.chipInput!.clear();
   }
 
   remove(fruit: Fruit): void {

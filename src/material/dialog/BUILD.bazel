@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load("//src/e2e-app:test_suite.bzl", "e2e_test_suite")
 load(
     "//tools:defaults.bzl",
@@ -12,6 +10,8 @@ load(
     "sass_library",
 )
 
+package(default_visibility = ["//visibility:public"])
+
 ng_module(
     name = "dialog",
     srcs = glob(
@@ -21,14 +21,15 @@ ng_module(
     assets = [":dialog.css"] + glob(["**/*.html"]),
     module_name = "@angular/material/dialog",
     deps = [
+        "//src:dev_mode_types",
         "//src/cdk/a11y",
         "//src/cdk/bidi",
         "//src/cdk/keycodes",
         "//src/cdk/overlay",
+        "//src/cdk/platform",
         "//src/cdk/portal",
         "//src/material/core",
         "@npm//@angular/animations",
-        "@npm//@angular/common",
         "@npm//@angular/core",
         "@npm//rxjs",
     ],
@@ -57,9 +58,11 @@ ng_test_library(
     ),
     deps = [
         ":dialog",
+        "//src/cdk/a11y",
         "//src/cdk/bidi",
         "//src/cdk/keycodes",
         "//src/cdk/overlay",
+        "//src/cdk/platform",
         "//src/cdk/scrolling",
         "//src/cdk/testing/private",
         "@npm//@angular/common",

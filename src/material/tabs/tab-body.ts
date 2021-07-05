@@ -26,7 +26,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import {AnimationEvent} from '@angular/animations';
-import {TemplatePortal, CdkPortalOutlet, PortalHostDirective} from '@angular/cdk/portal';
+import {TemplatePortal, CdkPortalOutlet} from '@angular/cdk/portal';
 import {Directionality, Direction} from '@angular/cdk/bidi';
 import {DOCUMENT} from '@angular/common';
 import {Subscription, Subject} from 'rxjs';
@@ -71,16 +71,12 @@ export class MatTabBodyPortal extends CdkPortalOutlet implements OnInit, OnDestr
     componentFactoryResolver: ComponentFactoryResolver,
     viewContainerRef: ViewContainerRef,
     @Inject(forwardRef(() => MatTabBody)) private _host: MatTabBody,
-    /**
-     * @deprecated `_document` parameter to be made required.
-     * @breaking-change 9.0.0
-     */
-    @Inject(DOCUMENT) _document?: any) {
+    @Inject(DOCUMENT) _document: any) {
     super(componentFactoryResolver, viewContainerRef, _document);
   }
 
   /** Set initial visibility or set up subscription for changing visibility. */
-  ngOnInit(): void {
+  override ngOnInit(): void {
     super.ngOnInit();
 
     this._centeringSub = this._host._beforeCentering
@@ -97,7 +93,7 @@ export class MatTabBodyPortal extends CdkPortalOutlet implements OnInit, OnDestr
   }
 
   /** Clean up centering subscription. */
-  ngOnDestroy(): void {
+  override ngOnDestroy(): void {
     super.ngOnDestroy();
     this._centeringSub.unsubscribe();
     this._leavingSub.unsubscribe();
@@ -109,7 +105,6 @@ export class MatTabBodyPortal extends CdkPortalOutlet implements OnInit, OnDestr
  * @docs-private
  */
 @Directive()
-// tslint:disable-next-line:class-name
 export abstract class _MatTabBodyBase implements OnInit, OnDestroy {
   /** Current position of the tab-body in the tab-group. Zero means that the tab is visible. */
   private _positionIndex: number;
@@ -121,7 +116,7 @@ export abstract class _MatTabBodyBase implements OnInit, OnDestroy {
   _position: MatTabBodyPositionState;
 
   /** Emits when an animation on the tab is complete. */
-  _translateTabComplete = new Subject<AnimationEvent>();
+  readonly _translateTabComplete = new Subject<AnimationEvent>();
 
   /** Event emitted when the tab begins to animate towards the center as the active tab. */
   @Output() readonly _onCentering: EventEmitter<number> = new EventEmitter<number>();
@@ -130,13 +125,13 @@ export abstract class _MatTabBodyBase implements OnInit, OnDestroy {
   @Output() readonly _beforeCentering: EventEmitter<boolean> = new EventEmitter<boolean>();
 
   /** Event emitted before the centering of the tab begins. */
-  @Output() readonly _afterLeavingCenter: EventEmitter<boolean> = new EventEmitter<boolean>();
+  @Output() readonly _afterLeavingCenter: EventEmitter<void> = new EventEmitter<void>();
 
   /** Event emitted when the tab completes its animation towards the center. */
   @Output() readonly _onCentered: EventEmitter<void> = new EventEmitter<void>(true);
 
    /** The portal host inside of this container into which the tab body content will be loaded. */
-  abstract _portalHost: PortalHostDirective;
+  abstract _portalHost: CdkPortalOutlet;
 
   /** The tab body content to display. */
   @Input('content') _content: TemplatePortal;
@@ -261,7 +256,7 @@ export abstract class _MatTabBodyBase implements OnInit, OnDestroy {
   }
 })
 export class MatTabBody extends _MatTabBodyBase {
-  @ViewChild(PortalHostDirective) _portalHost: PortalHostDirective;
+  @ViewChild(CdkPortalOutlet) _portalHost: CdkPortalOutlet;
 
   constructor(elementRef: ElementRef<HTMLElement>,
               @Optional() dir: Directionality,

@@ -6,18 +6,18 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Observable, of as observableOf} from 'rxjs';
+import {Observable, isObservable, of as observableOf} from 'rxjs';
 import {DataSource} from './data-source';
 
 
 /** DataSource wrapper for a native array. */
 export class ArrayDataSource<T> extends DataSource<T> {
-  constructor(private _data: T[] | ReadonlyArray<T> | Observable<T[] | ReadonlyArray<T>>) {
+  constructor(private _data: readonly T[] | Observable<readonly T[]>) {
     super();
   }
 
-  connect(): Observable<T[] | ReadonlyArray<T>> {
-    return this._data instanceof Observable ? this._data : observableOf(this._data);
+  connect(): Observable<readonly T[]> {
+    return isObservable(this._data) ? this._data : observableOf(this._data);
   }
 
   disconnect() {}

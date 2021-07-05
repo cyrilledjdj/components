@@ -1,10 +1,10 @@
-package(default_visibility = ["//visibility:public"])
-
 load("//tools:defaults.bzl", "ng_module", "ng_package")
 load("//tools/highlight-files:index.bzl", "highlight_files")
 load("//tools/package-docs-content:index.bzl", "package_docs_content")
 
-EXAMPLE_PACKAGES = [
+package(default_visibility = ["//visibility:public"])
+
+ALL_EXAMPLES = [
     # TODO(devversion): try to have for each entry-point a bazel package so that
     # we can automate this using the "package.bzl" variables. Currently generated
     # with "bazel query 'kind("ng_module", //src/components-examples/...:*)' --output="label"
@@ -43,36 +43,44 @@ EXAMPLE_PACKAGES = [
     "//src/components-examples/material/bottom-sheet",
     "//src/components-examples/material/badge",
     "//src/components-examples/material/autocomplete",
+    "//src/components-examples/material-experimental/column-resize",
     "//src/components-examples/material-experimental/popover-edit",
+    "//src/components-examples/material-experimental/mdc-card",
+    "//src/components-examples/material-experimental/mdc-form-field",
+    "//src/components-examples/material-experimental/selection",
     "//src/components-examples/cdk/tree",
     "//src/components-examples/cdk/text-field",
     "//src/components-examples/cdk/table",
     "//src/components-examples/cdk/stepper",
     "//src/components-examples/cdk/scrolling",
     "//src/components-examples/cdk/portal",
+    "//src/components-examples/cdk/accordion",
     "//src/components-examples/cdk/platform",
     "//src/components-examples/cdk/drag-drop",
     "//src/components-examples/cdk/clipboard",
     "//src/components-examples/cdk/a11y",
+    "//src/components-examples/cdk/layout",
+    "//src/components-examples/cdk/overlay",
+    "//src/components-examples/cdk-experimental/menu",
     "//src/components-examples/cdk-experimental/popover-edit",
+    "//src/components-examples/cdk-experimental/selection",
 ]
 
 ng_module(
     name = "components-examples",
     srcs = glob(["*.ts"]) + [":example-module.ts"],
     module_name = "@angular/components-examples",
-    deps = EXAMPLE_PACKAGES,
+    deps = ALL_EXAMPLES,
 )
 
 filegroup(
     name = "example-source-files",
-    srcs = ["%s:source-files" % pkg for pkg in EXAMPLE_PACKAGES],
+    srcs = ["%s:source-files" % pkg for pkg in ALL_EXAMPLES],
 )
 
 highlight_files(
-    name = "highlighted-source-files",
+    name = "examples-highlighted",
     srcs = [":example-source-files"],
-    tags = ["docs-package"],
 )
 
 package_docs_content(
@@ -95,18 +103,21 @@ package_docs_content(
 
         # For the live-examples in our docs, we want to package the highlighted files
         # into the docs content. These will be used to show the source code for examples.
-        ":highlighted-source-files": "examples-highlighted",
+        # Note: `examples-highlighted` is a tree artifact that we want to store as is
+        # in the docs-content. Hence there is no target section name.
+        ":examples-highlighted": "",
     },
-    tags = ["docs-package"],
 )
 
 ng_package(
     name = "npm_package",
     srcs = ["package.json"],
-    data = [":docs-content"],
     entry_point = ":public-api.ts",
+    # this is a workaround to store a tree artifact in the ng_package.
+    # ng_package does not properly handle tree artifacts currently so we escalate to nested_packages
+    nested_packages = [":docs-content"],
     tags = ["docs-package"],
-    deps = [":components-examples"] + EXAMPLE_PACKAGES,
+    deps = [":components-examples"] + ALL_EXAMPLES,
 )
 
 genrule(
@@ -118,13 +129,13 @@ genrule(
     ],
     cmd = """
       # Create source file manifest
-      echo "$(locations //src/components-examples:example-source-files)" \
-          > $(location _example_module.MF)
+      echo "$(execpaths //src/components-examples:example-source-files)" \
+          > $(execpath _example_module.MF)
 
       # Run the bazel entry-point for generating the example module.
-      ./$(location //tools/example-module:bazel-bin) \
-          "$(location _example_module.MF)" \
-          "$(location example-module.ts)" \
+      ./$(execpath //tools/example-module:bazel-bin) \
+          "$(execpath _example_module.MF)" \
+          "$(execpath example-module.ts)" \
           "$$PWD/src/components-examples"
     """,
     output_to_bindir = True,

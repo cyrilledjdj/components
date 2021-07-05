@@ -6,18 +6,16 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {InjectionToken} from '@angular/core';
+import {ThemePalette} from '@angular/material/core';
 
 
 /** Default `mat-slide-toggle` options that can be overridden. */
 export interface MatSlideToggleDefaultOptions {
   /** Whether toggle action triggers value changes in slide toggle. */
   disableToggleValue?: boolean;
-  /**
-   * Whether drag action triggers value changes in slide toggle.
-   * @deprecated No longer being used.
-   * @breaking-change 10.0.0
-   */
-  disableDragValue?: boolean;
+
+  /** Default color for slide toggles. */
+  color?: ThemePalette;
 }
 
 /** Injection token to be used to override the default options for `mat-slide-toggle`. */

@@ -1,30 +1,33 @@
-@import '../core/theming/palette';
-@import '../core/theming/theming';
-@import '../core/typography/typography-utils';
+@use 'sass:map';
+@use '../core/theming/theming';
+@use '../core/typography/typography';
+@use '../core/typography/typography-utils';
+@use '../core/density/private/compatibility';
+@use './paginator-variables';
 
-
-@mixin mat-paginator-theme($theme) {
-  $foreground: map-get($theme, foreground);
-  $background: map-get($theme, background);
+@mixin color($config-or-theme) {
+  $config: theming.get-color-config($config-or-theme);
+  $foreground: map.get($config, foreground);
+  $background: map.get($config, background);
 
   .mat-paginator {
-    background: mat-color($background, 'card');
+    background: theming.get-color-from-palette($background, 'card');
   }
 
   .mat-paginator,
   .mat-paginator-page-size .mat-select-trigger {
-    color: mat-color($foreground, secondary-text);
+    color: theming.get-color-from-palette($foreground, secondary-text);
   }
 
   .mat-paginator-decrement,
   .mat-paginator-increment {
-    border-top: 2px solid mat-color($foreground, 'icon');
-    border-right: 2px solid mat-color($foreground, 'icon');
+    border-top: 2px solid theming.get-color-from-palette($foreground, 'icon');
+    border-right: 2px solid theming.get-color-from-palette($foreground, 'icon');
   }
 
   .mat-paginator-first,
   .mat-paginator-last {
-    border-top: 2px solid mat-color($foreground, 'icon');
+    border-top: 2px solid theming.get-color-from-palette($foreground, 'icon');
   }
 
   .mat-icon-button[disabled] {
@@ -32,17 +35,50 @@
     .mat-paginator-increment,
     .mat-paginator-first,
     .mat-paginator-last {
-      border-color: mat-color($foreground, 'disabled');
+      border-color: theming.get-color-from-palette($foreground, 'disabled');
     }
   }
 }
 
-@mixin mat-paginator-typography($config) {
+@mixin typography($config-or-theme) {
+  $config: typography.private-typography-to-2014-config(
+      theming.get-typography-config($config-or-theme));
   .mat-paginator,
   .mat-paginator-page-size .mat-select-trigger {
     font: {
-      family: mat-font-family($config, caption);
-      size: mat-font-size($config, caption);
+      family: typography-utils.font-family($config, caption);
+      size: typography-utils.font-size($config, caption);
+    }
+  }
+}
+
+@mixin density($config-or-theme) {
+  $density-scale: theming.get-density-config($config-or-theme);
+  $height: compatibility.private-density-prop-value(paginator-variables.$density-config,
+    $density-scale, height);
+
+  @include compatibility.private-density-legacy-compatibility() {
+    .mat-paginator-container {
+      min-height: $height;
+    }
+  }
+}
+
+@mixin theme($theme-or-color-config) {
+  $theme: theming.private-legacy-get-theme($theme-or-color-config);
+  @include theming.private-check-duplicate-theme-styles($theme, 'mat-paginator') {
+    $color: theming.get-color-config($theme);
+    $density: theming.get-density-config($theme);
+    $typography: theming.get-typography-config($theme);
+
+    @if $color != null {
+      @include color($color);
+    }
+    @if $density != null {
+      @include density($density);
+    }
+    @if $typography != null {
+      @include typography($typography);
     }
   }
 }

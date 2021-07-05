@@ -6,12 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ComponentHarness, HarnessPredicate} from '@angular/cdk/testing';
-import {ChipHarnessFilters} from './chip-harness-filters';
+import {ComponentHarness, HarnessPredicate, TestKey} from '@angular/cdk/testing';
+import {ChipHarnessFilters, ChipRemoveHarnessFilters} from './chip-harness-filters';
+import {MatChipRemoveHarness} from './chip-remove-harness';
 
 /** Harness for interacting with a mat-chip in tests. */
 export class MatChipHarness extends ComponentHarness {
-  static hostSelector = 'mat-basic-chip, mat-chip';
+  static hostSelector = '.mat-mdc-basic-chip, .mat-mdc-chip';
 
   /**
    * Gets a `HarnessPredicate` that can be used to search for a chip with specific attributes.
@@ -20,12 +21,35 @@ export class MatChipHarness extends ComponentHarness {
   // methods. See https://github.com/microsoft/TypeScript/issues/5863
   static with<T extends typeof MatChipHarness>(this: T, options: ChipHarnessFilters = {}):
       HarnessPredicate<InstanceType<T>> {
-    return new HarnessPredicate(MatChipHarness, options) as
-        unknown as HarnessPredicate<InstanceType<T>>;
+    return new HarnessPredicate(MatChipHarness, options)
+      .addOption('text', options.text, (harness, label) => {
+        return HarnessPredicate.stringMatches(harness.getText(), label);
+      }) as unknown as HarnessPredicate<InstanceType<T>>;
   }
 
   /** Gets a promise for the text content the option. */
   async getText(): Promise<string> {
-    return (await this.host()).text();
+    return (await this.host()).text({
+      exclude: '.mat-mdc-chip-avatar, .mat-mdc-chip-trailing-icon, .mat-icon'
+    });
+  }
+
+  /** Whether the chip is disabled. */
+  async isDisabled(): Promise<boolean> {
+    return (await this.host()).hasClass('mat-mdc-chip-disabled');
+  }
+
+  /** Delete a chip from the set. */
+  async remove(): Promise<void> {
+    const hostEl = await this.host();
+    await hostEl.sendKeys(TestKey.DELETE);
+  }
+
+  /**
+   * Gets the remove button inside of a chip.
+   * @param filter Optionally filters which chips are included.
+   */
+  async getRemoveButton(filter: ChipRemoveHarnessFilters = {}): Promise<MatChipRemoveHarness> {
+    return this.locatorFor(MatChipRemoveHarness.with(filter))();
   }
 }

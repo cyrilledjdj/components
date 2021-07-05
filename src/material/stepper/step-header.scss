@@ -1,12 +1,5 @@
-@import '../core/style/layout-common';
-
-$mat-stepper-label-header-height: 24px !default;
-$mat-stepper-label-min-width: 50px !default;
-$mat-stepper-side-gap: 24px !default;
-$mat-vertical-stepper-content-margin: 36px !default;
-$mat-stepper-line-gap: 8px !default;
-$mat-step-sub-label-font-size: 12px;
-$mat-step-header-icon-size: 16px !default;
+@use '../core/style/layout-common';
+@use './stepper-variables';
 
 .mat-step-header {
   overflow: hidden;
@@ -19,13 +12,13 @@ $mat-step-header-icon-size: 16px !default;
 
 .mat-step-optional,
 .mat-step-sub-label-error {
-  font-size: $mat-step-sub-label-font-size;
+  font-size: stepper-variables.$step-sub-label-font-size;
 }
 
 .mat-step-icon {
   border-radius: 50%;
-  height: $mat-stepper-label-header-height;
-  width: $mat-stepper-label-header-height;
+  height: stepper-variables.$label-header-height;
+  width: stepper-variables.$label-header-height;
   flex-shrink: 0;
   position: relative;
 }
@@ -40,15 +33,15 @@ $mat-step-header-icon-size: 16px !default;
 }
 
 .mat-step-icon .mat-icon {
-  font-size: $mat-step-header-icon-size;
-  height: $mat-step-header-icon-size;
-  width: $mat-step-header-icon-size;
+  font-size: stepper-variables.$step-header-icon-size;
+  height: stepper-variables.$step-header-icon-size;
+  width: stepper-variables.$step-header-icon-size;
 }
 
 .mat-step-icon-state-error .mat-icon {
-  font-size: $mat-step-header-icon-size + 8;
-  height: $mat-step-header-icon-size + 8;
-  width: $mat-step-header-icon-size + 8;
+  font-size: stepper-variables.$step-header-icon-size + 8;
+  height: stepper-variables.$step-header-icon-size + 8;
+  width: stepper-variables.$step-header-icon-size + 8;
 }
 
 .mat-step-label {
@@ -56,7 +49,7 @@ $mat-step-header-icon-size: 16px !default;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: $mat-stepper-label-min-width;
+  min-width: stepper-variables.$label-min-width;
   vertical-align: middle;
 }
 
@@ -68,6 +61,6 @@ $mat-step-header-icon-size: 16px !default;
 // Increase specificity because ripple styles are part of the `mat-core` mixin and can
 // potentially overwrite the absolute position of the container.
 .mat-step-header .mat-step-header-ripple {
-  @include mat-fill;
+  @include layout-common.fill;
   pointer-events: none;
 }

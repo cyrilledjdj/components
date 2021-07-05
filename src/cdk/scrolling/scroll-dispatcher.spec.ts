@@ -1,11 +1,18 @@
-import {inject, TestBed, async, fakeAsync, ComponentFixture, tick} from '@angular/core/testing';
+import {
+  inject,
+  TestBed,
+  waitForAsync,
+  fakeAsync,
+  ComponentFixture,
+  tick,
+} from '@angular/core/testing';
 import {NgModule, Component, ViewChild, ElementRef} from '@angular/core';
 import {CdkScrollable, ScrollDispatcher, ScrollingModule} from './public-api';
 import {dispatchFakeEvent} from '@angular/cdk/testing/private';
 
 describe('ScrollDispatcher', () => {
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [ScrollTestModule],
     });
@@ -152,6 +159,14 @@ describe('ScrollDispatcher', () => {
       expect(scrollableElementIds).toEqual(['scrollable-1', 'scrollable-1a']);
     });
 
+    it('allows a raw HTMLElement', () => {
+      const scrollContainers = scroll.getAncestorScrollContainers(element.nativeElement);
+      const scrollableElementIds =
+          scrollContainers.map(scrollable => scrollable.getElementRef().nativeElement.id);
+
+      expect(scrollableElementIds).toEqual(['scrollable-1', 'scrollable-1a']);
+    });
+
     it('should emit when one of the ancestor scrollable containers is scrolled', () => {
       const spy = jasmine.createSpy('scroll spy');
       const subscription = scroll.ancestorScrolled(element, 0).subscribe(spy);
@@ -165,6 +180,22 @@ describe('ScrollDispatcher', () => {
 
       subscription.unsubscribe();
     });
+
+    it('should emit when one of the ancestor scrollable containers is scrolled (HTMLElement API)',
+      () => {
+        const spy = jasmine.createSpy('scroll spy');
+        const subscription = scroll.ancestorScrolled(element.nativeElement, 0).subscribe(spy);
+        const grandparent = fixture.debugElement.nativeElement.querySelector('#scrollable-1');
+
+        dispatchFakeEvent(grandparent, 'scroll', false);
+        expect(spy).toHaveBeenCalledTimes(1);
+
+        dispatchFakeEvent(window.document, 'scroll', false);
+        expect(spy).toHaveBeenCalledTimes(2);
+
+        subscription.unsubscribe();
+      });
+
 
     it('should not emit when a non-ancestor is scrolled', () => {
       const spy = jasmine.createSpy('scroll spy');
@@ -241,7 +272,7 @@ describe('ScrollDispatcher', () => {
 
 /** Simple component that contains a large div and can be scrolled. */
 @Component({
-  template: `<div #scrollingElement cdk-scrollable style="height: 9999px"></div>`
+  template: `<div #scrollingElement cdkScrollable style="height: 9999px"></div>`
 })
 class ScrollingComponent {
   @ViewChild(CdkScrollable) scrollable: CdkScrollable;
@@ -252,13 +283,13 @@ class ScrollingComponent {
 /** Component containing nested scrollables. */
 @Component({
   template: `
-    <div id="scrollable-1" cdk-scrollable>
-      <div id="scrollable-1a" cdk-scrollable>
+    <div id="scrollable-1" cdkScrollable>
+      <div id="scrollable-1a" cdkScrollable>
         <div #interestingElement></div>
       </div>
-      <div id="scrollable-1b" cdk-scrollable></div>
+      <div id="scrollable-1b" cdkScrollable></div>
     </div>
-    <div id="scrollable-2" cdk-scrollable></div>
+    <div id="scrollable-2" cdkScrollable></div>
   `
 })
 class NestedScrollingComponent {

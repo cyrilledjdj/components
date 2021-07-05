@@ -64,10 +64,38 @@ describe('MatTree', () => {
         });
       });
 
+      it('with the right aria-level attrs', () => {
+        // add a child to the first node
+        const data = underlyingDataSource.data;
+        underlyingDataSource.addChild(data[2]);
+        component.treeControl.expandAll();
+        fixture.detectChanges();
+
+        const ariaLevels = getNodes(treeElement).map(n => n.getAttribute('aria-level'));
+        expect(ariaLevels).toEqual(['1', '1', '1', '2']);
+      });
+
+      it('with the right aria-expanded attrs', () => {
+        // add a child to the first node
+        const data = underlyingDataSource.data;
+        underlyingDataSource.addChild(data[2]);
+        fixture.detectChanges();
+        expect(getNodes(treeElement).every(node => {
+          return node.getAttribute('aria-expanded') === 'false';
+        })).toBe(true);
+
+        component.treeControl.expandAll();
+        fixture.detectChanges();
+
+        expect(getNodes(treeElement).every(node => {
+          return node.getAttribute('aria-expanded') === 'true';
+        })).toBe(true);
+      });
+
       it('with the right data', () => {
         expect(underlyingDataSource.data.length).toBe(3);
 
-        let data = underlyingDataSource.data;
+        const data = underlyingDataSource.data;
         expectFlatTreeToMatch(treeElement, 28,
             [`topping_1 - cheese_1 + base_1`],
             [`topping_2 - cheese_2 + base_2`],
@@ -313,7 +341,7 @@ describe('MatTree', () => {
       it('with nested child data', () => {
         expect(underlyingDataSource.data.length).toBe(3);
 
-        let data = underlyingDataSource.data;
+        const data = underlyingDataSource.data;
         const child = underlyingDataSource.addChild(data[1]);
         underlyingDataSource.addChild(child);
         fixture.detectChanges();
@@ -337,6 +365,20 @@ describe('MatTree', () => {
           [_, _, `topping_5 - cheese_5 + base_5`],
           [_, _, `topping_6 - cheese_6 + base_6`],
           [`topping_3 - cheese_3 + base_3`]);
+      });
+
+      it('with correct aria-level on nodes', () => {
+        expect(getNodes(treeElement).every(node => {
+          return node.getAttribute('aria-level') === '1';
+        })).toBe(true);
+
+        const data = underlyingDataSource.data;
+        const child = underlyingDataSource.addChild(data[1]);
+        underlyingDataSource.addChild(child);
+        fixture.detectChanges();
+
+        const ariaLevels = getNodes(treeElement).map(n => n.getAttribute('aria-level'));
+        expect(ariaLevels).toEqual(['1', '1', '2', '3', '1']);
       });
     });
 
@@ -379,9 +421,27 @@ describe('MatTree', () => {
         fixture.detectChanges();
       });
 
+      it('with the right aria-expanded attrs', () => {
+        expect(getNodes(treeElement).every(node => {
+          return node.getAttribute('aria-expanded') === 'false';
+        })).toBe(true);
+
+        component.toggleRecursively = false;
+        const data = underlyingDataSource.data;
+        const child = underlyingDataSource.addChild(data[1]);
+        underlyingDataSource.addChild(child);
+        fixture.detectChanges();
+
+        (getNodes(treeElement)[1] as HTMLElement).click();
+        fixture.detectChanges();
+
+        const ariaExpanded = getNodes(treeElement).map(n => n.getAttribute('aria-expanded'));
+        expect(ariaExpanded).toEqual(['false', 'true', 'false', 'false']);
+      });
+
       it('should expand/collapse the node', () => {
         component.toggleRecursively = false;
-        let data = underlyingDataSource.data;
+        const data = underlyingDataSource.data;
         const child = underlyingDataSource.addChild(data[1]);
         underlyingDataSource.addChild(child);
 
@@ -417,7 +477,7 @@ describe('MatTree', () => {
       });
 
       it('should expand/collapse the node recursively', () => {
-        let data = underlyingDataSource.data;
+        const data = underlyingDataSource.data;
         const child = underlyingDataSource.addChild(data[1]);
         underlyingDataSource.addChild(child);
         fixture.detectChanges();
@@ -685,7 +745,7 @@ const TREE_DATA: FoodNode[] = [
         name: 'Green',
         children: [
           {name: 'Broccoli'},
-          {name: 'Brussel sprouts'},
+          {name: 'Brussels sprouts'},
         ]
       }, {
         name: 'Orange',
@@ -724,10 +784,6 @@ class MatTreeWithNullOrUndefinedChild {
      this._transformer, node => node.level, node => node.expandable, node => node.children);
 
   dataSource = new MatTreeFlatDataSource(this.treeControl, this.treeFlattener, TREE_DATA);
-
-  constructor() {
-    this.dataSource.data = TREE_DATA;
-  }
 
   hasChild = (_: number, node: ExampleFlatNode) => node.expandable;
 }

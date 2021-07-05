@@ -10,17 +10,20 @@
       </mat-panel-description>
     </mat-expansion-panel-header>
 
-    <mat-form-field>
-      <input matInput placeholder="First name">
+    <mat-form-field appearance="fill">
+      <mat-label>First name</mat-label>
+      <input matInput>
     </mat-form-field>
 
-    <mat-form-field>
-      <input matInput type="number" min="1" placeholder="Age">
+    <mat-form-field appearance="fill">
+      <mat-label>Age</mat-label>
+      <input matInput type="number" min="1">
     </mat-form-field>
-
+<!-- #docregion action-bar -->
     <mat-action-row>
       <button mat-button color="primary" (click)="nextStep()">Next</button>
     </mat-action-row>
+<!-- #enddocregion action-bar -->
   </mat-expansion-panel>
 
   <mat-expansion-panel [expanded]="step === 1" (opened)="setStep(1)" hideToggle>
@@ -34,8 +37,9 @@
       </mat-panel-description>
     </mat-expansion-panel-header>
 
-    <mat-form-field>
-      <input matInput placeholder="Country">
+    <mat-form-field appearance="fill">
+      <mat-label>Country</mat-label>
+      <input matInput>
     </mat-form-field>
 
     <mat-action-row>
@@ -55,8 +59,9 @@
       </mat-panel-description>
     </mat-expansion-panel-header>
 
-    <mat-form-field>
-      <input matInput placeholder="Date" [matDatepicker]="picker" (focus)="picker.open()" readonly>
+    <mat-form-field appearance="fill">
+      <mat-label>Date</mat-label>
+      <input matInput [matDatepicker]="picker" (focus)="picker.open()" readonly>
     </mat-form-field>
     <mat-datepicker #picker></mat-datepicker>
 

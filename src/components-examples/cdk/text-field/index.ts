@@ -1,6 +1,7 @@
 import {TextFieldModule} from '@angular/cdk/text-field';
 import {CommonModule} from '@angular/common';
 import {NgModule} from '@angular/core';
+import {MatButtonModule} from '@angular/material/button';
 import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule} from '@angular/material/select';
 import {
@@ -29,11 +30,13 @@ const EXAMPLES = [
   imports: [
     CommonModule,
     TextFieldModule,
+    MatButtonModule,
     MatInputModule,
     MatSelectModule,
   ],
   declarations: EXAMPLES,
   exports: EXAMPLES,
+  entryComponents: EXAMPLES,
 })
 export class CdkTextFieldExamplesModule {
 }

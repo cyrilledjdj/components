@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {MatGridList} from './grid-list';
+import {QueryList} from '@angular/core';
 import {MatGridTile} from './grid-tile';
 import {TileCoordinator} from './tile-coordinator';
 
@@ -15,6 +15,12 @@ import {TileCoordinator} from './tile-coordinator';
  * be allowed inside a CSS `calc()` expression.
  */
 const cssCalcAllowedValue = /^-?\d+((\.\d+)?[A-Za-z%$]?)+$/;
+
+/** Object that can be styled by the `TileStyler`. */
+export interface TileStyleTarget {
+  _setListStyle(style: [string, string | null] | null): void;
+  _tiles: QueryList<MatGridTile>;
+}
 
 /**
  * Sets the style properties for an individual tile, given the position calculated by the
@@ -152,7 +158,7 @@ export abstract class TileStyler {
    * @param list Grid list that the styler was attached to.
    * @docs-private
    */
-  abstract reset(list: MatGridList): void;
+  abstract reset(list: TileStyleTarget): void;
 }
 
 
@@ -165,27 +171,28 @@ export class FixedTileStyler extends TileStyler {
 
   constructor(public fixedRowHeight: string) { super(); }
 
-  init(gutterSize: string, tracker: TileCoordinator, cols: number, direction: string) {
+  override init(gutterSize: string, tracker: TileCoordinator, cols: number, direction: string) {
     super.init(gutterSize, tracker, cols, direction);
     this.fixedRowHeight = normalizeUnits(this.fixedRowHeight);
 
-    if (!cssCalcAllowedValue.test(this.fixedRowHeight)) {
+    if (!cssCalcAllowedValue.test(this.fixedRowHeight) &&
+      (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw Error(`Invalid value "${this.fixedRowHeight}" set as rowHeight.`);
     }
   }
 
-  setRowStyles(tile: MatGridTile, rowIndex: number): void {
+  override setRowStyles(tile: MatGridTile, rowIndex: number): void {
     tile._setStyle('top', this.getTilePosition(this.fixedRowHeight, rowIndex));
     tile._setStyle('height', calc(this.getTileSize(this.fixedRowHeight, tile.rowspan)));
   }
 
-  getComputedHeight(): [string, string] {
+  override getComputedHeight(): [string, string] {
     return [
       'height', calc(`${this.getTileSpan(this.fixedRowHeight)} + ${this.getGutterSpan()}`)
     ];
   }
 
-  reset(list: MatGridList) {
+  override reset(list: TileStyleTarget) {
     list._setListStyle(['height', null]);
 
     if (list._tiles) {
@@ -226,13 +233,13 @@ export class RatioTileStyler extends TileStyler {
     tile._setStyle('paddingTop', calc(this.getTileSize(this.baseTileHeight, tile.rowspan)));
   }
 
-  getComputedHeight(): [string, string] {
+  override getComputedHeight(): [string, string] {
     return [
       'paddingBottom', calc(`${this.getTileSpan(this.baseTileHeight)} + ${this.getGutterSpan()}`)
     ];
   }
 
-  reset(list: MatGridList) {
+  reset(list: TileStyleTarget) {
     list._setListStyle(['paddingBottom', null]);
 
     list._tiles.forEach(tile => {
@@ -244,7 +251,7 @@ export class RatioTileStyler extends TileStyler {
   private _parseRatio(value: string): void {
     const ratioParts = value.split(':');
 
-    if (ratioParts.length !== 2) {
+    if (ratioParts.length !== 2 && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw Error(`mat-grid-list: invalid ratio given for row-height: "${value}"`);
     }
 
@@ -274,7 +281,7 @@ export class FitTileStyler extends TileStyler {
     tile._setStyle('height', calc(this.getTileSize(baseTileHeight, tile.rowspan)));
   }
 
-  reset(list: MatGridList) {
+  reset(list: TileStyleTarget) {
     if (list._tiles) {
       list._tiles.forEach(tile => {
         tile._setStyle('top', null);

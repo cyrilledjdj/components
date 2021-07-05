@@ -14,6 +14,7 @@ import {
   ComponentFactoryResolver,
   Directive,
   Inject,
+  InjectionToken,
   Injector,
   OnDestroy,
   TemplateRef,
@@ -22,17 +23,25 @@ import {
 import {Subject} from 'rxjs';
 
 /**
+ * Injection token that can be used to reference instances of `MatMenuContent`. It serves
+ * as alternative token to the actual `MatMenuContent` class which could cause unnecessary
+ * retention of the class and its directive metadata.
+ */
+export const MAT_MENU_CONTENT = new InjectionToken<MatMenuContent>('MatMenuContent');
+
+/**
  * Menu content that will be rendered lazily once the menu is opened.
  */
 @Directive({
-  selector: 'ng-template[matMenuContent]'
+  selector: 'ng-template[matMenuContent]',
+  providers: [{provide: MAT_MENU_CONTENT, useExisting: MatMenuContent}],
 })
 export class MatMenuContent implements OnDestroy {
   private _portal: TemplatePortal<any>;
   private _outlet: DomPortalOutlet;
 
   /** Emits when the menu content has been attached. */
-  _attached = new Subject<void>();
+  readonly _attached = new Subject<void>();
 
   constructor(
     private _template: TemplateRef<any>,

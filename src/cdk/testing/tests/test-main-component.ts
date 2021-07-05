@@ -7,6 +7,8 @@
  */
 
 import {ENTER} from '@angular/cdk/keycodes';
+import {_supportsShadowDom} from '@angular/cdk/platform';
+import {FormControl} from '@angular/forms';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -21,15 +23,9 @@ import {
 @Component({
   selector: 'test-main',
   templateUrl: 'test-main-component.html',
-  host: {
-    '[class.hovering]': '_isHovering',
-    '(mouseenter)': 'onMouseOver()',
-    '(mouseout)': 'onMouseOut()',
-  },
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-
 export class TestMainComponent implements OnDestroy {
   username: string;
   counter: number;
@@ -38,23 +34,24 @@ export class TestMainComponent implements OnDestroy {
   memo: string;
   testTools: string[];
   testMethods: string[];
-  _isHovering: boolean;
+  isHovering = false;
   specialKey = '';
-  relativeX = 0;
-  relativeY = 0;
+  modifiers: string;
+  singleSelect: string;
+  singleSelectChangeEventCount = 0;
+  multiSelect: string[] = [];
+  multiSelectChangeEventCount = 0;
+  basicEvent = 0;
+  customEventData: string | null = null;
+  _shadowDomSupported = _supportsShadowDom();
+  clickResult = {x: -1, y: -1};
+  rightClickResult = {x: -1, y: -1, button: -1};
+  numberControl = new FormControl();
 
   @ViewChild('clickTestElement') clickTestElement: ElementRef<HTMLElement>;
   @ViewChild('taskStateResult') taskStateResultElement: ElementRef<HTMLElement>;
 
   private _fakeOverlayElement: HTMLElement;
-
-  onMouseOver() {
-    this._isHovering = true;
-  }
-
-  onMouseOut() {
-    this._isHovering = false;
-  }
 
   constructor(private _cdr: ChangeDetectorRef, private _zone: NgZone) {
     this.username = 'Yi';
@@ -96,14 +93,33 @@ export class TestMainComponent implements OnDestroy {
   }
 
   onClick(event: MouseEvent) {
-    const {top, left} = this.clickTestElement.nativeElement.getBoundingClientRect();
-    this.relativeX = Math.round(event.clientX - left);
-    this.relativeY = Math.round(event.clientY - top);
+    this._assignRelativeCoordinates(event, this.clickResult);
+
+    this.modifiers = ['Shift', 'Alt', 'Control', 'Meta']
+      .map(key => event.getModifierState(key) ? key.toLowerCase() : '').join('-');
+  }
+
+  onRightClick(event: MouseEvent) {
+    this.rightClickResult.button = event.button;
+    this._assignRelativeCoordinates(event, this.rightClickResult);
+
+    this.modifiers = ['Shift', 'Alt', 'Control', 'Meta']
+    .map(key => event.getModifierState(key) ? key.toLowerCase() : '').join('-');
+  }
+
+  onCustomEvent(event: any) {
+    this.customEventData = JSON.stringify({message: event.message, value: event.value});
   }
 
   runTaskOutsideZone() {
     this._zone.runOutsideAngular(() => setTimeout(() => {
       this.taskStateResultElement.nativeElement.textContent = 'result';
     }, 100));
+  }
+
+  private _assignRelativeCoordinates(event: MouseEvent, obj: {x: number, y: number}) {
+    const {top, left} = this.clickTestElement.nativeElement.getBoundingClientRect();
+    obj.x = Math.round(event.clientX - left);
+    obj.y = Math.round(event.clientY - top);
   }
 }

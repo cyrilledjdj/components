@@ -1,12 +1,13 @@
-package(default_visibility = ["//visibility:public"])
-
 load(
     "//tools:defaults.bzl",
     "markdown_to_html",
     "ng_module",
     "ng_test_library",
     "ng_web_test_suite",
+    "sass_binary",
 )
+
+package(default_visibility = ["//visibility:public"])
 
 ng_module(
     name = "table",
@@ -14,16 +15,23 @@ ng_module(
         ["**/*.ts"],
         exclude = ["**/*.spec.ts"],
     ),
+    assets = [":table.css"],
     module_name = "@angular/cdk/table",
     deps = [
+        "//src:dev_mode_types",
         "//src/cdk/bidi",
         "//src/cdk/coercion",
         "//src/cdk/collections",
         "//src/cdk/platform",
-        "@npm//@angular/common",
+        "//src/cdk/scrolling",
         "@npm//@angular/core",
         "@npm//rxjs",
     ],
+)
+
+sass_binary(
+    name = "table_scss",
+    src = "table.scss",
 )
 
 ng_test_library(

@@ -9,7 +9,6 @@
 import {FocusKeyManager} from '@angular/cdk/a11y';
 import {Directionality} from '@angular/cdk/bidi';
 import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
-import {END, HOME} from '@angular/cdk/keycodes';
 import {
   AfterContentInit,
   ChangeDetectionStrategy,
@@ -26,7 +25,7 @@ import {
   ViewEncapsulation
 } from '@angular/core';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
-import {MDCChipSetFoundation} from '@material/chips';
+import {deprecated} from '@material/chips';
 import {merge, Observable, Subscription} from 'rxjs';
 import {startWith, takeUntil} from 'rxjs/operators';
 import {MatChip, MatChipEvent} from './chip';
@@ -111,7 +110,7 @@ export class MatChipListbox extends MatChipSet implements AfterContentInit, Cont
   _onChange: (value: any) => void = () => {};
 
   /** The ARIA role applied to the chip listbox. */
-  get role(): string | null { return this.empty ? null : 'listbox'; }
+  override get role(): string | null { return this.empty ? null : 'listbox'; }
 
   /** Whether the user should be allowed to select multiple chips. */
   @Input()
@@ -202,21 +201,21 @@ export class MatChipListbox extends MatChipSet implements AfterContentInit, Cont
     // indirect descendants if it's left as false.
     descendants: true
   })
-  _chips: QueryList<MatChipOption>;
+  override _chips: QueryList<MatChipOption>;
 
-  constructor(protected _elementRef: ElementRef,
-              _changeDetectorRef: ChangeDetectorRef,
+  constructor(elementRef: ElementRef,
+              changeDetectorRef: ChangeDetectorRef,
               @Optional() _dir: Directionality) {
-    super(_elementRef, _changeDetectorRef, _dir);
+    super(elementRef, changeDetectorRef, _dir);
     this._chipSetAdapter.selectChipAtIndex = (index: number, selected: boolean) => {
       this._setSelected(index, selected);
     };
     // Reinitialize the foundation with our overridden adapter
-    this._chipSetFoundation = new MDCChipSetFoundation(this._chipSetAdapter);
+    this._chipSetFoundation = new deprecated.MDCChipSetFoundation(this._chipSetAdapter);
     this._updateMdcSelectionClasses();
   }
 
-  ngAfterContentInit() {
+  override ngAfterContentInit() {
     super.ngAfterContentInit();
     this._initKeyManager();
 
@@ -236,7 +235,7 @@ export class MatChipListbox extends MatChipSet implements AfterContentInit, Cont
    * Focuses the first selected chip in this chip listbox, or the first non-disabled chip when there
    * are no selected chips.
    */
-  focus(): void {
+  override focus(): void {
     if (this.disabled) {
       return;
     }
@@ -354,15 +353,7 @@ export class MatChipListbox extends MatChipSet implements AfterContentInit, Cont
    */
   _keydown(event: KeyboardEvent) {
     if (this._originatesFromChip(event)) {
-      if (event.keyCode === HOME) {
-        this._keyManager.setFirstItemActive();
-        event.preventDefault();
-      } else if (event.keyCode === END) {
-        this._keyManager.setLastItemActive();
-        event.preventDefault();
-      } else {
-        this._keyManager.onKeydown(event);
-      }
+      this._keyManager.onKeydown(event);
     }
   }
 
@@ -457,6 +448,7 @@ export class MatChipListbox extends MatChipSet implements AfterContentInit, Cont
     this._keyManager = new FocusKeyManager<MatChip>(this._chips)
       .withWrap()
       .withVerticalOrientation()
+      .withHomeAndEnd()
       .withHorizontalOrientation(this._dir ? this._dir.value : 'ltr');
 
     if (this._dir) {
@@ -480,7 +472,7 @@ export class MatChipListbox extends MatChipSet implements AfterContentInit, Cont
   }
 
   /** Unsubscribes from all chip events. */
-  protected _dropSubscriptions() {
+  protected override _dropSubscriptions() {
     super._dropSubscriptions();
     if (this._chipSelectionSubscription) {
       this._chipSelectionSubscription.unsubscribe();
@@ -499,7 +491,7 @@ export class MatChipListbox extends MatChipSet implements AfterContentInit, Cont
   }
 
   /** Subscribes to events on the child chips. */
-  protected _subscribeToChipEvents() {
+  protected override _subscribeToChipEvents() {
     super._subscribeToChipEvents();
     this._listenToChipsSelection();
     this._listenToChipsFocus();
@@ -528,8 +520,11 @@ export class MatChipListbox extends MatChipSet implements AfterContentInit, Cont
   private _listenToChipsSelection(): void {
     this._chipSelectionSubscription = this.chipSelectionChanges.subscribe(
       (chipSelectionChange: MatChipSelectionChange) => {
-        this._chipSetFoundation.handleChipSelection(
-          chipSelectionChange.source.id, chipSelectionChange.selected, false);
+        this._chipSetFoundation.handleChipSelection({
+          chipId: chipSelectionChange.source.id,
+          selected: chipSelectionChange.selected,
+          shouldIgnore: false
+        });
         if (chipSelectionChange.isUserInput) {
           this._propagateChanges();
         }
@@ -557,6 +552,4 @@ export class MatChipListbox extends MatChipSet implements AfterContentInit, Cont
   static ngAcceptInputType_multiple: BooleanInput;
   static ngAcceptInputType_selectable: BooleanInput;
   static ngAcceptInputType_required: BooleanInput;
-  static ngAcceptInputType_disabled: BooleanInput;
 }
-

@@ -10,9 +10,10 @@ import {Direction, Directionality} from '@angular/cdk/bidi';
 import {ComponentPortal, Portal, PortalOutlet, TemplatePortal} from '@angular/cdk/portal';
 import {ComponentRef, EmbeddedViewRef, NgZone} from '@angular/core';
 import {Location} from '@angular/common';
-import {Observable, Subject, merge, SubscriptionLike, Subscription, Observer} from 'rxjs';
+import {Observable, Subject, merge, SubscriptionLike, Subscription} from 'rxjs';
 import {take, takeUntil} from 'rxjs/operators';
-import {OverlayKeyboardDispatcher} from './keyboard/overlay-keyboard-dispatcher';
+import {OverlayKeyboardDispatcher} from './dispatchers/overlay-keyboard-dispatcher';
+import {OverlayOutsideClickDispatcher} from './dispatchers/overlay-outside-click-dispatcher';
 import {OverlayConfig} from './overlay-config';
 import {coerceCssPixelValue, coerceArray} from '@angular/cdk/coercion';
 import {OverlayReference} from './overlay-reference';
@@ -31,9 +32,9 @@ export type ImmutableObject<T> = {
  */
 export class OverlayRef implements PortalOutlet, OverlayReference {
   private _backdropElement: HTMLElement | null = null;
-  private _backdropClick: Subject<MouseEvent> = new Subject();
-  private _attachments = new Subject<void>();
-  private _detachments = new Subject<void>();
+  private readonly _backdropClick = new Subject<MouseEvent>();
+  private readonly _attachments = new Subject<void>();
+  private readonly _detachments = new Subject<void>();
   private _positionStrategy: PositionStrategy | undefined;
   private _scrollStrategy: ScrollStrategy | undefined;
   private _locationChanges: SubscriptionLike = Subscription.EMPTY;
@@ -45,22 +46,11 @@ export class OverlayRef implements PortalOutlet, OverlayReference {
    */
   private _previousHostParent: HTMLElement;
 
-  private _keydownEventsObservable: Observable<KeyboardEvent> =
-      new Observable((observer: Observer<KeyboardEvent>) => {
-        const subscription = this._keydownEvents.subscribe(observer);
-        this._keydownEventSubscriptions++;
-
-        return () => {
-          subscription.unsubscribe();
-          this._keydownEventSubscriptions--;
-        };
-      });
-
   /** Stream of keydown events dispatched to this overlay. */
-  _keydownEvents = new Subject<KeyboardEvent>();
+  readonly _keydownEvents = new Subject<KeyboardEvent>();
 
-  /** Amount of subscriptions to the keydown events. */
-  _keydownEventSubscriptions = 0;
+  /** Stream of mouse outside events dispatched to this overlay. */
+  readonly _outsidePointerEvents = new Subject<MouseEvent>();
 
   constructor(
       private _portalOutlet: PortalOutlet,
@@ -70,8 +60,8 @@ export class OverlayRef implements PortalOutlet, OverlayReference {
       private _ngZone: NgZone,
       private _keyboardDispatcher: OverlayKeyboardDispatcher,
       private _document: Document,
-      // @breaking-change 8.0.0 `_location` parameter to be made required.
-      private _location?: Location) {
+      private _location: Location,
+      private _outsideClickDispatcher: OverlayOutsideClickDispatcher) {
 
     if (_config.scrollStrategy) {
       this._scrollStrategy = _config.scrollStrategy;
@@ -114,13 +104,13 @@ export class OverlayRef implements PortalOutlet, OverlayReference {
   attach(portal: Portal<any>): any {
     let attachResult = this._portalOutlet.attach(portal);
 
-    if (this._positionStrategy) {
-      this._positionStrategy.attach(this);
-    }
-
     // Update the pane element with the given configuration.
     if (!this._host.parentElement && this._previousHostParent) {
       this._previousHostParent.appendChild(this._host);
+    }
+
+    if (this._positionStrategy) {
+      this._positionStrategy.attach(this);
     }
 
     this._updateStackingOrder();
@@ -135,7 +125,6 @@ export class OverlayRef implements PortalOutlet, OverlayReference {
     // before attempting to position it, as the position may depend on the size of the rendered
     // content.
     this._ngZone.onStable
-      .asObservable()
       .pipe(take(1))
       .subscribe(() => {
         // The overlay could've been detached before the zone has stabilized.
@@ -161,12 +150,11 @@ export class OverlayRef implements PortalOutlet, OverlayReference {
     // Track this overlay by the keyboard dispatcher
     this._keyboardDispatcher.add(this);
 
-    // @breaking-change 8.0.0 remove the null check for `_location`
-    // once the constructor parameter is made required.
-    if (this._config.disposeOnNavigation && this._location) {
+    if (this._config.disposeOnNavigation) {
       this._locationChanges = this._location.subscribe(() => this.dispose());
     }
 
+    this._outsideClickDispatcher.add(this);
     return attachResult;
   }
 
@@ -205,10 +193,8 @@ export class OverlayRef implements PortalOutlet, OverlayReference {
     // Keeping the host element in the DOM can cause scroll jank, because it still gets
     // rendered, even though it's transparent and unclickable which is why we remove it.
     this._detachContentWhenStable();
-
-    // Stop listening for location changes.
     this._locationChanges.unsubscribe();
-
+    this._outsideClickDispatcher.remove(this);
     return detachmentResult;
   }
 
@@ -228,6 +214,8 @@ export class OverlayRef implements PortalOutlet, OverlayReference {
     this._attachments.complete();
     this._backdropClick.complete();
     this._keydownEvents.complete();
+    this._outsidePointerEvents.complete();
+    this._outsideClickDispatcher.remove(this);
 
     if (this._host && this._host.parentNode) {
       this._host.parentNode.removeChild(this._host);
@@ -250,22 +238,27 @@ export class OverlayRef implements PortalOutlet, OverlayReference {
 
   /** Gets an observable that emits when the backdrop has been clicked. */
   backdropClick(): Observable<MouseEvent> {
-    return this._backdropClick.asObservable();
+    return this._backdropClick;
   }
 
   /** Gets an observable that emits when the overlay has been attached. */
   attachments(): Observable<void> {
-    return this._attachments.asObservable();
+    return this._attachments;
   }
 
   /** Gets an observable that emits when the overlay has been detached. */
   detachments(): Observable<void> {
-    return this._detachments.asObservable();
+    return this._detachments;
   }
 
   /** Gets an observable of keydown events targeted to this overlay. */
   keydownEvents(): Observable<KeyboardEvent> {
-    return this._keydownEventsObservable;
+    return this._keydownEvents;
+  }
+
+  /** Gets an observable of pointer events targeted outside this overlay. */
+  outsidePointerEvents(): Observable<MouseEvent> {
+    return this._outsidePointerEvents;
   }
 
   /** Gets the current overlay configuration, which is immutable. */
@@ -375,7 +368,7 @@ export class OverlayRef implements PortalOutlet, OverlayReference {
 
   /** Toggles the pointer events for the overlay pane element. */
   private _togglePointerEvents(enablePointer: boolean) {
-    this._pane.style.pointerEvents = enablePointer ? 'auto' : 'none';
+    this._pane.style.pointerEvents = enablePointer ? '' : 'none';
   }
 
   /** Attaches a backdrop for this overlay. */
@@ -497,7 +490,6 @@ export class OverlayRef implements PortalOutlet, OverlayReference {
       // might still be animating. This stream helps us avoid interrupting the animation
       // by waiting for the pane to become empty.
       const subscription = this._ngZone.onStable
-        .asObservable()
         .pipe(takeUntil(merge(this._attachments, this._detachments)))
         .subscribe(() => {
           // Needs a couple of checks for the pane and host, because

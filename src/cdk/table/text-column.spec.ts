@@ -1,5 +1,5 @@
 import {Component} from '@angular/core';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 
 import {
   getTableTextColumnMissingParentTableError,
@@ -7,7 +7,7 @@ import {
 } from './table-errors';
 import {CdkTableModule} from './table-module';
 import {expectTableToMatchContent} from './table.spec';
-import {TEXT_COLUMN_OPTIONS, TextColumnOptions} from './text-column';
+import {TEXT_COLUMN_OPTIONS, TextColumnOptions} from './tokens';
 
 
 describe('CdkTextColumn', () => {
@@ -15,7 +15,7 @@ describe('CdkTextColumn', () => {
   let component: BasicTextColumnApp;
   let tableElement: HTMLElement;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed
         .configureTestingModule({
           imports: [CdkTableModule],

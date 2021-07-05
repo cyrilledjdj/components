@@ -41,6 +41,7 @@ import {
   FocusEscapeNotifierFactory
 } from './focus-escape-notifier';
 import {closest} from './polyfill';
+import {EditRef} from './edit-ref';
 
 /**
  * Describes the number of columns before and after the originating cell that the
@@ -69,7 +70,7 @@ export class CdkEditable implements AfterViewInit, OnDestroy {
 
   constructor(
       protected readonly elementRef: ElementRef,
-      protected readonly editEventDispatcher: EditEventDispatcher,
+      protected readonly editEventDispatcher: EditEventDispatcher<EditRef<unknown>>,
       protected readonly focusDispatcher: FocusDispatcher, protected readonly ngZone: NgZone) {}
 
   ngAfterViewInit(): void {
@@ -104,33 +105,37 @@ export class CdkEditable implements AfterViewInit, OnDestroy {
 
       // Track focus within the table to hide/show/make focusable hover content.
       fromEventPattern<FocusEvent>(
-          (handler) => element.addEventListener('focus', handler, true),
-          (handler) => element.removeEventListener('focus', handler, true)
+          handler => element.addEventListener('focus', handler, true),
+          handler => element.removeEventListener('focus', handler, true)
           ).pipe(
-              takeUntil(this.destroyed),
               toClosest(ROW_SELECTOR),
               share(),
-              ).subscribe(this.editEventDispatcher.focused);
-      fromEventPattern<FocusEvent>(
-          (handler) => element.addEventListener('blur', handler, true),
-          (handler) => element.removeEventListener('blur', handler, true)
-          ).pipe(
               takeUntil(this.destroyed),
-              mapTo(null),
-              share(),
               ).subscribe(this.editEventDispatcher.focused);
+
+      merge(
+        fromEventPattern<FocusEvent>(
+          handler => element.addEventListener('blur', handler, true),
+          handler => element.removeEventListener('blur', handler, true)
+        ),
+        fromEvent<KeyboardEvent>(element, 'keydown').pipe(filter(event => event.key === 'Escape'))
+      ).pipe(
+        mapTo(null),
+        share(),
+        takeUntil(this.destroyed),
+      ).subscribe(this.editEventDispatcher.focused);
 
       // Keep track of rows within the table. This is used to know which rows with hover content
       // are first or last in the table. They are kept focusable in case focus enters from above
       // or below the table.
       this.ngZone.onStable.pipe(
-          takeUntil(this.destroyed),
           // Optimization: ignore dom changes while focus is within the table as we already
           // ensure that rows above and below the focused/active row are tabbable.
           withLatestFrom(this.editEventDispatcher.editingOrFocused),
           filter(([_, activeRow]) => activeRow == null),
           map(() => element.querySelectorAll(ROW_SELECTOR)),
           share(),
+          takeUntil(this.destroyed),
           ).subscribe(this.editEventDispatcher.allRows);
 
       fromEvent<KeyboardEvent>(element, 'keydown').pipe(
@@ -148,15 +153,16 @@ export class CdkEditable implements AfterViewInit, OnDestroy {
 }
 
 const POPOVER_EDIT_HOST_BINDINGS = {
-  'tabIndex': '0',
+  '[attr.tabindex]': 'disabled ? null : 0',
   'class': 'cdk-popover-edit-cell',
-  '[attr.aria-haspopup]': 'true',
+  '[attr.aria-haspopup]': '!disabled',
 };
 
 const POPOVER_EDIT_INPUTS = [
   'template: cdkPopoverEdit',
   'context: cdkPopoverEditContext',
   'colspan: cdkPopoverEditColspan',
+  'disabled: cdkPopoverEditDisabled',
 ];
 
 /**
@@ -199,6 +205,22 @@ export class CdkPopoverEdit<C> implements AfterViewInit, OnDestroy {
     }
   }
   private _colspan: CdkPopoverEditColspan = {};
+
+  /** Whether popover edit is disabled for this cell. */
+  get disabled(): boolean {
+    return this._disabled;
+  }
+  set disabled(value: boolean) {
+    this._disabled = value;
+
+    if (value) {
+      this.services.editEventDispatcher.doneEditingCell(this.elementRef.nativeElement!);
+      this.services.editEventDispatcher.disabledCells.set(this.elementRef.nativeElement!, true);
+    } else {
+      this.services.editEventDispatcher.disabledCells.delete(this.elementRef.nativeElement!);
+    }
+  }
+  private _disabled = false;
 
   protected focusTrap?: FocusTrap;
   protected overlayRef?: OverlayRef;
@@ -289,10 +311,9 @@ export class CdkPopoverEdit<C> implements AfterViewInit, OnDestroy {
     // scroll position and viewport size.
     merge(this.services.scrollDispatcher.scrolled(), this.services.viewportRuler.change())
         .pipe(
-            startWith(null),
-            takeUntil(this.overlayRef!.detachments()),
-            takeUntil(this.destroyed),
-            )
+          startWith(null),
+          takeUntil(merge(this.overlayRef!.detachments(), this.destroyed))
+        )
         .subscribe(() => {
           this._updateOverlaySize();
         });
@@ -341,7 +362,7 @@ export class CdkPopoverEdit<C> implements AfterViewInit, OnDestroy {
   inputs: POPOVER_EDIT_INPUTS,
 })
 export class CdkPopoverEditTabOut<C> extends CdkPopoverEdit<C> {
-  protected focusTrap?: FocusEscapeNotifier;
+  protected override focusTrap?: FocusEscapeNotifier;
 
   constructor(
       elementRef: ElementRef, viewContainerRef: ViewContainerRef, services: EditServices,
@@ -349,7 +370,7 @@ export class CdkPopoverEditTabOut<C> extends CdkPopoverEdit<C> {
     super(services, elementRef, viewContainerRef);
   }
 
-  protected initFocusTrap(): void {
+  protected override initFocusTrap(): void {
     this.focusTrap = this.focusEscapeNotifierFactory.create(this.overlayRef!.overlayElement);
 
     this.focusTrap.escapes().pipe(takeUntil(this.destroyed)).subscribe(direction => {
@@ -439,8 +460,10 @@ export class CdkRowHoverContent implements AfterViewInit, OnDestroy {
             if (!this.viewRef) {
               this.viewRef = this.viewContainerRef.createEmbeddedView(this.templateRef, {});
               this.initElement(this.viewRef.rootNodes[0] as HTMLElement);
+              this.viewRef.markForCheck();
             } else if (this.viewContainerRef.indexOf(this.viewRef) === -1) {
               this.viewContainerRef.insert(this.viewRef!);
+              this.viewRef.markForCheck();
             }
 
             if (eventState === HoverContentState.ON) {
@@ -465,7 +488,7 @@ export class CdkRowHoverContent implements AfterViewInit, OnDestroy {
 export class CdkEditOpen {
   constructor(
       protected readonly elementRef: ElementRef<HTMLElement>,
-      protected readonly editEventDispatcher: EditEventDispatcher) {
+      protected readonly editEventDispatcher: EditEventDispatcher<EditRef<unknown>>) {
 
     const nativeElement = elementRef.nativeElement;
 
@@ -478,7 +501,7 @@ export class CdkEditOpen {
   // In Ivy the `host` metadata will be merged, whereas in ViewEngine it is overridden. In order
   // to avoid double event listeners, we need to use `HostListener`. Once Ivy is the default, we
   // can move this back into `host`.
-  // tslint:disable:no-host-decorator-in-concrete
+  // tslint:disable-next-line:no-host-decorator-in-concrete
   @HostListener('click', ['$event'])
   openEdit(evt: Event): void {
     this.editEventDispatcher.editing.next(closest(this.elementRef.nativeElement!, CELL_SELECTOR));

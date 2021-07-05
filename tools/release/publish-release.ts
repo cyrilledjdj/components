@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import * as chalk from 'chalk';
 import {readFileSync, unlinkSync} from 'fs';
 import {homedir} from 'os';
 import {join} from 'path';
@@ -16,7 +16,7 @@ import {parseVersionName, Version} from './version-name/parse-version';
 
 // The package builder script is not written in TypeScript and needs to
 // be imported through a CommonJS import.
-const {defaultBuildReleasePackages} = require('../../scripts/build-packages-dist');
+const {performNpmReleaseBuild} = require('../../scripts/build-packages-dist');
 
 /**
  * Class that can be instantiated in order to create a new release. The tasks requires user
@@ -76,7 +76,7 @@ class PublishReleaseTask extends BaseReleaseTask {
     this.verifyNoUncommittedChanges();
 
     // Branch that will be used to build the output for the release of the current version.
-    const publishBranch = this.switchToPublishBranch(newVersion);
+    const publishBranch = await this.assertValidPublishBranch(newVersion);
 
     this._verifyLastCommitFromStagingScript();
     this.verifyLocalCommitsMatchUpstream(publishBranch);
@@ -90,11 +90,11 @@ class PublishReleaseTask extends BaseReleaseTask {
       await this._promptStableVersionForNextTag();
     }
 
-    defaultBuildReleasePackages();
+    performNpmReleaseBuild();
     console.info(chalk.green(`  ✓   Built the release output.`));
 
     // Checks all release packages against release output validations before releasing.
-    checkReleaseOutput(this.releaseOutputPath, this.currentVersion);
+    checkReleaseOutput(this.releaseOutputPath, this.currentVersion.format());
 
     // Extract the release notes for the new version from the changelog file.
     const extractedReleaseNotes = extractReleaseNotes(
@@ -144,7 +144,7 @@ class PublishReleaseTask extends BaseReleaseTask {
    * through the release staging script.
    */
   private _verifyLastCommitFromStagingScript() {
-    if (!/chore: (bump version|update changelog for)/.test(this.git.getCommitTitle('HEAD'))) {
+    if (!/release: (bump version|update changelog for)/.test(this.git.getCommitTitle('HEAD'))) {
       console.error(chalk.red(`  ✘   The latest commit of the current branch does not seem to be ` +
         ` created by the release staging script.`));
       console.error(chalk.red(`      Please stage the release using the staging script.`));

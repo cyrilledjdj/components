@@ -1,5 +1,5 @@
-import * as OctokitApi from '@octokit/rest';
-import chalk from 'chalk';
+import {Octokit} from '@octokit/rest';
+import * as chalk from 'chalk';
 import {existsSync, readFileSync, writeFileSync} from 'fs';
 import {join} from 'path';
 import {BaseReleaseTask} from './base-release-task';
@@ -50,7 +50,7 @@ class StageReleaseTask extends BaseReleaseTask {
   git: GitClient;
 
   /** Octokit API instance that can be used to make Github API calls. */
-  githubApi: OctokitApi;
+  githubApi: Octokit;
 
   constructor(
       public projectDir: string, public packagesDir: string, public repositoryOwner: string,
@@ -68,7 +68,7 @@ class StageReleaseTask extends BaseReleaseTask {
       process.exit(1);
     }
 
-    this.githubApi = new OctokitApi();
+    this.githubApi = new Octokit();
   }
 
   async run() {
@@ -92,7 +92,7 @@ class StageReleaseTask extends BaseReleaseTask {
     this.verifyNoUncommittedChanges();
 
     // Branch that will be used to stage the release for the new selected version.
-    const publishBranch = this.switchToPublishBranch(newVersion);
+    const publishBranch = await this.assertValidPublishBranch(newVersion);
 
     this.verifyLocalCommitsMatchUpstream(publishBranch);
     this._verifyAngularPeerDependencyVersion(newVersion);
@@ -136,9 +136,9 @@ class StageReleaseTask extends BaseReleaseTask {
     // Note: When updating the commit messages here. Please also update the
     // release publish script to detect the new commit messages.
     if (needsVersionBump) {
-      this.git.createNewCommit(`chore: bump version to ${newVersionName} w/ changelog`);
+      this.git.createNewCommit(`release: bump version to ${newVersionName} w/ changelog`);
     } else {
-      this.git.createNewCommit(`chore: update changelog for ${newVersionName}`);
+      this.git.createNewCommit(`release: update changelog for ${newVersionName}`);
     }
 
     console.info();

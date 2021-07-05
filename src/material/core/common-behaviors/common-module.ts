@@ -10,7 +10,7 @@ import {HighContrastModeDetector} from '@angular/cdk/a11y';
 import {BidiModule} from '@angular/cdk/bidi';
 import {Inject, InjectionToken, isDevMode, NgModule, Optional, Version} from '@angular/core';
 import {VERSION as CDK_VERSION} from '@angular/cdk';
-
+import {DOCUMENT} from '@angular/common';
 
 // Private version constant to circumvent test/build issues,
 // i.e. avoid core to depend on the @angular/material primary entry-point
@@ -40,12 +40,6 @@ export interface GranularSanityChecks {
   doctype: boolean;
   theme: boolean;
   version: boolean;
-
-  /**
-   * @deprecated No longer being used.
-   * @breaking-change 10.0.0
-   */
-  hammer: boolean;
 }
 
 /**
@@ -62,18 +56,18 @@ export class MatCommonModule {
   /** Whether we've done the global sanity checks (e.g. a theme is loaded, there is a doctype). */
   private _hasDoneGlobalChecks = false;
 
-  /** Reference to the global `document` object. */
-  private _document = typeof document === 'object' && document ? document : null;
-
-  /** Reference to the global 'window' object. */
-  private _window = typeof window === 'object' && window ? window : null;
-
   /** Configured sanity checks. */
   private _sanityChecks: SanityChecks;
 
+  /** Used to reference correct document/window */
+  protected _document: Document;
+
   constructor(
       highContrastModeDetector: HighContrastModeDetector,
-      @Optional() @Inject(MATERIAL_SANITY_CHECKS) sanityChecks: any) {
+      @Optional() @Inject(MATERIAL_SANITY_CHECKS) sanityChecks: any,
+      @Inject(DOCUMENT) document: any) {
+    this._document = document;
+
     // While A11yModule also does this, we repeat it here to avoid importing A11yModule
     // in MatCommonModule.
     highContrastModeDetector._applyBodyHighContrastModeCssClasses();
@@ -90,14 +84,24 @@ export class MatCommonModule {
     }
   }
 
+  /** Use defaultView of injected document if available or fallback to global window reference */
+  private _getWindow(): Window | null {
+    const win = this._document.defaultView || window;
+    return typeof win === 'object' && win ? win : null;
+  }
+
   /** Whether any sanity checks are enabled. */
   private _checksAreEnabled(): boolean {
+    // TODO(crisbeto): we can't use `ngDevMode` here yet, because ViewEngine apps might not support
+    // it. Since these checks can have performance implications and they aren't tree shakeable
+    // in their current form, we can leave the `isDevMode` check in for now.
+    // tslint:disable-next-line:ban
     return isDevMode() && !this._isTestEnv();
   }
 
   /** Whether the code is running in tests. */
   private _isTestEnv() {
-    const window = this._window as any;
+    const window = this._getWindow() as any;
     return window && (window.__karma__ || window.jasmine);
   }
 
@@ -105,7 +109,7 @@ export class MatCommonModule {
     const isEnabled = this._checksAreEnabled() &&
       (this._sanityChecks === true || (this._sanityChecks as GranularSanityChecks).doctype);
 
-    if (isEnabled && this._document && !this._document.doctype) {
+    if (isEnabled && !this._document.doctype) {
       console.warn(
         'Current document does not have a doctype. This may cause ' +
         'some Angular Material components not to behave as expected.'
@@ -119,8 +123,7 @@ export class MatCommonModule {
     const isDisabled = !this._checksAreEnabled() ||
       (this._sanityChecks === false || !(this._sanityChecks as GranularSanityChecks).theme);
 
-    if (isDisabled || !this._document || !this._document.body ||
-        typeof getComputedStyle !== 'function') {
+    if (isDisabled || !this._document.body || typeof getComputedStyle !== 'function') {
       return;
     }
 

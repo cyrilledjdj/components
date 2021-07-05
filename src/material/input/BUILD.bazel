@@ -1,5 +1,3 @@
-package(default_visibility = ["//visibility:public"])
-
 load("//src/e2e-app:test_suite.bzl", "e2e_test_suite")
 load(
     "//tools:defaults.bzl",
@@ -11,6 +9,8 @@ load(
     "sass_library",
 )
 
+package(default_visibility = ["//visibility:public"])
+
 ng_module(
     name = "input",
     srcs = glob(
@@ -20,12 +20,12 @@ ng_module(
     assets = glob(["**/*.html"]),
     module_name = "@angular/material/input",
     deps = [
+        "//src:dev_mode_types",
         "//src/cdk/coercion",
         "//src/cdk/platform",
         "//src/cdk/text-field",
         "//src/material/core",
         "//src/material/form-field",
-        "@npm//@angular/common",
         "@npm//@angular/core",
         "@npm//@angular/forms",
         "@npm//rxjs",

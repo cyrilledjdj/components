@@ -4,6 +4,7 @@ import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatDialogModule} from '@angular/material/dialog';
 import {MatInputModule} from '@angular/material/input';
+import {MatMenuModule} from '@angular/material/menu';
 import {
   DialogContentExample,
   DialogContentExampleDialog
@@ -17,6 +18,11 @@ import {
   DialogOverviewExample,
   DialogOverviewExampleDialog
 } from './dialog-overview/dialog-overview-example';
+import {
+  DialogFromMenuExample,
+  DialogFromMenuExampleDialog
+} from './dialog-from-menu/dialog-from-menu-example';
+import {DialogHarnessExample} from './dialog-harness/dialog-harness-example';
 
 export {
   DialogContentExample,
@@ -25,6 +31,9 @@ export {
   DialogDataExampleDialog,
   DialogElementsExample,
   DialogElementsExampleDialog,
+  DialogFromMenuExample,
+  DialogFromMenuExampleDialog,
+  DialogHarnessExample,
   DialogOverviewExample,
   DialogOverviewExampleDialog,
 };
@@ -36,6 +45,9 @@ const EXAMPLES = [
   DialogDataExampleDialog,
   DialogElementsExample,
   DialogElementsExampleDialog,
+  DialogFromMenuExample,
+  DialogFromMenuExampleDialog,
+  DialogHarnessExample,
   DialogOverviewExample,
   DialogOverviewExampleDialog,
 ];
@@ -46,16 +58,12 @@ const EXAMPLES = [
     MatButtonModule,
     MatDialogModule,
     MatInputModule,
+    MatMenuModule,
     FormsModule,
   ],
   declarations: EXAMPLES,
   exports: EXAMPLES,
-  entryComponents: [
-    DialogContentExampleDialog,
-    DialogDataExampleDialog,
-    DialogElementsExampleDialog,
-    DialogOverviewExampleDialog,
-  ]
+  entryComponents: EXAMPLES,
 })
 export class DialogExamplesModule {
 }

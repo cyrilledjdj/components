@@ -1,6 +1,6 @@
 import {
   fakeAsync,
-  async,
+  waitForAsync,
   tick,
   ComponentFixture,
   TestBed,
@@ -26,7 +26,7 @@ import {CommonModule} from '@angular/common';
 
 
 describe('MatDrawer', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [MatSidenavModule, A11yModule, PlatformModule, NoopAnimationsModule, CommonModule],
       declarations: [
@@ -151,18 +151,18 @@ describe('MatDrawer', () => {
 
     it('does not throw when created without a drawer', fakeAsync(() => {
       expect(() => {
-        let fixture = TestBed.createComponent(BasicTestApp);
+        const fixture = TestBed.createComponent(BasicTestApp);
         fixture.detectChanges();
         tick();
       }).not.toThrow();
     }));
 
     it('should emit the backdropClick event when the backdrop is clicked', fakeAsync(() => {
-      let fixture = TestBed.createComponent(BasicTestApp);
+      const fixture = TestBed.createComponent(BasicTestApp);
       fixture.detectChanges();
 
-      let testComponent: BasicTestApp = fixture.debugElement.componentInstance;
-      let openButtonElement = fixture.debugElement.query(By.css('.open'))!.nativeElement;
+      const testComponent: BasicTestApp = fixture.debugElement.componentInstance;
+      const openButtonElement = fixture.debugElement.query(By.css('.open'))!.nativeElement;
 
       openButtonElement.click();
       fixture.detectChanges();
@@ -188,12 +188,12 @@ describe('MatDrawer', () => {
     }));
 
     it('should close when pressing escape', fakeAsync(() => {
-      let fixture = TestBed.createComponent(BasicTestApp);
+      const fixture = TestBed.createComponent(BasicTestApp);
 
       fixture.detectChanges();
 
-      let testComponent: BasicTestApp = fixture.debugElement.componentInstance;
-      let drawer = fixture.debugElement.query(By.directive(MatDrawer))!;
+      const testComponent: BasicTestApp = fixture.debugElement.componentInstance;
+      const drawer = fixture.debugElement.query(By.directive(MatDrawer))!;
 
       drawer.componentInstance.open();
       fixture.detectChanges();
@@ -214,12 +214,12 @@ describe('MatDrawer', () => {
     }));
 
     it('should not close when pressing escape with a modifier', fakeAsync(() => {
-      let fixture = TestBed.createComponent(BasicTestApp);
+      const fixture = TestBed.createComponent(BasicTestApp);
 
       fixture.detectChanges();
 
-      let testComponent: BasicTestApp = fixture.debugElement.componentInstance;
-      let drawer = fixture.debugElement.query(By.directive(MatDrawer))!;
+      const testComponent: BasicTestApp = fixture.debugElement.componentInstance;
+      const drawer = fixture.debugElement.query(By.directive(MatDrawer))!;
 
       drawer.componentInstance.open();
       fixture.detectChanges();
@@ -228,8 +228,7 @@ describe('MatDrawer', () => {
       expect(testComponent.closeCount).toBe(0, 'Expected no close events.');
       expect(testComponent.closeStartCount).toBe(0, 'Expected no close start events.');
 
-      const event = createKeyboardEvent('keydown', ESCAPE);
-      Object.defineProperty(event, 'altKey', {get: () => true});
+      const event = createKeyboardEvent('keydown', ESCAPE, undefined, {alt: true});
       dispatchEvent(drawer.nativeElement, event);
       fixture.detectChanges();
       flush();
@@ -240,7 +239,7 @@ describe('MatDrawer', () => {
     }));
 
     it('should fire the open event when open on init', fakeAsync(() => {
-      let fixture = TestBed.createComponent(DrawerSetToOpenedTrue);
+      const fixture = TestBed.createComponent(DrawerSetToOpenedTrue);
 
       fixture.detectChanges();
       tick();
@@ -249,9 +248,9 @@ describe('MatDrawer', () => {
     }));
 
     it('should not close by pressing escape when disableClose is set', fakeAsync(() => {
-      let fixture = TestBed.createComponent(BasicTestApp);
-      let testComponent = fixture.debugElement.componentInstance;
-      let drawer = fixture.debugElement.query(By.directive(MatDrawer))!;
+      const fixture = TestBed.createComponent(BasicTestApp);
+      const testComponent = fixture.debugElement.componentInstance;
+      const drawer = fixture.debugElement.query(By.directive(MatDrawer))!;
 
       drawer.componentInstance.disableClose = true;
       drawer.componentInstance.open();
@@ -267,9 +266,9 @@ describe('MatDrawer', () => {
     }));
 
     it('should not close by clicking on the backdrop when disableClose is set', fakeAsync(() => {
-      let fixture = TestBed.createComponent(BasicTestApp);
-      let testComponent = fixture.debugElement.componentInstance;
-      let drawer = fixture.debugElement.query(By.directive(MatDrawer))!.componentInstance;
+      const fixture = TestBed.createComponent(BasicTestApp);
+      const testComponent = fixture.debugElement.componentInstance;
+      const drawer = fixture.debugElement.query(By.directive(MatDrawer))!.componentInstance;
 
       drawer.disableClose = true;
       drawer.open();
@@ -284,14 +283,43 @@ describe('MatDrawer', () => {
       expect(testComponent.closeStartCount).toBe(0);
     }));
 
-    it('should restore focus on close if focus is inside drawer', fakeAsync(() => {
-      let fixture = TestBed.createComponent(BasicTestApp);
+    it('should restore focus on close if backdrop has been clicked', fakeAsync(() => {
+      const fixture = TestBed.createComponent(BasicTestApp);
+      fixture.detectChanges();
+
+      const drawer = fixture.debugElement.query(By.directive(MatDrawer))!.componentInstance;
+      const openButton = fixture.componentInstance.openButton.nativeElement;
+
+      openButton.focus();
+      drawer.open();
+      fixture.detectChanges();
+      flush();
+
+      const backdrop = fixture.nativeElement.querySelector('.mat-drawer-backdrop');
+      expect(backdrop).toBeTruthy();
+
+      // Ensure the element that has been focused on drawer open is blurred. This simulates
+      // the behavior where clicks on the backdrop blur the active element.
+      if (document.activeElement !== null && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+
+      backdrop.click();
+      fixture.detectChanges();
+      flush();
+
+      expect(document.activeElement)
+          .toBe(openButton, 'Expected focus to be restored to the open button on close.');
+    }));
+
+    it('should restore focus on close if focus is on drawer', fakeAsync(() => {
+      const fixture = TestBed.createComponent(BasicTestApp);
 
       fixture.detectChanges();
 
-      let drawer = fixture.debugElement.query(By.directive(MatDrawer))!.componentInstance;
-      let openButton = fixture.componentInstance.openButton.nativeElement;
-      let drawerButton = fixture.componentInstance.drawerButton.nativeElement;
+      const drawer = fixture.debugElement.query(By.directive(MatDrawer))!.componentInstance;
+      const openButton = fixture.componentInstance.openButton.nativeElement;
+      const drawerButton = fixture.componentInstance.drawerButton.nativeElement;
 
       openButton.focus();
       drawer.open();
@@ -307,14 +335,36 @@ describe('MatDrawer', () => {
           .toBe(openButton, 'Expected focus to be restored to the open button on close.');
     }));
 
+    it('should restore focus to an SVG element', fakeAsync(() => {
+      const fixture = TestBed.createComponent(BasicTestApp);
+      fixture.detectChanges();
+
+      const drawer = fixture.debugElement.query(By.directive(MatDrawer))!.componentInstance;
+      const svg = fixture.componentInstance.svg.nativeElement;
+      const drawerButton = fixture.componentInstance.drawerButton.nativeElement;
+
+      svg.focus();
+      drawer.open();
+      fixture.detectChanges();
+      flush();
+      drawerButton.focus();
+
+      drawer.close();
+      fixture.detectChanges();
+      flush();
+
+      expect(document.activeElement)
+          .toBe(svg, 'Expected focus to be restored to the SVG element on close.');
+    }));
+
     it('should not restore focus on close if focus is outside drawer', fakeAsync(() => {
-      let fixture = TestBed.createComponent(BasicTestApp);
-      let drawer: MatDrawer = fixture.debugElement
+      const fixture = TestBed.createComponent(BasicTestApp);
+      const drawer: MatDrawer = fixture.debugElement
           .query(By.directive(MatDrawer))!.componentInstance;
       fixture.detectChanges();
 
-      let openButton = fixture.componentInstance.openButton.nativeElement;
-      let closeButton = fixture.componentInstance.closeButton.nativeElement;
+      const openButton = fixture.componentInstance.openButton.nativeElement;
+      const closeButton = fixture.componentInstance.closeButton.nativeElement;
 
       openButton.focus();
       drawer.open();
@@ -374,21 +424,23 @@ describe('MatDrawer', () => {
 
   describe('attributes', () => {
     it('should correctly parse opened="false"', () => {
-      let fixture = TestBed.createComponent(DrawerSetToOpenedFalse);
+      const fixture = TestBed.createComponent(DrawerSetToOpenedFalse);
 
       fixture.detectChanges();
 
-      let drawer = fixture.debugElement.query(By.directive(MatDrawer))!.componentInstance;
+      const drawer =
+          fixture.debugElement.query(By.directive(MatDrawer))!.componentInstance;
 
       expect((drawer as MatDrawer).opened).toBe(false);
     });
 
     it('should correctly parse opened="true"', () => {
-      let fixture = TestBed.createComponent(DrawerSetToOpenedTrue);
+      const fixture = TestBed.createComponent(DrawerSetToOpenedTrue);
 
       fixture.detectChanges();
 
-      let drawer = fixture.debugElement.query(By.directive(MatDrawer))!.componentInstance;
+      const drawer =
+          fixture.debugElement.query(By.directive(MatDrawer))!.componentInstance;
 
       expect((drawer as MatDrawer).opened).toBe(true);
     });
@@ -435,7 +487,7 @@ describe('MatDrawer', () => {
       const fixture = TestBed.createComponent(DrawerOpenBinding);
       fixture.detectChanges();
 
-      let drawer: MatDrawer = fixture.debugElement
+      const drawer: MatDrawer = fixture.debugElement
           .query(By.directive(MatDrawer))!.componentInstance;
 
       drawer.open();
@@ -592,10 +644,21 @@ describe('MatDrawer', () => {
     }));
 
   });
+
+  it('should mark the drawer content as scrollable', () => {
+    const fixture = TestBed.createComponent(BasicTestApp);
+    fixture.detectChanges();
+
+    const content = fixture.debugElement.query(By.css('.mat-drawer-inner-container'));
+    const scrollable = content.injector.get(CdkScrollable);
+    expect(scrollable).toBeTruthy();
+    expect(scrollable.getElementRef().nativeElement).toBe(content.nativeElement);
+  });
+
 });
 
 describe('MatDrawerContainer', () => {
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [MatSidenavModule, A11yModule, PlatformModule, NoopAnimationsModule],
       declarations: [
@@ -907,6 +970,14 @@ class DrawerContainerTwoDrawerTestApp {
       </mat-drawer>
       <button (click)="drawer.open()" class="open" #openButton></button>
       <button (click)="drawer.close()" class="close" #closeButton></button>
+      <svg
+        viewBox="0 0 100 100"
+        xmlns="http://www.w3.org/2000/svg"
+        tabindex="0"
+        focusable="true"
+        #svg>
+        <circle cx="50" cy="50" r="50"/>
+      </svg>
     </mat-drawer-container>`,
 })
 class BasicTestApp {
@@ -920,6 +991,7 @@ class BasicTestApp {
   @ViewChild('drawer') drawer: MatDrawer;
   @ViewChild('drawerButton') drawerButton: ElementRef<HTMLButtonElement>;
   @ViewChild('openButton') openButton: ElementRef<HTMLButtonElement>;
+  @ViewChild('svg') svg: ElementRef<SVGElement>;
   @ViewChild('closeButton') closeButton: ElementRef<HTMLButtonElement>;
 
   open() {

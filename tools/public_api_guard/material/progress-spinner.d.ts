@@ -2,25 +2,28 @@ export declare const MAT_PROGRESS_SPINNER_DEFAULT_OPTIONS: InjectionToken<MatPro
 
 export declare function MAT_PROGRESS_SPINNER_DEFAULT_OPTIONS_FACTORY(): MatProgressSpinnerDefaultOptions;
 
-export declare class MatProgressSpinner extends _MatProgressSpinnerMixinBase implements OnInit, CanColor {
-    readonly _circleRadius: number;
-    readonly _circleStrokeWidth: number;
-    _elementRef: ElementRef<HTMLElement>;
+export declare class MatProgressSpinner extends _MatProgressSpinnerBase implements OnInit, CanColor {
     _noopAnimations: boolean;
-    readonly _strokeCircumference: number;
-    readonly _strokeDashOffset: number | null;
-    readonly _viewBox: string;
-    diameter: number;
+    _spinnerAnimationLabel: string;
+    get diameter(): number;
+    set diameter(size: number);
     mode: ProgressSpinnerMode;
-    strokeWidth: number;
-    value: number;
-    constructor(_elementRef: ElementRef<HTMLElement>, platform: Platform, _document: any, animationMode: string, defaults?: MatProgressSpinnerDefaultOptions);
+    get strokeWidth(): number;
+    set strokeWidth(value: number);
+    get value(): number;
+    set value(newValue: number);
+    constructor(elementRef: ElementRef<HTMLElement>, platform: Platform, _document: any, animationMode: string, defaults?: MatProgressSpinnerDefaultOptions);
+    _getCircleRadius(): number;
+    _getCircleStrokeWidth(): number;
+    _getStrokeCircumference(): number;
+    _getStrokeDashOffset(): number | null;
+    _getViewBox(): string;
     ngOnInit(): void;
     static ngAcceptInputType_diameter: NumberInput;
     static ngAcceptInputType_strokeWidth: NumberInput;
     static ngAcceptInputType_value: NumberInput;
-    static ɵcmp: i0.ɵɵComponentDefWithMeta<MatProgressSpinner, "mat-progress-spinner", ["matProgressSpinner"], { 'color': "color", 'diameter': "diameter", 'strokeWidth': "strokeWidth", 'mode': "mode", 'value': "value" }, {}, never>;
-    static ɵfac: i0.ɵɵFactoryDef<MatProgressSpinner>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<MatProgressSpinner, "mat-progress-spinner", ["matProgressSpinner"], { "color": "color"; "diameter": "diameter"; "strokeWidth": "strokeWidth"; "mode": "mode"; "value": "value"; }, {}, never, never>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<MatProgressSpinner, [null, null, { optional: true; }, { optional: true; }, null]>;
 }
 
 export interface MatProgressSpinnerDefaultOptions {
@@ -30,17 +33,15 @@ export interface MatProgressSpinnerDefaultOptions {
 }
 
 export declare class MatProgressSpinnerModule {
-    static ɵinj: i0.ɵɵInjectorDef<MatProgressSpinnerModule>;
-    static ɵmod: i0.ɵɵNgModuleDefWithMeta<MatProgressSpinnerModule, [typeof i1.MatProgressSpinner, typeof i1.MatSpinner], [typeof i2.MatCommonModule, typeof i3.CommonModule], [typeof i1.MatProgressSpinner, typeof i1.MatSpinner, typeof i2.MatCommonModule]>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<MatProgressSpinnerModule, never>;
+    static ɵinj: i0.ɵɵInjectorDeclaration<MatProgressSpinnerModule>;
+    static ɵmod: i0.ɵɵNgModuleDeclaration<MatProgressSpinnerModule, [typeof i1.MatProgressSpinner, typeof i1.MatSpinner], [typeof i2.MatCommonModule, typeof i3.CommonModule], [typeof i1.MatProgressSpinner, typeof i1.MatSpinner, typeof i2.MatCommonModule]>;
 }
 
 export declare class MatSpinner extends MatProgressSpinner {
     constructor(elementRef: ElementRef<HTMLElement>, platform: Platform, document: any, animationMode: string, defaults?: MatProgressSpinnerDefaultOptions);
-    static ngAcceptInputType_diameter: NumberInput;
-    static ngAcceptInputType_strokeWidth: NumberInput;
-    static ngAcceptInputType_value: NumberInput;
-    static ɵcmp: i0.ɵɵComponentDefWithMeta<MatSpinner, "mat-spinner", never, { 'color': "color" }, {}, never>;
-    static ɵfac: i0.ɵɵFactoryDef<MatSpinner>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<MatSpinner, "mat-spinner", never, { "color": "color"; }, {}, never, never>;
+    static ɵfac: i0.ɵɵFactoryDeclaration<MatSpinner, [null, null, { optional: true; }, { optional: true; }, null]>;
 }
 
 export declare type ProgressSpinnerMode = 'determinate' | 'indeterminate';

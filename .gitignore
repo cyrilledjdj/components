@@ -25,6 +25,7 @@ node_modules
 /.idea
 /.vscode/launch.json
 /*.iml
+/.vs
 
 # misc
 .DS_Store
@@ -39,3 +40,9 @@ testem.log
 /.git
 /.firebase
 /.bazelrc.user
+*.log
+.ng-dev.user*
+.husky/_
+
+# Variables that are inlined into the dev app index.html
+/src/dev-app/variables.json

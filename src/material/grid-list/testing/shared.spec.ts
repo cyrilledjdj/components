@@ -1,5 +1,4 @@
-import {HarnessLoader} from '@angular/cdk/testing';
-import {expectAsyncError} from '@angular/cdk/testing/private';
+import {HarnessLoader, parallel} from '@angular/cdk/testing';
 import {TestbedHarnessEnvironment} from '@angular/cdk/testing/testbed';
 import {Component} from '@angular/core';
 import {ComponentFixture, TestBed} from '@angular/core/testing';
@@ -73,7 +72,7 @@ export function runHarnessTests(
 
   it('should be able to get tile by position', async () => {
     const gridList = await loader.getHarness(gridListHarness);
-    const tiles = await Promise.all([
+    const tiles = await parallel(() => [
       gridList.getTileAtPosition({row: 0, column: 0}),
       gridList.getTileAtPosition({row: 0, column: 1}),
       gridList.getTileAtPosition({row: 1, column: 0}),
@@ -85,14 +84,14 @@ export function runHarnessTests(
 
   it('should be able to get tile by position with respect to tile span', async () => {
     const gridList = await loader.getHarness(gridListHarness);
-    const tiles = await Promise.all([
+    const tiles = await parallel(() => [
       gridList.getTileAtPosition({row: 0, column: 2}),
       gridList.getTileAtPosition({row: 0, column: 3}),
     ]);
     expect(await tiles[0].getHeaderText()).toBe('Three');
     expect(await tiles[1].getHeaderText()).toBe('Three');
-    await expectAsyncError(
-        () => gridList.getTileAtPosition({row: 2, column: 0}), /Could not find tile/);
+    await expectAsync(gridList.getTileAtPosition({row: 2, column: 0}))
+      .toBeRejectedWithError(/Could not find tile/);
 
     // Update the fourth tile to span over two rows. The previous position
     // should now be valid and the fourth tile should be returned.

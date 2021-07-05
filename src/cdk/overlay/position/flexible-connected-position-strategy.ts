@@ -29,8 +29,11 @@ import {OverlayContainer} from '../overlay-container';
 /** Class to be added to the overlay bounding box. */
 const boundingBoxClass = 'cdk-overlay-connected-position-bounding-box';
 
+/** Regex used to split a string on its CSS units. */
+const cssUnitPattern = /([A-Za-z%]+)$/;
+
 /** Possible values that can be set as the origin of a FlexibleConnectedPositionStrategy. */
-export type FlexibleConnectedPositionStrategyOrigin = ElementRef | HTMLElement | Point & {
+export type FlexibleConnectedPositionStrategyOrigin = ElementRef | Element | Point & {
   width?: number;
   height?: number;
 };
@@ -104,7 +107,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
   private _lastPosition: ConnectedPosition | null;
 
   /** Subject that emits whenever the position changes. */
-  private _positionChanges = new Subject<ConnectedOverlayPositionChange>();
+  private readonly _positionChanges = new Subject<ConnectedOverlayPositionChange>();
 
   /** Subscription to viewport size changes. */
   private _resizeSubscription = Subscription.EMPTY;
@@ -125,8 +128,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
   private _previousPushAmount: {x: number, y: number} | null;
 
   /** Observable sequence of position changes. */
-  positionChanges: Observable<ConnectedOverlayPositionChange> =
-      this._positionChanges.asObservable();
+  positionChanges: Observable<ConnectedOverlayPositionChange> = this._positionChanges;
 
   /** Ordered list of preferred positions, from most to least desirable. */
   get positions(): ConnectionPositionPair[] {
@@ -142,7 +144,8 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
 
   /** Attaches this position strategy to an overlay. */
   attach(overlayRef: OverlayReference): void {
-    if (this._overlayRef && overlayRef !== this._overlayRef) {
+    if (this._overlayRef && overlayRef !== this._overlayRef &&
+      (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw Error('This position strategy is already attached to an overlay');
     }
 
@@ -522,9 +525,12 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
   }
 
   /** Gets how well an overlay at the given point will fit within the viewport. */
-  private _getOverlayFit(point: Point, overlay: ClientRect, viewport: ClientRect,
+  private _getOverlayFit(point: Point, rawOverlayRect: ClientRect, viewport: ClientRect,
     position: ConnectedPosition): OverlayFit {
 
+    // Round the overlay rect when comparing against the
+    // viewport, because the viewport is always rounded.
+    const overlay = getRoundedBoundingClientRect(rawOverlayRect);
     let {x, y} = point;
     let offsetX = this._getOffset(position, 'x');
     let offsetY = this._getOffset(position, 'y');
@@ -567,8 +573,8 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
     if (this._hasFlexibleDimensions) {
       const availableHeight = viewport.bottom - point.y;
       const availableWidth = viewport.right - point.x;
-      const minHeight = this._overlayRef.getConfig().minHeight;
-      const minWidth = this._overlayRef.getConfig().minWidth;
+      const minHeight = getPixelValue(this._overlayRef.getConfig().minHeight);
+      const minWidth = getPixelValue(this._overlayRef.getConfig().minWidth);
 
       const verticalFit = fit.fitsInViewportVertically ||
           (minHeight != null && minHeight <= availableHeight);
@@ -592,7 +598,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
    *     originPoint.
    */
   private _pushOverlayOnScreen(start: Point,
-                               overlay: ClientRect,
+                               rawOverlayRect: ClientRect,
                                scrollPosition: ViewportScrollPosition): Point {
     // If the position is locked and we've pushed the overlay already, reuse the previous push
     // amount, rather than pushing it again. If we were to continue pushing, the element would
@@ -604,12 +610,15 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
       };
     }
 
+    // Round the overlay rect when comparing against the
+    // viewport, because the viewport is always rounded.
+    const overlay = getRoundedBoundingClientRect(rawOverlayRect);
     const viewport = this._viewportRect;
 
     // Determine how much the overlay goes outside the viewport on each
     // side, which we'll use to decide which direction to push it.
-    const overflowRight = Math.max(start.x + overlay.width - viewport.right, 0);
-    const overflowBottom = Math.max(start.y + overlay.height - viewport.bottom, 0);
+    const overflowRight = Math.max(start.x + overlay.width - viewport.width, 0);
+    const overflowBottom = Math.max(start.y + overlay.height - viewport.height, 0);
     const overflowTop = Math.max(viewport.top - scrollPosition.top - start.y, 0);
     const overflowLeft = Math.max(viewport.left - scrollPosition.left - start.x, 0);
 
@@ -921,7 +930,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
                             scrollPosition: ViewportScrollPosition) {
     // Reset any existing styles. This is necessary in case the
     // preferred position has changed since the last `apply`.
-    let styles = {top: null, bottom: null} as CSSStyleDeclaration;
+    let styles = {top: '', bottom: ''} as CSSStyleDeclaration;
     let overlayPoint = this._getOverlayPoint(originPoint, this._overlayRect, position);
 
     if (this._isPushed) {
@@ -957,7 +966,7 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
                             scrollPosition: ViewportScrollPosition) {
     // Reset any existing styles. This is necessary in case the preferred position has
     // changed since the last `apply`.
-    let styles = {left: null, right: null} as CSSStyleDeclaration;
+    let styles = {left: '', right: ''} as CSSStyleDeclaration;
     let overlayPoint = this._getOverlayPoint(originPoint, this._overlayRect, position);
 
     if (this._isPushed) {
@@ -1063,18 +1072,20 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
 
   /** Validates that the current position match the expected values. */
   private _validatePositions(): void {
-    if (!this._preferredPositions.length) {
-      throw Error('FlexibleConnectedPositionStrategy: At least one position is required.');
-    }
+    if (typeof ngDevMode === 'undefined' || ngDevMode) {
+      if (!this._preferredPositions.length) {
+        throw Error('FlexibleConnectedPositionStrategy: At least one position is required.');
+      }
 
-    // TODO(crisbeto): remove these once Angular's template type
-    // checking is advanced enough to catch these cases.
-    this._preferredPositions.forEach(pair => {
-      validateHorizontalPosition('originX', pair.originX);
-      validateVerticalPosition('originY', pair.originY);
-      validateHorizontalPosition('overlayX', pair.overlayX);
-      validateVerticalPosition('overlayY', pair.overlayY);
-    });
+      // TODO(crisbeto): remove these once Angular's template type
+      // checking is advanced enough to catch these cases.
+      this._preferredPositions.forEach(pair => {
+        validateHorizontalPosition('originX', pair.originX);
+        validateVerticalPosition('originY', pair.originY);
+        validateHorizontalPosition('overlayX', pair.overlayX);
+        validateVerticalPosition('overlayY', pair.overlayY);
+      });
+    }
   }
 
   /** Adds a single CSS class or an array of classes on the overlay panel. */
@@ -1107,7 +1118,8 @@ export class FlexibleConnectedPositionStrategy implements PositionStrategy {
       return origin.nativeElement.getBoundingClientRect();
     }
 
-    if (origin instanceof HTMLElement) {
+    // Check for Element so SVG elements are also supported.
+    if (origin instanceof Element) {
       return origin.getBoundingClientRect();
     }
 
@@ -1189,12 +1201,44 @@ export interface ConnectedPosition {
 }
 
 /** Shallow-extends a stylesheet object with another stylesheet object. */
-function extendStyles(dest: CSSStyleDeclaration, source: CSSStyleDeclaration): CSSStyleDeclaration {
+function extendStyles(destination: CSSStyleDeclaration,
+                      source: CSSStyleDeclaration): CSSStyleDeclaration {
   for (let key in source) {
     if (source.hasOwnProperty(key)) {
-      dest[key] = source[key];
+      destination[key] = source[key];
     }
   }
 
-  return dest;
+  return destination;
+}
+
+
+/**
+ * Extracts the pixel value as a number from a value, if it's a number
+ * or a CSS pixel string (e.g. `1337px`). Otherwise returns null.
+ */
+function getPixelValue(input: number|string|null|undefined): number|null {
+  if (typeof input !== 'number' && input != null) {
+    const [value, units] = input.split(cssUnitPattern);
+    return (!units || units === 'px') ? parseFloat(value) : null;
+  }
+
+  return input || null;
+}
+
+/**
+ * Gets a version of an element's bounding `ClientRect` where all the values are rounded down to
+ * the nearest pixel. This allows us to account for the cases where there may be sub-pixel
+ * deviations in the `ClientRect` returned by the browser (e.g. when zoomed in with a percentage
+ * size, see #21350).
+ */
+function getRoundedBoundingClientRect(clientRect: ClientRect): ClientRect {
+  return {
+    top: Math.floor(clientRect.top),
+    right: Math.floor(clientRect.right),
+    bottom: Math.floor(clientRect.bottom),
+    left: Math.floor(clientRect.left),
+    width: Math.floor(clientRect.width),
+    height: Math.floor(clientRect.height)
+  };
 }

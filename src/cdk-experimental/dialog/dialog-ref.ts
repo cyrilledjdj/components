@@ -115,12 +115,6 @@ export class DialogRef<T, R = any> {
    * @param size New size for the overlay.
    */
   updateSize(size: OverlaySizeConfig): this {
-    if (size.width) {
-      this._getPositionStrategy().width(size.width.toString());
-    }
-    if (size.height) {
-      this._getPositionStrategy().height(size.height.toString());
-    }
     this._overlayRef.updateSize(size);
     this._overlayRef.updatePosition();
     return this;
@@ -133,12 +127,12 @@ export class DialogRef<T, R = any> {
 
   /** Gets an observable that emits when dialog begins opening. */
   beforeOpened(): Observable<void> {
-    return this._containerInstance._beforeEnter.asObservable();
+    return this._containerInstance._beforeEnter;
   }
 
   /** Gets an observable that emits when dialog is finished opening. */
   afterOpened(): Observable<void> {
-    return this._containerInstance._afterEnter.asObservable();
+    return this._containerInstance._afterEnter;
   }
 
   /** Gets an observable that emits when dialog begins closing. */

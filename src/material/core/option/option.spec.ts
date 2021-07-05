@@ -1,4 +1,4 @@
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
+import {waitForAsync, ComponentFixture, TestBed} from '@angular/core/testing';
 import {Component, DebugElement} from '@angular/core';
 import {By} from '@angular/platform-browser';
 import {
@@ -8,11 +8,11 @@ import {
   dispatchEvent,
 } from '@angular/cdk/testing/private';
 import {SPACE, ENTER} from '@angular/cdk/keycodes';
-import {MatOption, MatOptionModule} from './index';
+import {MatOption, MatOptionModule, MAT_OPTION_PARENT_COMPONENT} from './index';
 
 describe('MatOption component', () => {
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       imports: [MatOptionModule],
       declarations: [BasicOption]
@@ -135,8 +135,7 @@ describe('MatOption component', () => {
     const subscription = optionInstance.onSelectionChange.subscribe(spy);
 
     [ENTER, SPACE].forEach(key => {
-      const event = createKeyboardEvent('keydown', key);
-      Object.defineProperty(event, 'shiftKey', {get: () => true});
+      const event = createKeyboardEvent('keydown', key, undefined, {shift: true});
       dispatchEvent(optionNativeElement, event);
       fixture.detectChanges();
 
@@ -190,6 +189,44 @@ describe('MatOption component', () => {
 
   });
 
+  it('should have a focus indicator', () => {
+    const fixture = TestBed.createComponent(BasicOption);
+    const optionNativeElement = fixture.debugElement.query(By.directive(MatOption))!.nativeElement;
+
+    expect(optionNativeElement.classList.contains('mat-focus-indicator')).toBe(true);
+  });
+
+  describe('inside inert group', () => {
+    let fixture: ComponentFixture<InsideGroup>;
+
+    beforeEach(waitForAsync(() => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        imports: [MatOptionModule],
+        declarations: [InsideGroup],
+        providers: [{
+          provide: MAT_OPTION_PARENT_COMPONENT,
+          useValue: {inertGroups: true}
+        }]
+      }).compileComponents();
+
+      fixture = TestBed.createComponent(InsideGroup);
+      fixture.detectChanges();
+    }));
+
+    it('should remove all accessibility-related attributes from the group', () => {
+      const group: HTMLElement = fixture.nativeElement.querySelector('mat-optgroup');
+      expect(group.hasAttribute('role')).toBe(false);
+      expect(group.hasAttribute('aria-disabled')).toBe(false);
+      expect(group.hasAttribute('aria-labelledby')).toBe(false);
+    });
+
+    it('should mirror the group label inside the option', () => {
+      const option: HTMLElement = fixture.nativeElement.querySelector('mat-option');
+      expect(option.textContent?.trim()).toBe('Option(Group)');
+    });
+  });
+
 });
 
 @Component({
@@ -198,4 +235,14 @@ describe('MatOption component', () => {
 class BasicOption {
   disabled: boolean;
   id: string;
+}
+
+@Component({
+  template: `
+    <mat-optgroup label="Group">
+      <mat-option>Option</mat-option>
+    </mat-optgroup>
+  `
+})
+class InsideGroup {
 }

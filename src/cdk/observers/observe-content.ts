@@ -10,7 +10,8 @@ import {
   coerceBooleanProperty,
   coerceNumberProperty,
   coerceElement,
-  BooleanInput
+  BooleanInput,
+  NumberInput
 } from '@angular/cdk/coercion';
 import {
   AfterContentInit,
@@ -45,7 +46,7 @@ export class ContentObserver implements OnDestroy {
   /** Keeps track of the existing MutationObservers so they can be reused. */
   private _observedElements = new Map<Element, {
     observer: MutationObserver | null,
-    stream: Subject<MutationRecord[]>,
+    readonly stream: Subject<MutationRecord[]>,
     count: number
   }>();
 
@@ -140,7 +141,7 @@ export class ContentObserver implements OnDestroy {
 })
 export class CdkObserveContent implements AfterContentInit, OnDestroy {
   /** Event emitted for each change in the element's content. */
-  @Output('cdkObserveContent') event = new EventEmitter<MutationRecord[]>();
+  @Output('cdkObserveContent') readonly event = new EventEmitter<MutationRecord[]>();
 
   /**
    * Whether observing content is disabled. This option can be used
@@ -194,13 +195,11 @@ export class CdkObserveContent implements AfterContentInit, OnDestroy {
   }
 
   private _unsubscribe() {
-    if (this._currentSubscription) {
-      this._currentSubscription.unsubscribe();
-    }
+    this._currentSubscription?.unsubscribe();
   }
 
   static ngAcceptInputType_disabled: BooleanInput;
-  static ngAcceptInputType_debounce: BooleanInput;
+  static ngAcceptInputType_debounce: NumberInput;
 }
 
 

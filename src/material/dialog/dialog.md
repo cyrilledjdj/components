@@ -14,7 +14,7 @@ let dialogRef = dialog.open(UserProfileComponent, {
 ```
 
 The `MatDialogRef` provides a handle on the opened dialog. It can be used to close the dialog and to
-receive notification when the dialog has been closed.
+receive notifications when the dialog has been closed. Any notification Observables will complete when the dialog closes.
 
 ```ts
 dialogRef.afterClosed().subscribe(result => {
@@ -26,7 +26,7 @@ dialogRef.close('Pizza!');
 
 Components created via `MatDialog` can _inject_ `MatDialogRef` and use it to close the dialog
 in which they are contained. When closing, an optional result value can be provided. This result
-value is forwarded as the result of the `afterClosed` promise.
+value is forwarded as the result of the `afterClosed` Observable.
 
 ```ts
 @Component({/* ... */})
@@ -40,6 +40,8 @@ export class YourDialog {
 ```
 
 ### Configuring dialog content via `entryComponents`
+**You only need to specify `entryComponents` if your project uses ViewEngine. Projects
+using Angular Ivy don't need `entryComponents`.**
 
 Because `MatDialog` instantiates components at run-time, the Angular compiler needs extra
 information to create the necessary `ComponentFactory` for your dialog content component.
@@ -64,7 +66,6 @@ the `ComponentFactory` for it.
     ExampleDialogComponent
   ],
 
-  providers: [],
   bootstrap: [AppComponent]
 })
 export class AppModule {}
@@ -103,7 +104,7 @@ import {MAT_DIALOG_DATA} from '@angular/material/dialog';
   template: 'passed in {{ data.name }}',
 })
 export class YourDialog {
-  constructor(@Inject(MAT_DIALOG_DATA) public data: any) { }
+  constructor(@Inject(MAT_DIALOG_DATA) public data: {name: string}) { }
 }
 ```
 
@@ -173,6 +174,17 @@ be configured by setting the `cdkFocusInitial` attribute on another focusable el
 
 Tabbing through the elements of the dialog will keep focus inside of the dialog element,
 wrapping back to the first tabbable element when reaching the end of the tab sequence.
+
+#### Focus Restoration
+Upon closing, the dialog returns focus to the element that had focus when the dialog opened.
+In some cases, however, this previously focused element no longer exists in the DOM, such as
+menu items. To manually restore focus to an appropriate element in such cases, you can disable 
+`restoreFocus` in `MatDialogConfig` and pass it into the `open` method.
+Then you can return focus manually by subscribing to the `afterClosed` observable on `MatDialogRef`.
+
+<!-- example({"example":"dialog-from-menu",
+              "file":"dialog-from-menu-example.ts", 
+              "region":"focus-restoration"}) -->
 
 #### Keyboard interaction
 By default pressing the escape key will close the dialog. While this behavior can

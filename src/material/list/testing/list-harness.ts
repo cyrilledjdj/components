@@ -15,7 +15,7 @@ import {getListItemPredicate, MatListItemHarnessBase} from './list-item-harness-
 export class MatListHarness extends
     MatListHarnessBase<typeof MatListItemHarness, MatListItemHarness, ListItemHarnessFilters> {
   /** The selector for the host element of a `MatList` instance. */
-  static hostSelector = 'mat-list';
+  static hostSelector = '.mat-list:not(mat-action-list)';
 
   /**
    * Gets a `HarnessPredicate` that can be used to search for a `MatListHarness` that meets certain
@@ -27,15 +27,13 @@ export class MatListHarness extends
     return new HarnessPredicate(MatListHarness, options);
   }
 
-  _itemHarness = MatListItemHarness;
+  override _itemHarness = MatListItemHarness;
 }
 
 /** Harness for interacting with a list item. */
 export class MatListItemHarness extends MatListItemHarnessBase {
   /** The selector for the host element of a `MatListItem` instance. */
-  static hostSelector = ['mat-list-item', 'a[mat-list-item]', 'button[mat-list-item]']
-      .map(selector => `${MatListHarness.hostSelector} ${selector}`)
-      .join(',');
+  static hostSelector = `${MatListHarness.hostSelector} .mat-list-item`;
 
   /**
    * Gets a `HarnessPredicate` that can be used to search for a `MatListItemHarness` that meets

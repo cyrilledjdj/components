@@ -1,13 +1,22 @@
-<div class="mdc-slider__track-container">
-  <div class="mdc-slider__track" #track></div>
-  <div class="mdc-slider__track-marker-container" #trackMarker></div>
-</div>
-<div class="mdc-slider__thumb-container" #thumbContainer>
-  <div *ngIf="thumbLabel" class="mdc-slider__pin">
-    <span class="mdc-slider__pin-value-marker">{{displayValue}}</span>
+<!-- Inputs -->
+<ng-content></ng-content>
+
+<!-- Track -->
+<div class="mdc-slider__track">
+  <div class="mdc-slider__track--inactive"></div>
+  <div class="mdc-slider__track--active">
+    <div class="mdc-slider__track--active_fill" #trackActive></div>
   </div>
-  <svg class="mdc-slider__thumb" focusable="false" width="21" height="21">
-    <circle cx="10.5" cy="10.5" r="7.875"></circle>
-  </svg>
-  <div class="mdc-slider__focus-ring"></div>
+  <div *ngIf="showTickMarks" class="mdc-slider__tick-marks" #tickMarkContainer>
+    <div *ngFor="let tickMark of _tickMarks" [class]="_getTickMarkClass(tickMark)"></div>
+  </div>
 </div>
+
+<!-- Thumbs -->
+<mat-slider-visual-thumb
+  *ngFor="let thumb of _inputs"
+  [discrete]="discrete"
+  [disableRipple]="_isRippleDisabled()"
+  [thumbPosition]="thumb._thumbPosition"
+  [valueIndicatorText]="_getValueIndicatorText(thumb._thumbPosition)">
+</mat-slider-visual-thumb>

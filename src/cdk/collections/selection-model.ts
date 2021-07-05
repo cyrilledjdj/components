@@ -34,7 +34,7 @@ export class SelectionModel<T> {
   }
 
   /** Event emitted when the value has changed. */
-  changed: Subject<SelectionChange<T>> = new Subject();
+  readonly changed = new Subject<SelectionChange<T>>();
 
   constructor(
     private _multiple = false,
@@ -178,7 +178,7 @@ export class SelectionModel<T> {
    * including multiple values while the selection model is not supporting multiple values.
    */
   private _verifyValueAssignment(values: T[]) {
-    if (values.length > 1 && !this._multiple) {
+    if (values.length > 1 && !this._multiple && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw getMultipleValuesInSingleSelectionError();
     }
   }

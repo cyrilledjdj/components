@@ -3,7 +3,7 @@ import {LEFT_ARROW, UP_ARROW, RIGHT_ARROW, DOWN_ARROW, TAB} from '@angular/cdk/k
 import {CdkTableModule} from '@angular/cdk/table';
 import {dispatchKeyboardEvent} from '@angular/cdk/testing/private';
 import {CommonModule} from '@angular/common';
-import {Component, Directive, ElementRef, Type, ViewChild} from '@angular/core';
+import {Component, Directive, ElementRef, ViewChild} from '@angular/core';
 import {ComponentFixture, fakeAsync, flush, TestBed, tick, inject} from '@angular/core/testing';
 import {FormsModule, NgForm} from '@angular/forms';
 import {BidiModule, Direction} from '@angular/cdk/bidi';
@@ -52,7 +52,11 @@ const CELL_TEMPLATE = `
     </span>
     `;
 
-const POPOVER_EDIT_DIRECTIVE_NAME = `[cdkPopoverEdit]="nameEdit" [cdkPopoverEditColspan]="colspan"`;
+const POPOVER_EDIT_DIRECTIVE_NAME = `
+    [cdkPopoverEdit]="nameEdit"
+    [cdkPopoverEditColspan]="colspan"
+    [cdkPopoverEditDisabled]="nameEditDisabled"
+    `;
 
 const POPOVER_EDIT_DIRECTIVE_WEIGHT = `[cdkPopoverEdit]="weightEdit" cdkPopoverEditTabOut`;
 
@@ -66,11 +70,17 @@ abstract class BaseTestComponent {
   @ViewChild('table') table: ElementRef;
 
   preservedValues = new FormValueContainer<PeriodicElement, {'name': string}>();
-
+  nameEditDisabled = false;
   ignoreSubmitUnlessValid = true;
   clickOutBehavior: PopoverEditClickOutBehavior = 'close';
   colspan: CdkPopoverEditColspan = {};
   direction: Direction = 'ltr';
+
+  constructor() {
+    this.renderData();
+  }
+
+  abstract renderData(): void;
 
   onSubmit(element: PeriodicElement, form: NgForm) {
     if (!form.valid) { return; }
@@ -197,7 +207,11 @@ abstract class BaseTestComponent {
   `
 })
 class VanillaTableOutOfCell extends BaseTestComponent {
-  elements = createElementData();
+  elements: ChemicalElement[];
+
+  renderData() {
+    this.elements = createElementData();
+  }
 }
 
 @Component({
@@ -226,7 +240,11 @@ class VanillaTableOutOfCell extends BaseTestComponent {
   `
 })
 class VanillaTableInCell extends BaseTestComponent {
-  elements = createElementData();
+  elements: ChemicalElement[];
+
+  renderData() {
+    this.elements = createElementData();
+  }
 }
 
 class ElementDataSource extends DataSource<PeriodicElement> {
@@ -235,7 +253,7 @@ class ElementDataSource extends DataSource<PeriodicElement> {
 
   /** Connect function called by the table to retrieve one stream containing the data to render. */
   connect() {
-    return this.data.asObservable();
+    return this.data;
   }
 
   disconnect() {}
@@ -284,7 +302,11 @@ class ElementDataSource extends DataSource<PeriodicElement> {
 })
 class CdkFlexTableInCell extends BaseTestComponent {
   displayedColumns = ['before', 'name', 'weight'];
-  dataSource = new ElementDataSource();
+  dataSource: ElementDataSource;
+
+  renderData() {
+    this.dataSource = new ElementDataSource();
+  }
 }
 
 @Component({
@@ -330,15 +352,19 @@ class CdkFlexTableInCell extends BaseTestComponent {
 })
 class CdkTableInCell extends BaseTestComponent {
   displayedColumns = ['before', 'name', 'weight'];
-  dataSource = new ElementDataSource();
+  dataSource: ElementDataSource;
+
+  renderData() {
+    this.dataSource = new ElementDataSource();
+  }
 }
 
-const testCases: ReadonlyArray<[Type<BaseTestComponent>, string]> = [
+const testCases = [
   [VanillaTableOutOfCell, 'Vanilla HTML table; edit defined outside of cell'],
   [VanillaTableInCell, 'Vanilla HTML table; edit defined within cell'],
   [CdkFlexTableInCell, 'Flex cdk-table; edit defined within cell'],
   [CdkTableInCell, 'Table cdk-table; edit defined within cell'],
-];
+] as const;
 
 describe('CDK Popover Edit', () => {
   for (const [componentClass, label] of testCases) {
@@ -355,7 +381,7 @@ describe('CDK Popover Edit', () => {
         inject([OverlayContainer], (oc: OverlayContainer) => {
           overlayContainer = oc;
         })();
-        fixture = TestBed.createComponent(componentClass);
+        fixture = TestBed.createComponent<BaseTestComponent>(componentClass);
         component = fixture.componentInstance;
         fixture.detectChanges();
         tick(10);
@@ -364,7 +390,7 @@ describe('CDK Popover Edit', () => {
       afterEach(() => {
         // The overlay container's `ngOnDestroy` won't be called between test runs so we need
         // to call it ourselves, in order to avoid leaking containers between tests and potentially
-        // throwing `querySelector` calls.
+        // throwing off `querySelector` calls.
         overlayContainer.ngOnDestroy();
       });
 
@@ -376,9 +402,7 @@ describe('CDK Popover Edit', () => {
           expect(component.hoverContentStateForRow(rows.length - 1))
               .toBe(HoverContentState.FOCUSABLE);
         }));
-      });
 
-      describe('triggering edit', () => {
         it('shows and hides on-hover content only after a delay', fakeAsync(() => {
           const [row0, row1] = component.getRows();
           row0.dispatchEvent(new Event('mouseover', {bubbles: true}));
@@ -406,6 +430,21 @@ describe('CDK Popover Edit', () => {
 
           expect(component.hoverContentStateForRow(0)).toBe(HoverContentState.FOCUSABLE);
           expect(component.hoverContentStateForRow(1)).toBe(HoverContentState.ON);
+        }));
+
+        it('shows the hover content if the data changes after initialization', fakeAsync(() => {
+          fixture.componentInstance.renderData();
+          fixture.detectChanges();
+
+          const row = component.getRows()[0];
+          row.dispatchEvent(new Event('mouseover', {bubbles: true}));
+          row.dispatchEvent(new Event('mousemove', {bubbles: true}));
+
+          tick(20);
+          row.dispatchEvent(new Event('mousemove', {bubbles: true}));
+          tick(50);
+
+          expect(component.hoverContentStateForRow(0)).toBe(HoverContentState.ON);
         }));
 
         it('shows hover content for the focused row and makes the rows above and below focusable',
@@ -436,6 +475,21 @@ describe('CDK Popover Edit', () => {
           expect(component.hoverContentStateForRow(2)).toBe(HoverContentState.OFF);
           expect(component.hoverContentStateForRow(3)).toBe(HoverContentState.OFF);
           expect(component.hoverContentStateForRow(4)).toBe(HoverContentState.FOCUSABLE);
+        }));
+
+        it('should close the focus content when pressing escape', fakeAsync(() => {
+          expect(component.hoverContentStateForRow(2)).toBe(HoverContentState.OFF);
+
+          component.focusEditCell(2);
+          tick(1);
+
+          expect(component.hoverContentStateForRow(2)).toBe(HoverContentState.ON);
+
+          const event = new KeyboardEvent('keydown', {bubbles: true, key: 'Escape'});
+          component.getEditCell(2).dispatchEvent(event);
+          tick(1);
+
+          expect(component.hoverContentStateForRow(2)).toBe(HoverContentState.OFF);
         }));
 
         it('shows hover content for the editing row and makes the rows above and below ' +
@@ -478,14 +532,38 @@ describe('CDK Popover Edit', () => {
           expect(component.lensIsOpen()).toBe(true);
           clearLeftoverTimers();
         }));
+
+        it('does not trigger edit when disabled', fakeAsync(() => {
+          component.nameEditDisabled = true;
+          fixture.detectChanges();
+
+          // Uses Enter to open the lens.
+          component.openLens();
+
+          expect(component.lensIsOpen()).toBe(false);
+          clearLeftoverTimers();
+        }));
       });
 
       describe('focus manipulation', () => {
         const getRowCells = () => component.getRows().map(getCells);
 
+        describe('tabindex', () => {
+          it('sets tabindex to 0 on editable cells', () => {
+            expect(component.getEditCell().getAttribute('tabindex')).toBe('0');
+          });
+
+          it('unsets tabindex to 0 on disabled cells', () => {
+            component.nameEditDisabled = true;
+            fixture.detectChanges();
+
+            expect(component.getEditCell().hasAttribute('tabindex')).toBe(false);
+          });
+        });
+
         describe('arrow keys', () => {
           const dispatchKey = (cell: HTMLElement, keyCode: number) =>
-              dispatchKeyboardEvent(cell, 'keydown', keyCode, undefined, cell);
+              dispatchKeyboardEvent(cell, 'keydown', keyCode);
 
           it('moves focus up/down/left/right and prevents default', () => {
             const rowCells = getRowCells();
@@ -605,6 +683,10 @@ cdkPopoverEditTabOut`, fakeAsync(() => {
       });
 
       describe('edit lens', () => {
+        function expectPixelsToEqual(actual: number, expected: number) {
+          expect(Math.floor(actual)).toBe(Math.floor(expected));
+        }
+
         it('shows a lens with the value from the table', fakeAsync(() => {
           component.openLens();
 
@@ -619,9 +701,9 @@ cdkPopoverEditTabOut`, fakeAsync(() => {
              const paneRect = component.getEditPane()!.getBoundingClientRect();
              const cellRect = component.getEditCell().getBoundingClientRect();
 
-             expect(paneRect.width).toBe(cellRect.width);
-             expect(paneRect.left).toBe(cellRect.left);
-             expect(paneRect.top).toBe(cellRect.top);
+             expectPixelsToEqual(paneRect.width, cellRect.width);
+             expectPixelsToEqual(paneRect.left, cellRect.left);
+             expectPixelsToEqual(paneRect.top, cellRect.top);
              clearLeftoverTimers();
            }));
 
@@ -635,25 +717,25 @@ cdkPopoverEditTabOut`, fakeAsync(() => {
              component.openLens();
 
              let paneRect = component.getEditPane()!.getBoundingClientRect();
-             expect(paneRect.top).toBe(cellRects[0].top);
-             expect(paneRect.left).toBe(cellRects[0].left);
-             expect(paneRect.right).toBe(cellRects[1].right);
+             expectPixelsToEqual(paneRect.top, cellRects[0].top);
+             expectPixelsToEqual(paneRect.left, cellRects[0].left);
+             expectPixelsToEqual(paneRect.right, cellRects[1].right);
 
              component.colspan = {after: 1};
              fixture.detectChanges();
 
              paneRect = component.getEditPane()!.getBoundingClientRect();
-             expect(paneRect.top).toBe(cellRects[1].top);
-             expect(paneRect.left).toBe(cellRects[1].left);
-             expect(paneRect.right).toBe(cellRects[2].right);
+             expectPixelsToEqual(paneRect.top, cellRects[1].top);
+             expectPixelsToEqual(paneRect.left, cellRects[1].left);
+             expectPixelsToEqual(paneRect.right, cellRects[2].right);
 
              component.colspan = {before: 1, after: 1};
              fixture.detectChanges();
 
              paneRect = component.getEditPane()!.getBoundingClientRect();
-             expect(paneRect.top).toBe(cellRects[0].top);
-             expect(paneRect.left).toBe(cellRects[0].left);
-             expect(paneRect.right).toBe(cellRects[2].right);
+             expectPixelsToEqual(paneRect.top, cellRects[0].top);
+             expectPixelsToEqual(paneRect.left, cellRects[0].left);
+             expectPixelsToEqual(paneRect.right, cellRects[2].right);
              clearLeftoverTimers();
            }));
 
@@ -888,7 +970,12 @@ cdkPopoverEditTabOut`, fakeAsync(() => {
   }
 });
 
-function createElementData() {
+interface ChemicalElement {
+  name: string;
+  weight: number;
+}
+
+function createElementData(): ChemicalElement[] {
   return [
     {name: 'Hydrogen', weight: 1.007},
     {name: 'Helium', weight: 4.0026},

@@ -15,9 +15,16 @@ if [ -z ${MATERIAL2_BUILDS_TOKEN} ]; then
   exit 1
 fi
 
-# Material packages that need to published.
-PACKAGES=(cdk material material-moment-adapter)
-REPOSITORIES=(cdk-builds material2-builds material2-moment-adapter-builds)
+# Release packages that need to published as snapshots.
+PACKAGES=(
+  cdk
+  cdk-experimental
+  material
+  material-experimental
+  material-moment-adapter
+  google-maps
+  youtube-player
+)
 
 # Command line arguments.
 COMMAND_ARGS=${*}
@@ -38,11 +45,6 @@ publishPackage() {
   commitAuthorEmail=$(git --no-pager show -s --format='%ae' HEAD)
   commitMessage=$(git log --oneline -n 1)
 
-  # Note that we cannot store the commit SHA in its own version segment
-  # as it will not comply with the semver specification. For example:
-  # 1.0.0-00abcdef will break since the SHA starts with zeros. To fix this,
-  # we create a new version segment with the following format: "1.0.0-sha-00abcdef".
-  # See issue: https://jubianchi.github.io/semver-check/#/^8.0.0/8.2.2-0462599
   buildVersionName="${buildVersion}-sha-${commitSha}"
   buildTagName="${branchName}-${commitSha}"
   buildCommitMessage="${branchName} - ${commitMessage}"
@@ -92,12 +94,6 @@ publishPackage() {
     exit 0
   fi
 
-  # Replace the version in every file recursively with a more specific version that also includes
-  # the SHA of the current build job. Normally this "sed" call would just replace the version
-  # placeholder, but the version placeholders have been replaced by "npm_package" already.
-  escapedVersion=$(echo ${buildVersion} | sed 's/[.[\*^$]/\\&/g')
-  sed -i "s/${escapedVersion}/${buildVersionName}/g" $(find . -type f -not -path '*\/.*')
-
   echo "Updated the build version in every file to include the SHA of the latest commit."
 
   # Prepare Git for pushing the artifacts to the repository.
@@ -117,11 +113,8 @@ publishPackage() {
   echo "Published package artifacts for ${packageName}#${buildVersionName} into ${branchName}"
 }
 
-for ((i = 0; i < ${#PACKAGES[@]}; i++)); do
-  packageName=${PACKAGES[${i}]}
-  packageRepo=${REPOSITORIES[${i}]}
-
-  # Publish artifacts of the current package. Run publishing in a sub-shell to avoid working
-  # directory changes.
-  (publishPackage ${packageName} ${packageRepo})
+for packageName in "${PACKAGES[@]}"; do
+  # Publish artifacts of the current package. Run publishing in a sub-shell to avoid
+  # working directory changes.
+  (publishPackage ${packageName} "${packageName}-builds")
 done

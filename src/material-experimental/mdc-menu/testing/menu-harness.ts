@@ -6,24 +6,25 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ComponentHarness, HarnessPredicate} from '@angular/cdk/testing';
-import {coerceBooleanProperty} from '@angular/cdk/coercion';
+import {HarnessPredicate} from '@angular/cdk/testing';
 import {
   MenuHarnessFilters,
-  MenuItemHarnessFilters
+  MenuItemHarnessFilters,
+  _MatMenuItemHarnessBase,
+  _MatMenuHarnessBase
 } from '@angular/material/menu/testing';
 
-/** Harness for interacting with a MDC-based mat-menu in tests. */
-export class MatMenuHarness extends ComponentHarness {
+/** Harness for interacting with an MDC-based mat-menu in tests. */
+export class MatMenuHarness extends _MatMenuHarnessBase<
+  typeof MatMenuItemHarness, MatMenuItemHarness, MenuItemHarnessFilters> {
+  /** The selector for the host element of a `MatMenu` instance. */
   static hostSelector = '.mat-menu-trigger';
-
-  // TODO: potentially extend MatButtonHarness
+  protected _itemClass = MatMenuItemHarness;
 
   /**
-   * Gets a `HarnessPredicate` that can be used to search for a menu with specific attributes.
-   * @param options Options for narrowing the search:
-   *   - `selector` finds a menu whose host element matches the given selector.
-   *   - `label` finds a menu with specific label text.
+   * Gets a `HarnessPredicate` that can be used to search for a `MatMenuHarness` that meets certain
+   * criteria.
+   * @param options Options for filtering which menu instances are considered a match.
    * @return a `HarnessPredicate` configured with the given options.
    */
   static with(options: MenuHarnessFilters = {}): HarnessPredicate<MatMenuHarness> {
@@ -31,60 +32,19 @@ export class MatMenuHarness extends ComponentHarness {
         .addOption('triggerText', options.triggerText,
             (harness, text) => HarnessPredicate.stringMatches(harness.getTriggerText(), text));
   }
-
-  /** Gets a boolean promise indicating if the menu is disabled. */
-  async isDisabled(): Promise<boolean> {
-    const disabled = (await this.host()).getAttribute('disabled');
-    return coerceBooleanProperty(await disabled);
-  }
-
-  async isOpen(): Promise<boolean> {
-    throw Error('not implemented');
-  }
-
-  async getTriggerText(): Promise<string> {
-    return (await this.host()).text();
-  }
-
-  /** Focuses the menu and returns a void promise that indicates when the action is complete. */
-  async focus(): Promise<void> {
-    return (await this.host()).focus();
-  }
-
-  /** Blurs the menu and returns a void promise that indicates when the action is complete. */
-  async blur(): Promise<void> {
-    return (await this.host()).blur();
-  }
-
-  async open(): Promise<void> {
-    throw Error('not implemented');
-  }
-
-  async close(): Promise<void> {
-    throw Error('not implemented');
-  }
-
-  async getItems(filters: Omit<MenuItemHarnessFilters, 'ancestor'> = {}):
-      Promise<MatMenuItemHarness[]> {
-    throw Error('not implemented');
-  }
-
-  async clickItem(filter: Omit<MenuItemHarnessFilters, 'ancestor'>,
-                  ...filters: Omit<MenuItemHarnessFilters, 'ancestor'>[]): Promise<void> {
-    throw Error('not implemented');
-  }
 }
 
-
-/** Harness for interacting with a standard mat-menu in tests. */
-export class MatMenuItemHarness extends ComponentHarness {
-  static hostSelector = '.mat-menu-item';
+/** Harness for interacting with an MDC-based mat-menu-item in tests. */
+export class MatMenuItemHarness extends
+  _MatMenuItemHarnessBase<typeof MatMenuHarness, MatMenuHarness> {
+  /** The selector for the host element of a `MatMenuItem` instance. */
+  static hostSelector = '.mat-mdc-menu-item';
+  protected _menuClass = MatMenuHarness;
 
   /**
-   * Gets a `HarnessPredicate` that can be used to search for a menu with specific attributes.
-   * @param options Options for narrowing the search:
-   *   - `selector` finds a menu item whose host element matches the given selector.
-   *   - `label` finds a menu item with specific label text.
+   * Gets a `HarnessPredicate` that can be used to search for a `MatMenuItemHarness` that meets
+   * certain criteria.
+   * @param options Options for filtering which menu item instances are considered a match.
    * @return a `HarnessPredicate` configured with the given options.
    */
   static with(options: MenuItemHarnessFilters = {}): HarnessPredicate<MatMenuItemHarness> {
@@ -93,37 +53,5 @@ export class MatMenuItemHarness extends ComponentHarness {
             (harness, text) => HarnessPredicate.stringMatches(harness.getText(), text))
         .addOption('hasSubmenu', options.hasSubmenu,
             async (harness, hasSubmenu) => (await harness.hasSubmenu()) === hasSubmenu);
-  }
-
-  /** Gets a boolean promise indicating if the menu is disabled. */
-  async isDisabled(): Promise<boolean> {
-    const disabled = (await this.host()).getAttribute('disabled');
-    return coerceBooleanProperty(await disabled);
-  }
-
-  async getText(): Promise<string> {
-    return (await this.host()).text();
-  }
-
-  /** Focuses the menu and returns a void promise that indicates when the action is complete. */
-  async focus(): Promise<void> {
-    return (await this.host()).focus();
-  }
-
-  /** Blurs the menu and returns a void promise that indicates when the action is complete. */
-  async blur(): Promise<void> {
-    return (await this.host()).blur();
-  }
-
-  async click(): Promise<void> {
-    throw Error('not implemented');
-  }
-
-  async hasSubmenu(): Promise<boolean> {
-    throw Error('not implemented');
-  }
-
-  async getSubmenu(): Promise<MatMenuHarness | null> {
-    throw Error('not implemented');
   }
 }

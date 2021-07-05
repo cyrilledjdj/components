@@ -6,9 +6,14 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {FocusMonitor, FocusOrigin, isFakeMousedownFromScreenReader} from '@angular/cdk/a11y';
+import {
+  FocusMonitor,
+  FocusOrigin,
+  isFakeMousedownFromScreenReader,
+  isFakeTouchstartFromScreenReader,
+} from '@angular/cdk/a11y';
 import {Direction, Directionality} from '@angular/cdk/bidi';
-import {LEFT_ARROW, RIGHT_ARROW} from '@angular/cdk/keycodes';
+import {ENTER, LEFT_ARROW, RIGHT_ARROW, SPACE} from '@angular/cdk/keycodes';
 import {
   FlexibleConnectedPositionStrategy,
   HorizontalConnectionPos,
@@ -34,12 +39,12 @@ import {
   ViewContainerRef,
 } from '@angular/core';
 import {normalizePassiveListenerOptions} from '@angular/cdk/platform';
-import {asapScheduler, merge, of as observableOf, Subscription} from 'rxjs';
+import {asapScheduler, merge, Observable, of as observableOf, Subscription} from 'rxjs';
 import {delay, filter, take, takeUntil} from 'rxjs/operators';
-import {MatMenu} from './menu';
-import {throwMatMenuMissingError} from './menu-errors';
+import {MenuCloseReason, _MatMenuBase} from './menu';
+import {throwMatMenuMissingError, throwMatMenuRecursiveError} from './menu-errors';
 import {MatMenuItem} from './menu-item';
-import {MatMenuPanel} from './menu-panel';
+import {MatMenuPanel, MAT_MENU_PANEL} from './menu-panel';
 import {MenuPositionX, MenuPositionY} from './menu-positions';
 
 /** Injection token that determines the scroll handling while the menu is open. */
@@ -66,10 +71,7 @@ const passiveEventListenerOptions = normalizePassiveListenerOptions({passive: tr
 
 // TODO(andrewseguin): Remove the kebab versions in favor of camelCased attribute selectors
 
-/**
- * This directive is intended to be used in conjunction with an mat-menu tag.  It is
- * responsible for toggling the display of the provided menu instance.
- */
+/** Directive applied to an element that should trigger a `mat-menu`. */
 @Directive({
   selector: `[mat-menu-trigger-for], [matMenuTriggerFor]`,
   host: {
@@ -93,14 +95,24 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
   private _scrollStrategy: () => ScrollStrategy;
 
   /**
+   * We're specifically looking for a `MatMenu` here since the generic `MatMenuPanel`
+   * interface lacks some functionality around nested menus and animations.
+   */
+  private _parentMaterialMenu: _MatMenuBase | undefined;
+
+  /**
    * Handles touch start events on the trigger.
    * Needs to be an arrow function so we can easily use addEventListener and removeEventListener.
    */
-  private _handleTouchStart = () => this._openedBy = 'touch';
+  private _handleTouchStart = (event: TouchEvent) => {
+    if (!isFakeTouchstartFromScreenReader(event)) {
+      this._openedBy = 'touch';
+    }
+  }
 
   // Tracking input type is necessary so it's possible to only auto-focus
   // the first item of the list when the menu is opened via the keyboard
-  _openedBy: 'mouse' | 'touch' | null = null;
+  _openedBy: Exclude<FocusOrigin, 'program' | null> | undefined = undefined;
 
   /**
    * @deprecated
@@ -124,12 +136,16 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
     this._menuCloseSubscription.unsubscribe();
 
     if (menu) {
-      this._menuCloseSubscription = menu.close.asObservable().subscribe(reason => {
-        this._destroyMenu();
+      if (menu === this._parentMaterialMenu && (typeof ngDevMode === 'undefined' || ngDevMode)) {
+        throwMatMenuRecursiveError();
+      }
+
+      this._menuCloseSubscription = menu.close.subscribe((reason: MenuCloseReason) => {
+        this._destroyMenu(reason);
 
         // If a click closed the menu, we should close the entire chain of nested menus.
-        if ((reason === 'click' || reason === 'tab') && this._parentMenu) {
-          this._parentMenu.closed.emit(reason);
+        if ((reason === 'click' || reason === 'tab') && this._parentMaterialMenu) {
+          this._parentMaterialMenu.closed.emit(reason);
         }
       });
     }
@@ -172,12 +188,16 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
               private _element: ElementRef<HTMLElement>,
               private _viewContainerRef: ViewContainerRef,
               @Inject(MAT_MENU_SCROLL_STRATEGY) scrollStrategy: any,
-              @Optional() private _parentMenu: MatMenu,
+              @Inject(MAT_MENU_PANEL) @Optional() parentMenu: MatMenuPanel,
+              // `MatMenuTrigger` is commonly used in combination with a `MatMenuItem`.
+              // tslint:disable-next-line: lightweight-tokens
               @Optional() @Self() private _menuItemInstance: MatMenuItem,
               @Optional() private _dir: Directionality,
               // TODO(crisbeto): make the _focusMonitor required when doing breaking changes.
               // @breaking-change 8.0.0
               private _focusMonitor?: FocusMonitor) {
+    this._scrollStrategy = scrollStrategy;
+    this._parentMaterialMenu = parentMenu instanceof _MatMenuBase ? parentMenu : undefined;
 
     _element.nativeElement.addEventListener('touchstart', this._handleTouchStart,
         passiveEventListenerOptions);
@@ -185,8 +205,6 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
     if (_menuItemInstance) {
       _menuItemInstance._triggersSubmenu = this.triggersSubmenu();
     }
-
-    this._scrollStrategy = scrollStrategy;
   }
 
   ngAfterContentInit() {
@@ -220,7 +238,7 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
 
   /** Whether the menu triggers a sub-menu or a top-level one. */
   triggersSubmenu(): boolean {
-    return !!(this._menuItemInstance && this._parentMenu);
+    return !!(this._menuItemInstance && this._parentMaterialMenu);
   }
 
   /** Toggles the menu between the open and closed states. */
@@ -251,7 +269,7 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
     this._closingActionsSubscription = this._menuClosingActions().subscribe(() => this.closeMenu());
     this._initMenu();
 
-    if (this.menu instanceof MatMenu) {
+    if (this.menu instanceof _MatMenuBase) {
       this.menu._startAnimation();
     }
   }
@@ -265,26 +283,42 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
    * Focuses the menu trigger.
    * @param origin Source of the menu trigger's focus.
    */
-  focus(origin: FocusOrigin = 'program', options?: FocusOptions) {
-    if (this._focusMonitor) {
+  focus(origin?: FocusOrigin, options?: FocusOptions) {
+    if (this._focusMonitor && origin) {
       this._focusMonitor.focusVia(this._element, origin, options);
     } else {
       this._element.nativeElement.focus(options);
     }
   }
 
+  /**
+   * Updates the position of the menu to ensure that it fits all options within the viewport.
+   */
+  updatePosition(): void {
+    this._overlayRef?.updatePosition();
+  }
+
   /** Closes the menu and does the necessary cleanup. */
-  private _destroyMenu() {
+  private _destroyMenu(reason: MenuCloseReason) {
     if (!this._overlayRef || !this.menuOpen) {
       return;
     }
 
     const menu = this.menu;
-
     this._closingActionsSubscription.unsubscribe();
     this._overlayRef.detach();
 
-    if (menu instanceof MatMenu) {
+    // Always restore focus if the user is navigating using the keyboard or the menu was opened
+    // programmatically. We don't restore for non-root triggers, because it can prevent focus
+    // from making it back to the root trigger when closing a long chain of menus by clicking
+    // on the backdrop.
+    if (this.restoreFocus && (reason === 'keydown' || !this._openedBy || !this.triggersSubmenu())) {
+      this.focus(this._openedBy);
+    }
+
+    this._openedBy = undefined;
+
+    if (menu instanceof _MatMenuBase) {
       menu._resetAnimation();
 
       if (menu.lazyContent) {
@@ -311,8 +345,6 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
         menu.lazyContent.detach();
       }
     }
-
-    this._restoreFocus();
   }
 
   /**
@@ -320,11 +352,11 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
    * the menu was opened via the keyboard.
    */
   private _initMenu(): void {
-    this.menu.parentMenu = this.triggersSubmenu() ? this._parentMenu : undefined;
+    this.menu.parentMenu = this.triggersSubmenu() ? this._parentMaterialMenu : undefined;
     this.menu.direction = this.dir;
     this._setMenuElevation();
-    this._setIsMenuOpen(true);
     this.menu.focusFirstItem(this._openedBy || 'program');
+    this._setIsMenuOpen(true);
   }
 
   /** Updates the menu elevation based on the amount of parent menus that it has. */
@@ -342,24 +374,6 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
     }
   }
 
-  /** Restores focus to the element that was focused before the menu was open. */
-  private _restoreFocus() {
-    // We should reset focus if the user is navigating using a keyboard or
-    // if we have a top-level trigger which might cause focus to be lost
-    // when clicking on the backdrop.
-    if (this.restoreFocus) {
-      if (!this._openedBy) {
-        // Note that the focus style will show up both for `program` and
-        // `keyboard` so we don't have to specify which one it is.
-        this.focus();
-      } else if (!this.triggersSubmenu()) {
-        this.focus(this._openedBy);
-      }
-    }
-
-    this._openedBy = null;
-  }
-
   // set state rather than toggle to support triggers sharing a menu
   private _setIsMenuOpen(isOpen: boolean): void {
     this._menuOpen = isOpen;
@@ -375,7 +389,7 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
    * matMenuTriggerFor. If not, an exception is thrown.
    */
   private _checkMenu() {
-    if (!this.menu) {
+    if (!this.menu && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throwMatMenuMissingError();
     }
   }
@@ -408,8 +422,10 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
       positionStrategy: this._overlay.position()
           .flexibleConnectedTo(this._element)
           .withLockedPosition()
+          .withGrowAfterOpen()
           .withTransformOriginOn('.mat-menu-panel, .mat-mdc-menu-panel'),
       backdropClass: this.menu.backdropClass || 'cdk-overlay-transparent-backdrop',
+      panelClass: this.menu.overlayPanelClass,
       scrollStrategy: this._scrollStrategy(),
       direction: this._dir
     });
@@ -482,13 +498,13 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
   private _menuClosingActions() {
     const backdrop = this._overlayRef!.backdropClick();
     const detachments = this._overlayRef!.detachments();
-    const parentClose = this._parentMenu ? this._parentMenu.closed : observableOf();
-    const hover = this._parentMenu ? this._parentMenu._hovered().pipe(
+    const parentClose = this._parentMaterialMenu ? this._parentMaterialMenu.closed : observableOf();
+    const hover = this._parentMaterialMenu ? this._parentMaterialMenu._hovered().pipe(
       filter(active => active !== this._menuItemInstance),
       filter(() => this._menuOpen)
     ) : observableOf();
 
-    return merge(backdrop, parentClose, hover, detachments);
+    return merge(backdrop, parentClose as Observable<MenuCloseReason>, hover, detachments);
   }
 
   /** Handles mouse presses on the trigger. */
@@ -496,7 +512,7 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
     if (!isFakeMousedownFromScreenReader(event)) {
       // Since right or middle button clicks won't trigger the `click` event,
       // we shouldn't consider the menu as opened by mouse in those cases.
-      this._openedBy = event.button === 0 ? 'mouse' : null;
+      this._openedBy = event.button === 0 ? 'mouse' : undefined;
 
       // Since clicking on the trigger won't close the menu if it opens a sub-menu,
       // we should prevent focus from moving onto it via click to avoid the
@@ -511,9 +527,15 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
   _handleKeydown(event: KeyboardEvent): void {
     const keyCode = event.keyCode;
 
+    // Pressing enter on the trigger will trigger the click handler later.
+    if (keyCode === ENTER || keyCode === SPACE) {
+      this._openedBy = 'keyboard';
+    }
+
     if (this.triggersSubmenu() && (
             (keyCode === RIGHT_ARROW && this.dir === 'ltr') ||
             (keyCode === LEFT_ARROW && this.dir === 'rtl'))) {
+      this._openedBy = 'keyboard';
       this.openMenu();
     }
   }
@@ -532,11 +554,11 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
   /** Handles the cases where the user hovers over the trigger. */
   private _handleHover() {
     // Subscribe to changes in the hovered item in order to toggle the panel.
-    if (!this.triggersSubmenu()) {
+    if (!this.triggersSubmenu() || !this._parentMaterialMenu) {
       return;
     }
 
-    this._hoverSubscription = this._parentMenu._hovered()
+    this._hoverSubscription = this._parentMaterialMenu._hovered()
       // Since we might have multiple competing triggers for the same menu (e.g. a sub-menu
       // with different data and triggers), we have to delay it by a tick to ensure that
       // it won't be closed immediately after it is opened.
@@ -550,11 +572,11 @@ export class MatMenuTrigger implements AfterContentInit, OnDestroy {
         // If the same menu is used between multiple triggers, it might still be animating
         // while the new trigger tries to re-open it. Wait for the animation to finish
         // before doing so. Also interrupt if the user moves to another item.
-        if (this.menu instanceof MatMenu && this.menu._isAnimating) {
+        if (this.menu instanceof _MatMenuBase && this.menu._isAnimating) {
           // We need the `delay(0)` here in order to avoid
           // 'changed after checked' errors in some cases. See #12194.
           this.menu._animationDone
-            .pipe(take(1), delay(0, asapScheduler), takeUntil(this._parentMenu._hovered()))
+            .pipe(take(1), delay(0, asapScheduler), takeUntil(this._parentMaterialMenu!._hovered()))
             .subscribe(() => this.openMenu());
         } else {
           this.openMenu();

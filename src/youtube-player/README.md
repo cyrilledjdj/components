@@ -20,31 +20,33 @@ If your video is found at https://www.youtube.com/watch?v=PRQCAL_RMVo, then your
 
 ```typescript
 // example-module.ts
-import {NgModule} from '@angular/core';
+import {NgModule, Component, OnInit} from '@angular/core';
 import {YouTubePlayerModule} from '@angular/youtube-player';
 
 @NgModule({
-  imports: [
-    YouTubePlayerModule,
-  ],
+  imports: [YouTubePlayerModule],
   declarations: [YoutubePlayerExample],
 })
 export class YoutubePlayerExampleModule {
 }
 
+let apiLoaded = false;
+
 // example-component.ts
 @Component({
-  template: '<youtube-player videoId="PRQCAL_RMVo" />',
+  template: '<youtube-player videoId="PRQCAL_RMVo"></youtube-player>',
   selector: 'youtube-player-example',
 })
 class YoutubePlayerExample implements OnInit {
   ngOnInit() {
-    // This code loads the IFrame Player API code asynchronously, according to the instructions at
-    // https://developers.google.com/youtube/iframe_api_reference#Getting_Started
-    const tag = document.createElement('script');
-
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.body.appendChild(tag);
+    if (!apiLoaded) {
+      // This code loads the IFrame Player API code asynchronously, according to the instructions at
+      // https://developers.google.com/youtube/iframe_api_reference#Getting_Started
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.body.appendChild(tag);
+      apiLoaded = true;
+    }
   }
 }
 

@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {BooleanInput, NumberInput} from '@angular/cdk/coercion';
+import {BooleanInput} from '@angular/cdk/coercion';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -64,16 +64,14 @@ export class MatTabHeader extends _MatTabHeaderBase implements AfterContentInit 
               @Optional() dir: Directionality,
               ngZone: NgZone,
               platform: Platform,
-              // @breaking-change 9.0.0 `_animationMode` parameter to be made required.
               @Optional() @Inject(ANIMATION_MODULE_TYPE) animationMode?: string) {
     super(elementRef, changeDetectorRef, viewportRuler, dir, ngZone, platform, animationMode);
   }
 
-  ngAfterContentInit() {
+  override ngAfterContentInit() {
     this._inkBar = new MatInkBar(this._items);
     super.ngAfterContentInit();
   }
 
   static ngAcceptInputType_disableRipple: BooleanInput;
-  static ngAcceptInputType_selectedIndex: NumberInput;
 }

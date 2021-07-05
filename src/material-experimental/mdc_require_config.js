@@ -7,6 +7,7 @@ require.config({
     '@material/base': '/base/npm/node_modules/@material/base/dist/mdc.base',
     '@material/checkbox': '/base/npm/node_modules/@material/checkbox/dist/mdc.checkbox',
     '@material/chips': '/base/npm/node_modules/@material/chips/dist/mdc.chips',
+    '@material/circular-progress': '/base/npm/node_modules/@material/circular-progress/dist/mdc.circularProgress',
     '@material/dialog': '/base/npm/node_modules/@material/dialog/dist/mdc.dialog',
     '@material/dom': '/base/npm/node_modules/@material/dom/dist/mdc.dom',
     '@material/drawer': '/base/npm/node_modules/@material/drawer/dist/mdc.drawer',
@@ -31,7 +32,8 @@ require.config({
     '@material/tab-indicator': '/base/npm/node_modules/@material/tab-indicator/dist/mdc.tabIndicator',
     '@material/tab-scroller': '/base/npm/node_modules/@material/tab-scroller/dist/mdc.tabScroller',
     '@material/data-table': '/base/npm/node_modules/@material/data-table/dist/mdc.dataTable',
-    '@material/text-field': '/base/npm/node_modules/@material/textfield/dist/mdc.textField',
+    '@material/textfield': '/base/npm/node_modules/@material/textfield/dist/mdc.textfield',
+    '@material/tooltip': '/base/npm/node_modules/@material/tooltip/dist/mdc.tooltip',
     '@material/top-app-bar': '/base/npm/node_modules/@material/top-app-bar/dist/mdc.topAppBar',
   }
 });

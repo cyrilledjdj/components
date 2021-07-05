@@ -34,6 +34,7 @@ import {matBottomSheetAnimations} from './bottom-sheet-animations';
 import {Subscription} from 'rxjs';
 import {DOCUMENT} from '@angular/common';
 import {FocusTrap, FocusTrapFactory} from '@angular/cdk/a11y';
+import {_getFocusedElementPierceShadowDom} from '@angular/cdk/platform';
 
 // TODO(crisbeto): consolidate some logic between this, MatDialog and MatSnackBar
 
@@ -45,7 +46,11 @@ import {FocusTrap, FocusTrapFactory} from '@angular/cdk/a11y';
   selector: 'mat-bottom-sheet-container',
   templateUrl: 'bottom-sheet-container.html',
   styleUrls: ['bottom-sheet-container.css'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  // In Ivy embedded views will be change detected from their declaration place, rather than where
+  // they were stamped out. This means that we can't have the bottom sheet container be OnPush,
+  // because it might cause the sheets that were opened from a template not to be out of date.
+  // tslint:disable-next-line:validate-decorators
+  changeDetection: ChangeDetectionStrategy.Default,
   encapsulation: ViewEncapsulation.None,
   animations: [matBottomSheetAnimations.bottomSheetState],
   host: {
@@ -127,7 +132,7 @@ export class MatBottomSheetContainer extends BasePortalOutlet implements OnDestr
    * @deprecated To be turned into a method.
    * @breaking-change 10.0.0
    */
-  attachDomPortal = (portal: DomPortal) => {
+  override attachDomPortal = (portal: DomPortal) => {
     this._validatePortalAttached();
     this._setPanelClass();
     this._savePreviouslyFocusedElement();
@@ -175,7 +180,7 @@ export class MatBottomSheetContainer extends BasePortalOutlet implements OnDestr
   }
 
   private _validatePortalAttached() {
-    if (this._portalOutlet.hasAttached()) {
+    if (this._portalOutlet.hasAttached() && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw Error('Attempting to attach bottom sheet content after content is already attached');
     }
   }
@@ -203,7 +208,7 @@ export class MatBottomSheetContainer extends BasePortalOutlet implements OnDestr
     if (this.bottomSheetConfig.autoFocus) {
       this._focusTrap.focusInitialElementWhenReady();
     } else {
-      const activeElement = this._document.activeElement;
+      const activeElement = _getFocusedElementPierceShadowDom();
 
       // Otherwise ensure that focus is on the container. It's possible that a different
       // component tried to move focus while the open animation was running. See:
@@ -222,7 +227,7 @@ export class MatBottomSheetContainer extends BasePortalOutlet implements OnDestr
 
     // We need the extra check, because IE can set the `activeElement` to null in some cases.
     if (this.bottomSheetConfig.restoreFocus && toFocus && typeof toFocus.focus === 'function') {
-      const activeElement = this._document.activeElement;
+      const activeElement = _getFocusedElementPierceShadowDom();
       const element = this._elementRef.nativeElement;
 
       // Make sure that focus is still inside the bottom sheet or is on the body (usually because a
@@ -242,7 +247,7 @@ export class MatBottomSheetContainer extends BasePortalOutlet implements OnDestr
 
   /** Saves a reference to the element that was focused before the bottom sheet was opened. */
   private _savePreviouslyFocusedElement() {
-    this._elementFocusedBeforeOpened = this._document.activeElement as HTMLElement;
+    this._elementFocusedBeforeOpened = _getFocusedElementPierceShadowDom();
 
     // The `focus` method isn't available during server-side rendering.
     if (this._elementRef.nativeElement.focus) {

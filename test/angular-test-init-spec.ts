@@ -1,16 +1,16 @@
+import {NgModuleRef} from '@angular/core';
 import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting,
 } from '@angular/platform-browser-dynamic/testing';
-import {testBlocklist} from './test-blocklist';
 
 /*
  * Common setup / initialization for all unit tests in Angular Material and CDK.
  */
 
-const testBed = TestBed.initTestEnvironment(
-    [BrowserDynamicTestingModule], platformBrowserDynamicTesting());
+const testBed =
+    TestBed.initTestEnvironment([BrowserDynamicTestingModule], platformBrowserDynamicTesting());
 patchTestBedToDestroyFixturesAfterEveryTest(testBed);
 
 (window as any).module = {};
@@ -39,9 +39,24 @@ function patchTestBedToDestroyFixturesAfterEveryTest(testBedInstance: TestBed) {
   // Monkey-patch the resetTestingModule to destroy fixtures outside of a try/catch block.
   // With https://github.com/angular/angular/commit/2c5a67134198a090a24f6671dcdb7b102fea6eba
   // errors when destroying components are no longer causing Jasmine to fail.
-  testBedInstance.resetTestingModule = function(this: {_activeFixtures: ComponentFixture<any>[]}) {
+  testBedInstance.resetTestingModule = function(this: {
+    /** List of active fixtures in the current testing module. */
+    _activeFixtures: ComponentFixture<any>[],
+    /** Module Ref used in the Ivy TestBed for creating components. */
+    _testModuleRef?: NgModuleRef<unknown>|null,
+    /** Module Ref used in the View Engine TestBed for creating components. */
+    _moduleRef?: NgModuleRef<unknown>|null
+  }) {
     try {
+      const moduleRef = this._testModuleRef || this._moduleRef;
       this._activeFixtures.forEach((fixture: ComponentFixture<any>) => fixture.destroy());
+      // Destroy the TestBed `NgModule` reference to clear out shared styles that would
+      // otherwise remain in DOM and significantly increase memory consumption in browsers.
+      // This increased consumption then results in noticeable test instability and slow-down.
+      // See: https://github.com/angular/angular/issues/31834.
+      if (moduleRef != null) {
+        moduleRef.destroy();
+      }
     } finally {
       this._activeFixtures = [];
       // Regardless of errors or not, run the original reset testing module function.
@@ -55,16 +70,3 @@ function patchTestBedToDestroyFixturesAfterEveryTest(testBedInstance: TestBed) {
   // https://github.com/angular/angular/blob/master/packages/core/testing/src/before_each.ts#L25
   afterEach(() => testBedInstance.resetTestingModule());
 }
-
-
-// Filter out any tests explicitly given in the blocklist. The blocklist is empty in the
-// components repository, but the file will be overwritten if the framework repository runs
-// the Angular component test suites against the latest snapshots. This is helpful because
-// sometimes breaking changes that break individual tests land in the framework repository.
-// It should be possible to disable these tests until the component repository migrated the
-// broken tests once the breaking change is released.
-(jasmine.getEnv() as any).configure({
-  specFilter: function(spec: jasmine.Spec) {
-    return !testBlocklist || !testBlocklist[spec.getFullName()];
-  }
-});

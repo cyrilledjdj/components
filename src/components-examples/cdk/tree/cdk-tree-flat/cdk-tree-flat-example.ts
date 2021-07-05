@@ -33,7 +33,7 @@ const TREE_DATA: ExampleFlatNode[] = [
     expandable: false,
     level: 2,
   }, {
-    name: 'Brussel sprouts',
+    name: 'Brussels sprouts',
     expandable: false,
     level: 2,
   }, {
@@ -88,7 +88,13 @@ export class CdkTreeFlatExample {
   }
 
   shouldRender(node: ExampleFlatNode) {
-    const parent = this.getParentNode(node);
-    return !parent || parent.isExpanded;
+    let parent = this.getParentNode(node);
+    while (parent) {
+      if (!parent.isExpanded) {
+        return false;
+      }
+      parent = this.getParentNode(parent);
+    }
+    return true;
   }
 }

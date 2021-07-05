@@ -1,4 +1,4 @@
-import {HarnessLoader} from '@angular/cdk/testing';
+import {HarnessLoader, parallel} from '@angular/cdk/testing';
 import {TestbedHarnessEnvironment} from '@angular/cdk/testing/testbed';
 import {Component, ViewChildren, QueryList} from '@angular/core';
 import {ComponentFixture, TestBed} from '@angular/core/testing';
@@ -12,7 +12,9 @@ import {MatOptionHarness} from './option-harness';
 
 /** Shared tests to run on both the original and MDC-based options. */
 export function runHarnessTests(
-    optionModule: typeof MatOptionModule, optionHarness: typeof MatOptionHarness) {
+    optionModule: typeof MatOptionModule,
+    optionHarness: typeof MatOptionHarness,
+    optionComponent: typeof MatOption) {
   let fixture: ComponentFixture<OptionHarnessTest>;
   let loader: HarnessLoader;
 
@@ -58,13 +60,13 @@ export function runHarnessTests(
 
   it('should get the text of options', async () => {
     const options = await loader.getAllHarnesses(optionHarness);
-    const texts = await Promise.all(options.map(option => option.getText()));
+    const texts = await parallel(() => options.map(option => option.getText()));
     expect(texts).toEqual(['Plain option', 'Disabled option']);
   });
 
   it('should get whether an option is disabled', async () => {
     const options = await loader.getAllHarnesses(optionHarness);
-    const disabledStates = await Promise.all(options.map(option => option.isDisabled()));
+    const disabledStates = await parallel(() => options.map(option => option.isDisabled()));
     expect(disabledStates).toEqual([false, true]);
   });
 
@@ -102,21 +104,19 @@ export function runHarnessTests(
 
     expect(await option.isMultiple()).toBe(true);
   });
+
+  @Component({
+    providers: [{
+      provide: MAT_OPTION_PARENT_COMPONENT,
+      useExisting: OptionHarnessTest
+    }],
+    template: `
+      <mat-option>Plain option</mat-option>
+      <mat-option disabled>Disabled option</mat-option>
+    `
+  })
+  class OptionHarnessTest implements MatOptionParentComponent {
+    @ViewChildren(optionComponent) options: QueryList<{setActiveStyles(): void}>;
+    multiple = false;
+  }
 }
-
-
-@Component({
-  providers: [{
-    provide: MAT_OPTION_PARENT_COMPONENT,
-    useExisting: OptionHarnessTest
-  }],
-  template: `
-    <mat-option>Plain option</mat-option>
-    <mat-option disabled>Disabled option</mat-option>
-  `
-})
-class OptionHarnessTest implements MatOptionParentComponent {
-  @ViewChildren(MatOption) options: QueryList<MatOption>;
-  multiple = false;
-}
-

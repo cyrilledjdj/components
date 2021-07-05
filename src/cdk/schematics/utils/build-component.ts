@@ -23,22 +23,36 @@ import {
 } from '@angular-devkit/schematics';
 import {FileSystemSchematicContext} from '@angular-devkit/schematics/tools';
 import {Schema as ComponentOptions, Style} from '@schematics/angular/component/schema';
-import {
-  addDeclarationToModule,
-  addEntryComponentToModule,
-  addExportToModule,
-} from '@schematics/angular/utility/ast-utils';
 import {InsertChange} from '@schematics/angular/utility/change';
-import {getWorkspace} from '@schematics/angular/utility/config';
+import {getWorkspace} from '@schematics/angular/utility/workspace';
 import {buildRelativePath, findModuleFromOptions} from '@schematics/angular/utility/find-module';
 import {parseName} from '@schematics/angular/utility/parse-name';
-import {buildDefaultPath} from '@schematics/angular/utility/project';
 import {validateHtmlSelector, validateName} from '@schematics/angular/utility/validation';
+import {ProjectType} from '@schematics/angular/utility/workspace-models';
 import {readFileSync, statSync} from 'fs';
 import {dirname, join, resolve} from 'path';
+import * as ts from 'typescript';
+import {
+  addDeclarationToModule,
+  addExportToModule,
+} from '../utils/vendored-ast-utils';
 import {getProjectFromWorkspace} from './get-project';
 import {getDefaultComponentOptions} from './schematic-options';
-import {ts} from './version-agnostic-typescript';
+import {ProjectDefinition} from '@angular-devkit/core/src/workspace';
+
+/**
+ * Build a default project path for generating.
+ * @param project The project to build the path for.
+ */
+function buildDefaultPath(project: ProjectDefinition): string {
+  const root = project.sourceRoot
+    ? `/${project.sourceRoot}/`
+    : `/${project.root}/src/`;
+
+  const projectDirName = project.extensions.projectType === ProjectType.Application ? 'app' : 'lib';
+
+  return `${root}${projectDirName}`;
+}
 
 /**
  * List of style extensions which are CSS compatible. All supported CLI style extensions can be
@@ -104,32 +118,12 @@ function addDeclarationToNgModule(options: ComponentOptions): Rule {
       host.commitUpdate(exportRecorder);
     }
 
-    if (options.entryComponent) {
-      // Need to refresh the AST because we overwrote the file in the host.
-      source = readIntoSourceFile(host, modulePath);
-
-      const entryComponentRecorder = host.beginUpdate(modulePath);
-      const entryComponentChanges = addEntryComponentToModule(
-        source,
-        modulePath,
-        strings.classify(`${options.name}Component`),
-        relativePath);
-
-      for (const change of entryComponentChanges) {
-        if (change instanceof InsertChange) {
-          entryComponentRecorder.insertLeft(change.pos, change.toAdd);
-        }
-      }
-      host.commitUpdate(entryComponentRecorder);
-    }
-
-
     return host;
   };
 }
 
 
-function buildSelector(options: ComponentOptions, projectPrefix: string) {
+function buildSelector(options: ComponentOptions, projectPrefix?: string) {
   let selector = strings.dasherize(options.name);
   if (options.prefix) {
     selector = `${options.prefix}-${selector}`;
@@ -162,8 +156,8 @@ function indentTextContent(text: string, numSpaces: number): string {
 export function buildComponent(options: ComponentOptions,
                                additionalFiles: {[key: string]: string} = {}): Rule {
 
-  return (host: Tree, context: FileSystemSchematicContext) => {
-    const workspace = getWorkspace(host);
+  return async (host: Tree, context: FileSystemSchematicContext) => {
+    const workspace = await getWorkspace(host);
     const project = getProjectFromWorkspace(workspace, options.project);
     const defaultComponentOptions = getDefaultComponentOptions(project);
 
@@ -181,12 +175,16 @@ export function buildComponent(options: ComponentOptions,
     // Add the default component option values to the options if an option is not explicitly
     // specified but a default component option is available.
     Object.keys(options)
-      .filter(optionName => options[optionName] == null && defaultComponentOptions[optionName])
-      .forEach(optionName => options[optionName] = defaultComponentOptions[optionName]);
+      .filter((optionName: keyof ComponentOptions) => {
+        return options[optionName] == null && defaultComponentOptions[optionName];
+      })
+      .forEach((optionName: keyof ComponentOptions) => {
+        (options as any)[optionName] = (defaultComponentOptions as ComponentOptions)[optionName];
+      });
 
     if (options.path === undefined) {
       // TODO(jelbourn): figure out if the need for this `as any` is a bug due to two different
-      // incompatible `WorkspaceProject` classes in @angular-devkit
+      // incompatible `ProjectDefinition` classes in @angular-devkit
       options.path = buildDefaultPath(project as any);
     }
 
@@ -220,7 +218,7 @@ export function buildComponent(options: ComponentOptions,
 
     // Key-value object that includes the specified additional files with their loaded content.
     // The resolved contents can be used inside EJS templates.
-    const resolvedFiles = {};
+    const resolvedFiles: Record<string, string> = {};
 
     for (let key in additionalFiles) {
       if (additionalFiles[key]) {
@@ -243,7 +241,7 @@ export function buildComponent(options: ComponentOptions,
       move(null as any, parsedPath.path),
     ]);
 
-    return chain([
+    return () => chain([
       branchAndMerge(chain([
         addDeclarationToNgModule(options),
         mergeWith(templateSource),

@@ -118,7 +118,7 @@ export class CdkPortalOutlet extends BasePortalOutlet implements OnInit, OnDestr
   }
 
   /** Emits when a portal is attached to the outlet. */
-  @Output() attached: EventEmitter<CdkPortalOutletAttachedRef> =
+  @Output() readonly attached: EventEmitter<CdkPortalOutletAttachedRef> =
       new EventEmitter<CdkPortalOutletAttachedRef>();
 
   /** Component or view reference that is attached to the portal. */
@@ -195,15 +195,15 @@ export class CdkPortalOutlet extends BasePortalOutlet implements OnInit, OnDestr
    * @deprecated To be turned into a method.
    * @breaking-change 10.0.0
    */
-  attachDomPortal = (portal: DomPortal) => {
+  override attachDomPortal = (portal: DomPortal) => {
     // @breaking-change 9.0.0 Remove check and error once the
     // `_document` constructor parameter is required.
-    if (!this._document) {
+    if (!this._document && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw Error('Cannot attach DOM portal without _document constructor parameter');
     }
 
     const element = portal.element;
-    if (!element.parentNode) {
+    if (!element.parentNode && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw Error('DOM portal content must be attached to a parent node.');
     }
 
@@ -212,8 +212,9 @@ export class CdkPortalOutlet extends BasePortalOutlet implements OnInit, OnDestr
     const anchorNode = this._document.createComment('dom-portal');
 
     portal.setAttachedHost(this);
-    element.parentNode.insertBefore(anchorNode, element);
+    element.parentNode!.insertBefore(anchorNode, element);
     this._getRootNode().appendChild(element);
+    this._attachedPortal = portal;
 
     super.setDisposeFn(() => {
       if (anchorNode.parentNode) {

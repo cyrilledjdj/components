@@ -1,15 +1,15 @@
 import {OverlayContainer} from '@angular/cdk/overlay';
-import {expectAsyncError} from '@angular/cdk/testing/private';
 import {HarnessLoader} from '@angular/cdk/testing';
 import {TestbedHarnessEnvironment} from '@angular/cdk/testing/testbed';
 import {Component} from '@angular/core';
 import {ComponentFixture, inject, TestBed} from '@angular/core/testing';
 import {MatAutocompleteModule} from '@angular/material/autocomplete';
 import {MatAutocompleteHarness} from '@angular/material/autocomplete/testing';
+import {NoopAnimationsModule} from '@angular/platform-browser/animations';
 
 /**
  * Function that can be used to run the shared autocomplete harness tests for either the non-MDC or
- * MDC based checkbox harness.
+ * MDC based autocomplete harness.
  */
 export function runHarnessTests(
     autocompleteModule: typeof MatAutocompleteModule,
@@ -20,7 +20,10 @@ export function runHarnessTests(
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [autocompleteModule],
+      imports: [
+          NoopAnimationsModule,
+          autocompleteModule
+      ],
       declarations: [AutocompleteHarnessTest],
     }).compileComponents();
 
@@ -64,11 +67,11 @@ export function runHarnessTests(
 
   it('should focus and blur an input', async () => {
     const input = await loader.getHarness(autocompleteHarness.with({selector: '#plain'}));
-    expect(getActiveElementId()).not.toBe('plain');
+    expect(await input.isFocused()).toBe(false);
     await input.focus();
-    expect(getActiveElementId()).toBe('plain');
+    expect(await input.isFocused()).toBe(true);
     await input.blur();
-    expect(getActiveElementId()).not.toBe('plain');
+    expect(await input.isFocused()).toBe(false);
   });
 
   it('should be able to type in an input', async () => {
@@ -102,7 +105,21 @@ export function runHarnessTests(
     const options = await input.getOptions();
 
     expect(groups.length).toBe(3);
+    expect(options.length).toBe(14);
+  });
+
+  it('should be able to get the autocomplete panel groups', async () => {
+    const input = await loader.getHarness(autocompleteHarness.with({selector: '#plain'}));
+    await input.focus();
+
+    const input2 = await loader.getHarness(autocompleteHarness.with({selector: '#grouped'}));
+    await input2.focus();
+
+    const options = await input.getOptions();
+    const options2 = await input2.getOptions();
+
     expect(options.length).toBe(11);
+    expect(options2.length).toBe(14);
   });
 
   it('should be able to get filtered panel groups', async () => {
@@ -131,13 +148,9 @@ export function runHarnessTests(
   it('should throw when selecting an option that is not available', async () => {
     const input = await loader.getHarness(autocompleteHarness.with({selector: '#plain'}));
     await input.enterText('New');
-    await expectAsyncError(() => input.selectOption({text: 'Texas'}),
-        /Error: Could not find a mat-option matching {"text":"Texas"}/);
+    await expectAsync(input.selectOption({text: 'Texas'})).toBeRejectedWithError(
+        /Could not find a mat-option matching {"text":"Texas"}/);
   });
-}
-
-function getActiveElementId() {
-  return document.activeElement ? document.activeElement.id : '';
 }
 
 @Component({
@@ -179,15 +192,32 @@ class AutocompleteHarnessTest {
   stateGroups = [
     {
       name: 'One',
-      states: this.states.slice(0, 3)
+      states: [
+        {code: 'IA', name: 'Iowa'},
+        {code: 'KS', name: 'Kansas'},
+        {code: 'KY', name: 'Kentucky'},
+        {code: 'LA', name: 'Louisiana'},
+        {code: 'ME', name: 'Maine'}
+      ]
     },
     {
       name: 'Two',
-      states: this.states.slice(3, 7)
+      states: [
+        {code: 'RI', name: 'Rhode Island'},
+        {code: 'SC', name: 'South Carolina'},
+        {code: 'SD', name: 'South Dakota'},
+        {code: 'TN', name: 'Tennessee'},
+        {code: 'TX', name: 'Texas'},
+      ]
     },
     {
       name: 'Three',
-      states: this.states.slice(7)
+      states: [
+        {code: 'UT', name: 'Utah'},
+        {code: 'WA', name: 'Washington'},
+        {code: 'WV', name: 'West Virginia'},
+        {code: 'WI', name: 'Wisconsin'}
+      ]
     }
   ];
 }

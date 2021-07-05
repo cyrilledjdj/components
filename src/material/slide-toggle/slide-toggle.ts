@@ -6,9 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {FocusMonitor} from '@angular/cdk/a11y';
-import {Directionality} from '@angular/cdk/bidi';
-import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
+import {FocusMonitor, FocusOrigin} from '@angular/cdk/a11y';
+import {BooleanInput, coerceBooleanProperty, NumberInput} from '@angular/cdk/coercion';
 import {
   AfterContentInit,
   Attribute,
@@ -23,16 +22,15 @@ import {
   Output,
   ViewChild,
   ViewEncapsulation,
-  NgZone,
   Optional,
   Inject,
 } from '@angular/core';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
 import {
-  CanColor, CanColorCtor,
-  CanDisable, CanDisableCtor,
-  CanDisableRipple, CanDisableRippleCtor,
-  HasTabIndex, HasTabIndexCtor,
+  CanColor,
+  CanDisable,
+  CanDisableRipple,
+  HasTabIndex,
   mixinColor,
   mixinDisabled,
   mixinDisableRipple,
@@ -65,16 +63,10 @@ export class MatSlideToggleChange {
 
 // Boilerplate for applying mixins to MatSlideToggle.
 /** @docs-private */
-class MatSlideToggleBase {
-  constructor(public _elementRef: ElementRef) {}
-}
-const _MatSlideToggleMixinBase:
-    HasTabIndexCtor &
-    CanColorCtor &
-    CanDisableRippleCtor &
-    CanDisableCtor &
-    typeof MatSlideToggleBase =
-        mixinTabIndex(mixinColor(mixinDisableRipple(mixinDisabled(MatSlideToggleBase)), 'accent'));
+const _MatSlideToggleBase =
+  mixinTabIndex(mixinColor(mixinDisableRipple(mixinDisabled(class {
+    constructor(public _elementRef: ElementRef) {}
+  }))));
 
 /** Represents a slidable "switch" toggle that can be moved between on and off. */
 @Component({
@@ -90,8 +82,7 @@ const _MatSlideToggleMixinBase:
     '[class.mat-checked]': 'checked',
     '[class.mat-disabled]': 'disabled',
     '[class.mat-slide-toggle-label-before]': 'labelPosition == "before"',
-    '[class._mat-animation-noopable]': '_animationMode === "NoopAnimations"',
-    '(focus)': '_inputElement.nativeElement.focus()',
+    '[class._mat-animation-noopable]': '_noopAnimations',
   },
   templateUrl: 'slide-toggle.html',
   styleUrls: ['slide-toggle.css'],
@@ -100,17 +91,20 @@ const _MatSlideToggleMixinBase:
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class MatSlideToggle extends _MatSlideToggleMixinBase implements OnDestroy, AfterContentInit,
-                                                                        ControlValueAccessor,
-                                                                        CanDisable, CanColor,
-                                                                        HasTabIndex,
-                                                                        CanDisableRipple {
+export class MatSlideToggle extends _MatSlideToggleBase implements OnDestroy, AfterContentInit,
+                                                                   ControlValueAccessor,
+                                                                   CanDisable, CanColor,
+                                                                   HasTabIndex,
+                                                                   CanDisableRipple {
   private _onChange = (_: any) => {};
   private _onTouched = () => {};
 
   private _uniqueId: string = `mat-slide-toggle-${++nextUniqueId}`;
   private _required: boolean = false;
   private _checked: boolean = false;
+
+  /** Whether noop animations are enabled. */
+  _noopAnimations: boolean;
 
   /** Reference to the thumb HTMLElement. */
   @ViewChild('thumbContainer') _thumbEl: ElementRef;
@@ -156,16 +150,6 @@ export class MatSlideToggle extends _MatSlideToggleMixinBase implements OnDestro
    */
   @Output() readonly toggleChange: EventEmitter<void> = new EventEmitter<void>();
 
-  /**
-   * An event will be dispatched each time the slide-toggle is dragged.
-   * This event is always emitted when the user drags the slide toggle to make a change greater
-   * than 50%. It does not mean the slide toggle's value is changed. The event is not emitted when
-   * the user toggles the slide toggle to change its value.
-   * @deprecated No longer being used. To be removed.
-   * @breaking-change 10.0.0
-   */
-  @Output() readonly dragChange: EventEmitter<void> = new EventEmitter<void>();
-
   /** Returns the unique id for the visual hidden input. */
   get inputId(): string { return `${this.id || this._uniqueId}-input`; }
 
@@ -176,24 +160,26 @@ export class MatSlideToggle extends _MatSlideToggleMixinBase implements OnDestro
               private _focusMonitor: FocusMonitor,
               private _changeDetectorRef: ChangeDetectorRef,
               @Attribute('tabindex') tabIndex: string,
-                /**
-                 * @deprecated `_ngZone` and `_dir` parameters to be removed.
-                 * @breaking-change 10.0.0
-                 */
-              _ngZone: NgZone,
               @Inject(MAT_SLIDE_TOGGLE_DEFAULT_OPTIONS)
                   public defaults: MatSlideToggleDefaultOptions,
-              @Optional() @Inject(ANIMATION_MODULE_TYPE) public _animationMode?: string,
-              @Optional() _dir?: Directionality) {
+              @Optional() @Inject(ANIMATION_MODULE_TYPE) animationMode?: string) {
     super(elementRef);
     this.tabIndex = parseInt(tabIndex) || 0;
+    this.color = this.defaultColor = defaults.color || 'accent';
+    this._noopAnimations = animationMode === 'NoopAnimations';
   }
 
   ngAfterContentInit() {
     this._focusMonitor
       .monitor(this._elementRef, true)
       .subscribe(focusOrigin => {
-        if (!focusOrigin) {
+        // Only forward focus manually when it was received programmatically or through the
+        // keyboard. We should not do this for mouse/touch focus for two reasons:
+        // 1. It can prevent clicks from landing in Chrome (see #18269).
+        // 2. They're already handled by the wrapping `label` element.
+        if (focusOrigin === 'keyboard' || focusOrigin === 'program') {
+          this._inputElement.nativeElement.focus();
+        } else if (!focusOrigin) {
           // When a focused element becomes disabled, the browser *immediately* fires a blur event.
           // Angular does not expect events to be raised during change detection, so any state
           // change (such as a form control's 'ng-touched') will cause a changed-after-checked
@@ -266,8 +252,12 @@ export class MatSlideToggle extends _MatSlideToggleMixinBase implements OnDestro
   }
 
   /** Focuses the slide-toggle. */
-  focus(options?: FocusOptions): void {
-    this._focusMonitor.focusVia(this._inputElement, 'keyboard', options);
+  focus(options?: FocusOptions, origin?: FocusOrigin): void {
+    if (origin) {
+      this._focusMonitor.focusVia(this._inputElement, origin, options);
+    } else {
+      this._inputElement.nativeElement.focus(options);
+    }
   }
 
   /** Toggles the checked state of the slide-toggle. */
@@ -298,4 +288,5 @@ export class MatSlideToggle extends _MatSlideToggleMixinBase implements OnDestro
   static ngAcceptInputType_checked: BooleanInput;
   static ngAcceptInputType_disabled: BooleanInput;
   static ngAcceptInputType_disableRipple: BooleanInput;
+  static ngAcceptInputType_tabIndex: NumberInput;
 }

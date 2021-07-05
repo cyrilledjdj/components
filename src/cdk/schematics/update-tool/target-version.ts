@@ -7,12 +7,17 @@
  */
 
 /** Possible versions that can be automatically migrated by `ng update`. */
+// Used in an `Object.keys` call below so it can't be `const enum`.
+// tslint:disable-next-line:prefer-const-enum
 export enum TargetVersion {
   V6 = 'version 6',
   V7 = 'version 7',
   V8 = 'version 8',
   V9 = 'version 9',
   V10 = 'version 10',
+  V11 = 'version 11',
+  V12 = 'version 12',
+  V13 = 'version 13',
 }
 
 /**
@@ -20,6 +25,7 @@ export enum TargetVersion {
  * based on the "TargetVersion" enum.
  */
 export function getAllVersionNames(): string[] {
-  return Object.keys(TargetVersion)
-      .filter(enumValue => typeof TargetVersion[enumValue] === 'string');
+  return Object.keys(TargetVersion).filter(enumValue => {
+    return typeof (TargetVersion as Record<string, string|undefined>)[enumValue] === 'string';
+  });
 }

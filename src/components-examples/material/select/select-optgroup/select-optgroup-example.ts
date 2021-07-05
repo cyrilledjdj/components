@@ -1,12 +1,12 @@
 import {Component} from '@angular/core';
 import {FormControl} from '@angular/forms';
 
-export interface Pokemon {
+interface Pokemon {
   value: string;
   viewValue: string;
 }
 
-export interface PokemonGroup {
+interface PokemonGroup {
   disabled?: boolean;
   name: string;
   pokemon: Pokemon[];
@@ -16,7 +16,6 @@ export interface PokemonGroup {
 @Component({
   selector: 'select-optgroup-example',
   templateUrl: 'select-optgroup-example.html',
-  styleUrls: ['select-optgroup-example.css'],
 })
 export class SelectOptgroupExample {
   pokemonControl = new FormControl();

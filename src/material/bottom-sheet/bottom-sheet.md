@@ -45,17 +45,19 @@ import {MAT_BOTTOM_SHEET_DATA} from '@angular/material/bottom-sheet';
   template: 'passed in {{ data.names }}',
 })
 export class HobbitSheet {
-  constructor(@Inject(MAT_BOTTOM_SHEET_DATA) public data: any) { }
+  constructor(@Inject(MAT_BOTTOM_SHEET_DATA) public data: {names: string[]}) { }
 }
 ```
 
 ### Configuring bottom sheet content via `entryComponents`
+**You only need to specify `entryComponents` if your project uses ViewEngine. Projects
+using Angular Ivy don't need `entryComponents`.**
 
 Similarly to `MatDialog`, `MatBottomSheet` instantiates components at run-time. In order for it to
 work, the Angular compiler needs extra information to create the necessary `ComponentFactory` for
 your bottom sheet content component.
 
-Any components that are include inside of a bottom sheet have to be added to the `entryComponents`
+Any components that are included inside of a bottom sheet have to be added to the `entryComponents`
 inside your `NgModule`.
 
 
@@ -75,7 +77,6 @@ inside your `NgModule`.
     ExampleBottomSheetComponent
   ],
 
-  providers: [],
   bootstrap: [AppComponent]
 })
 export class AppModule {}

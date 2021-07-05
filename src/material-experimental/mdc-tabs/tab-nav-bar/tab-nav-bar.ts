@@ -23,7 +23,10 @@ import {
   ChangeDetectorRef, OnInit, Input,
 } from '@angular/core';
 import {ANIMATION_MODULE_TYPE} from '@angular/platform-browser/animations';
-import {MAT_RIPPLE_GLOBAL_OPTIONS, RippleGlobalOptions} from '@angular/material/core';
+import {
+  MAT_RIPPLE_GLOBAL_OPTIONS,
+  RippleGlobalOptions,
+} from '@angular/material-experimental/mdc-core';
 import {FocusMonitor} from '@angular/cdk/a11y';
 import {
   _MatTabNavBase,
@@ -36,7 +39,7 @@ import {Directionality} from '@angular/cdk/bidi';
 import {ViewportRuler} from '@angular/cdk/scrolling';
 import {Platform} from '@angular/cdk/platform';
 import {MatInkBar, MatInkBarItem, MatInkBarFoundation} from '../ink-bar';
-import {BooleanInput, coerceBooleanProperty, NumberInput} from '@angular/cdk/coercion';
+import {BooleanInput, coerceBooleanProperty} from '@angular/cdk/coercion';
 import {BehaviorSubject, Subject} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 
@@ -58,6 +61,7 @@ import {takeUntil} from 'rxjs/operators';
     '[class.mat-primary]': 'color !== "warn" && color !== "accent"',
     '[class.mat-accent]': 'color === "accent"',
     '[class.mat-warn]': 'color === "warn"',
+    '[class._mat-animation-noopable]' : '_animationMode === "NoopAnimations"',
   },
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -84,10 +88,7 @@ export class MatTabNav extends _MatTabNavBase implements AfterContentInit {
               ngZone: NgZone,
               changeDetectorRef: ChangeDetectorRef,
               viewportRuler: ViewportRuler,
-              /**
-               * @deprecated @breaking-change 9.0.0 `platform` parameter to become required.
-               */
-              @Optional() platform?: Platform,
+              platform: Platform,
               @Optional() @Inject(ANIMATION_MODULE_TYPE) animationMode?: string,
               @Optional() @Inject(MAT_TABS_CONFIG) defaultConfig?: MatTabsConfig) {
     super(elementRef, dir, ngZone, changeDetectorRef, viewportRuler, platform, animationMode);
@@ -97,14 +98,13 @@ export class MatTabNav extends _MatTabNavBase implements AfterContentInit {
         defaultConfig.fitInkBarToContent : false;
   }
 
-  ngAfterContentInit() {
+  override ngAfterContentInit() {
     this._inkBar = new MatInkBar(this._items);
     super.ngAfterContentInit();
   }
 
   static ngAcceptInputType_fitInkBarToContent: BooleanInput;
   static ngAcceptInputType_disableRipple: BooleanInput;
-  static ngAcceptInputType_selectedIndex: NumberInput;
 }
 
 /**
@@ -119,12 +119,13 @@ export class MatTabNav extends _MatTabNavBase implements AfterContentInit {
   templateUrl: 'tab-link.html',
   styleUrls: ['tab-link.css'],
   host: {
-    'class': 'mdc-tab mat-mdc-tab-link',
+    'class': 'mdc-tab mat-mdc-tab-link mat-mdc-focus-indicator',
     '[attr.aria-current]': 'active ? "page" : null',
     '[attr.aria-disabled]': 'disabled',
     '[attr.tabIndex]': 'tabIndex',
     '[class.mat-mdc-tab-disabled]': 'disabled',
     '[class.mdc-tab--active]': 'active',
+    '(focus)': '_handleFocus()'
   }
 })
 export class MatTabLink extends _MatTabLinkBase implements MatInkBarItem, OnInit, OnDestroy {
@@ -150,13 +151,10 @@ export class MatTabLink extends _MatTabLinkBase implements MatInkBarItem, OnInit
     this._foundation.init();
   }
 
-  ngOnDestroy() {
+  override ngOnDestroy() {
     this._destroyed.next();
     this._destroyed.complete();
     super.ngOnDestroy();
     this._foundation.destroy();
   }
-
-  static ngAcceptInputType_disabled: BooleanInput;
-  static ngAcceptInputType_disableRipple: BooleanInput;
 }

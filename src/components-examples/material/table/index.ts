@@ -1,5 +1,6 @@
 import {CommonModule} from '@angular/common';
 import {NgModule} from '@angular/core';
+import {MatRippleModule} from '@angular/material/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {MatCheckboxModule} from '@angular/material/checkbox';
@@ -9,7 +10,10 @@ import {MatPaginatorModule} from '@angular/material/paginator';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {MatSortModule} from '@angular/material/sort';
 import {MatTableModule} from '@angular/material/table';
-import {TableBasicFlexExample} from './table-basic-flex/table-basic-flex-example';
+import {DragDropModule} from '@angular/cdk/drag-drop';
+import {CdkTableModule} from '@angular/cdk/table';
+
+import {TableFlexBasicExample} from './table-flex-basic/table-flex-basic-example';
 import {TableBasicExample} from './table-basic/table-basic-example';
 import {TableDynamicColumnsExample} from './table-dynamic-columns/table-dynamic-columns-example';
 import {TableExpandableRowsExample} from './table-expandable-rows/table-expandable-rows-example';
@@ -36,33 +40,88 @@ import {
 } from './table-text-column-advanced/table-text-column-advanced-example';
 import {TableTextColumnExample} from './table-text-column/table-text-column-example';
 import {TableWrappedExample, WrapperTable} from './table-wrapped/table-wrapped-example';
+import {TableReorderableExample} from './table-reorderable/table-reorderable-example';
+import {TableRecycleRowsExample} from './table-recycle-rows/table-recycle-rows-example';
+import {TableHarnessExample} from './table-harness/table-harness-example';
+import {TableWithRipplesExample} from './table-with-ripples/table-with-ripples-example';
+import {TableColumnStylingExample} from './table-column-styling/table-column-styling-example';
+import {TableRowBindingExample} from './table-row-binding/table-row-binding-example';
+import {
+  TableDynamicArrayDataExample
+} from './table-dynamic-array-data/table-dynamic-array-data-example';
+import {
+  TableDynamicObservableDataExample
+} from './table-dynamic-observable-data/table-dynamic-observable-data-example';
+import {
+  TableGeneratedColumnsExample
+} from './table-generated-columns/table-generated-columns-example';
 
 export {
-  TableBasicExample,          TableBasicFlexExample,
-  TableDynamicColumnsExample, TableExpandableRowsExample,
-  TableFilteringExample,      TableFooterRowExample,
-  TableHttpExample,           TableMultipleHeaderFooterExample,
-  TableOverviewExample,       TablePaginationExample,
-  TableRowContextExample,     TableSelectionExample,
-  TableSortingExample,        TableStickyColumnsExample,
-  TableStickyComplexExample,  TableStickyComplexFlexExample,
-  TableStickyFooterExample,   TableStickyHeaderExample,
-  TableTextColumnExample,     TableTextColumnAdvancedExample,
-  TableWrappedExample,        WrapperTable,
+  TableBasicExample,
+  TableColumnStylingExample,
+  TableDynamicArrayDataExample,
+  TableDynamicColumnsExample,
+  TableDynamicObservableDataExample,
+  TableExpandableRowsExample,
+  TableFilteringExample,
+  TableFlexBasicExample,
+  TableFooterRowExample,
+  TableGeneratedColumnsExample,
+  TableHarnessExample,
+  TableHttpExample,
+  TableMultipleHeaderFooterExample,
+  TableOverviewExample,
+  TablePaginationExample,
+  TableRecycleRowsExample,
+  TableReorderableExample,
+  TableRowBindingExample,
+  TableRowContextExample,
+  TableSelectionExample,
+  TableSortingExample,
+  TableStickyColumnsExample,
+  TableStickyComplexExample,
+  TableStickyComplexFlexExample,
+  TableStickyFooterExample,
+  TableStickyHeaderExample,
+  TableTextColumnAdvancedExample,
+  TableTextColumnExample,
+  TableWithRipplesExample,
+  TableWrappedExample,
+  WrapperTable,
 };
 
 const EXAMPLES = [
-  TableBasicExample,          TableBasicFlexExample,
-  TableDynamicColumnsExample, TableExpandableRowsExample,
-  TableFilteringExample,      TableFooterRowExample,
-  TableHttpExample,           TableMultipleHeaderFooterExample,
-  TableOverviewExample,       TablePaginationExample,
-  TableRowContextExample,     TableSelectionExample,
-  TableSortingExample,        TableStickyColumnsExample,
-  TableStickyComplexExample,  TableStickyComplexFlexExample,
-  TableStickyFooterExample,   TableStickyHeaderExample,
-  TableTextColumnExample,     TableTextColumnAdvancedExample,
-  TableWrappedExample,        WrapperTable,
+  TableBasicExample,
+  TableColumnStylingExample,
+  TableDynamicArrayDataExample,
+  TableDynamicColumnsExample,
+  TableDynamicObservableDataExample,
+  TableExpandableRowsExample,
+  TableFilteringExample,
+  TableFlexBasicExample,
+  TableFooterRowExample,
+  TableGeneratedColumnsExample,
+  TableHarnessExample,
+  TableHttpExample,
+  TableMultipleHeaderFooterExample,
+  TableOverviewExample,
+  TablePaginationExample,
+  TableRecycleRowsExample,
+  TableReorderableExample,
+  TableRowBindingExample,
+  TableRowContextExample,
+  TableSelectionExample,
+  TableSortingExample,
+  TableStickyColumnsExample,
+  TableStickyComplexExample,
+  TableStickyComplexFlexExample,
+  TableStickyFooterExample,
+  TableStickyHeaderExample,
+  TableTextColumnAdvancedExample,
+  TableTextColumnExample,
+  TableWithRipplesExample,
+  TableWrappedExample,
+  WrapperTable,
 ];
 
 @NgModule({
@@ -75,11 +134,15 @@ const EXAMPLES = [
     MatInputModule,
     MatPaginatorModule,
     MatProgressSpinnerModule,
+    MatRippleModule,
     MatSortModule,
     MatTableModule,
+    CdkTableModule,
+    DragDropModule,
   ],
   declarations: EXAMPLES,
   exports: EXAMPLES,
+  entryComponents: EXAMPLES,
 })
 export class TableExamplesModule {
 }

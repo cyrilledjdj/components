@@ -9,13 +9,15 @@ import {
   AfterContentInit,
   ContentChildren,
   Directive,
+  DoCheck,
   ElementRef,
   IterableDiffer,
   IterableDiffers,
   OnDestroy,
+  OnInit,
   QueryList,
 } from '@angular/core';
-import {Observable} from 'rxjs';
+import {isObservable} from 'rxjs';
 import {takeUntil} from 'rxjs/operators';
 
 import {CDK_TREE_NODE_OUTLET_NODE, CdkTreeNodeOutlet} from './outlet';
@@ -31,17 +33,14 @@ import {getTreeControlFunctionsMissingError} from './tree-errors';
 @Directive({
   selector: 'cdk-nested-tree-node',
   exportAs: 'cdkNestedTreeNode',
-  host: {
-    '[attr.aria-expanded]': 'isExpanded',
-    '[attr.role]': 'role',
-    'class': 'cdk-tree-node cdk-nested-tree-node',
-  },
+  inputs: ['role', 'disabled', 'tabIndex'],
   providers: [
     {provide: CdkTreeNode, useExisting: CdkNestedTreeNode},
     {provide: CDK_TREE_NODE_OUTLET_NODE, useExisting: CdkNestedTreeNode}
   ]
 })
-export class CdkNestedTreeNode<T> extends CdkTreeNode<T> implements AfterContentInit, OnDestroy {
+export class CdkNestedTreeNode<T, K = T> extends CdkTreeNode<T, K>
+    implements AfterContentInit, DoCheck, OnDestroy, OnInit {
   /** Differ used to find the changes in the data provided by the data source. */
   private _dataDiffer: IterableDiffer<T>;
 
@@ -56,21 +55,26 @@ export class CdkNestedTreeNode<T> extends CdkTreeNode<T> implements AfterContent
   })
   nodeOutlet: QueryList<CdkTreeNodeOutlet>;
 
-  constructor(protected _elementRef: ElementRef<HTMLElement>,
-              protected _tree: CdkTree<T>,
+  constructor(elementRef: ElementRef<HTMLElement>,
+              tree: CdkTree<T, K>,
               protected _differs: IterableDiffers) {
-    super(_elementRef, _tree);
+    super(elementRef, tree);
+    // The classes are directly added here instead of in the host property because classes on
+    // the host property are not inherited with View Engine. It is not set as a @HostBinding because
+    // it is not set by the time it's children nodes try to read the class from it.
+    // TODO: move to host after View Engine deprecation
+    elementRef.nativeElement.classList.add('cdk-nested-tree-node');
   }
 
   ngAfterContentInit() {
     this._dataDiffer = this._differs.find([]).create(this._tree.trackBy);
-    if (!this._tree.treeControl.getChildren) {
+    if (!this._tree.treeControl.getChildren && (typeof ngDevMode === 'undefined' || ngDevMode)) {
       throw getTreeControlFunctionsMissingError();
     }
     const childrenNodes = this._tree.treeControl.getChildren(this.data);
     if (Array.isArray(childrenNodes)) {
       this.updateChildrenNodes(childrenNodes as T[]);
-    } else if (childrenNodes instanceof Observable) {
+    } else if (isObservable(childrenNodes)) {
       childrenNodes.pipe(takeUntil(this._destroyed))
         .subscribe(result => this.updateChildrenNodes(result));
     }
@@ -78,7 +82,17 @@ export class CdkNestedTreeNode<T> extends CdkTreeNode<T> implements AfterContent
         .subscribe(() => this.updateChildrenNodes());
   }
 
-  ngOnDestroy() {
+  // This is a workaround for https://github.com/angular/angular/issues/23091
+  // In aot mode, the lifecycle hooks from parent class are not called.
+  override ngOnInit() {
+    super.ngOnInit();
+  }
+
+  override ngDoCheck() {
+    super.ngDoCheck();
+  }
+
+  override ngOnDestroy() {
     this._clear();
     super.ngOnDestroy();
   }

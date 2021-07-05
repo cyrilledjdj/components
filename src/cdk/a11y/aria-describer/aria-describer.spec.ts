@@ -1,62 +1,79 @@
 import {A11yModule, CDK_DESCRIBEDBY_HOST_ATTRIBUTE} from '../index';
 import {AriaDescriber, MESSAGES_CONTAINER_ID} from './aria-describer';
-import {async, ComponentFixture, TestBed} from '@angular/core/testing';
-import {Component, ElementRef, ViewChild} from '@angular/core';
+import {ComponentFixture, TestBed} from '@angular/core/testing';
+import {Component, ElementRef, ViewChild, Provider} from '@angular/core';
 
 describe('AriaDescriber', () => {
   let ariaDescriber: AriaDescriber;
   let component: TestApp;
   let fixture: ComponentFixture<TestApp>;
 
-  beforeEach(async(() => {
+  function createFixture(providers: Provider[] = []) {
     TestBed.configureTestingModule({
       imports: [A11yModule],
       declarations: [TestApp],
-      providers: [AriaDescriber],
+      providers: [AriaDescriber, ...providers],
     }).compileComponents();
-  }));
 
-  beforeEach(() => {
     fixture = TestBed.createComponent(TestApp);
     component = fixture.componentInstance;
     ariaDescriber = component.ariaDescriber;
     fixture.detectChanges();
-  });
+  }
 
   afterEach(() => {
     ariaDescriber.ngOnDestroy();
   });
 
   it('should initialize without the message container', () => {
+    createFixture();
     expect(getMessagesContainer()).toBeNull();
   });
 
   it('should be able to create a message element', () => {
+    createFixture();
     ariaDescriber.describe(component.element1, 'My Message');
     expectMessages(['My Message']);
   });
 
   it('should be able to describe using an element', () => {
+    createFixture();
     const descriptionNode = fixture.nativeElement.querySelector('#description-with-existing-id');
     ariaDescriber.describe(component.element1, descriptionNode);
     expectMessage(component.element1, 'Hello');
   });
 
+  it('should hide the message container', () => {
+    createFixture();
+    ariaDescriber.describe(component.element1, 'My Message');
+    expect(getMessagesContainer().classList).toContain('cdk-visually-hidden');
+  });
+
+  it('should have visibility hidden', () => {
+    createFixture();
+    ariaDescriber.describe(component.element1, 'My Message');
+    expect((getMessagesContainer() as HTMLElement).style.visibility).toBe('hidden');
+  });
+
   it('should not register empty strings', () => {
+    createFixture();
     ariaDescriber.describe(component.element1, '');
     expect(getMessageElements()).toBe(null);
   });
 
   it('should not register non-string values', () => {
+    createFixture();
     expect(() => ariaDescriber.describe(component.element1, null!)).not.toThrow();
     expect(getMessageElements()).toBe(null);
   });
 
   it('should not throw when trying to remove non-string value', () => {
+    createFixture();
     expect(() => ariaDescriber.removeDescription(component.element1, null!)).not.toThrow();
   });
 
   it('should de-dupe a message registered multiple times', () => {
+    createFixture();
     ariaDescriber.describe(component.element1, 'My Message');
     ariaDescriber.describe(component.element2, 'My Message');
     ariaDescriber.describe(component.element3, 'My Message');
@@ -67,6 +84,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should de-dupe a message registered multiple via an element node', () => {
+    createFixture();
     const descriptionNode = fixture.nativeElement.querySelector('#description-with-existing-id');
     ariaDescriber.describe(component.element1, descriptionNode);
     ariaDescriber.describe(component.element2, descriptionNode);
@@ -77,6 +95,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should be able to register multiple messages', () => {
+    createFixture();
     ariaDescriber.describe(component.element1, 'First Message');
     ariaDescriber.describe(component.element2, 'Second Message');
     expectMessages(['First Message', 'Second Message']);
@@ -85,6 +104,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should be able to unregister messages', () => {
+    createFixture();
     ariaDescriber.describe(component.element1, 'My Message');
     expectMessages(['My Message']);
 
@@ -104,6 +124,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should not remove nodes that were set as messages when unregistering', () => {
+    createFixture();
     const descriptionNode = fixture.nativeElement.querySelector('#description-with-existing-id');
 
     expect(document.body.contains(descriptionNode))
@@ -123,6 +144,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should keep nodes set as descriptions inside their original position in the DOM', () => {
+    createFixture();
     const descriptionNode = fixture.nativeElement.querySelector('#description-with-existing-id');
     const initialParent = descriptionNode.parentNode;
 
@@ -141,6 +163,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should be able to unregister messages while having others registered', () => {
+    createFixture();
     ariaDescriber.describe(component.element1, 'Persistent Message');
     ariaDescriber.describe(component.element2, 'My Message');
     expectMessages(['Persistent Message', 'My Message']);
@@ -159,12 +182,14 @@ describe('AriaDescriber', () => {
   });
 
   it('should be able to append to an existing list of aria describedby', () => {
+    createFixture();
     ariaDescriber.describe(component.element4, 'My Message');
     expectMessages(['My Message']);
     expectMessage(component.element4, 'My Message');
   });
 
   it('should be able to handle multiple regisitrations of the same message to an element', () => {
+    createFixture();
     ariaDescriber.describe(component.element1, 'My Message');
     ariaDescriber.describe(component.element1, 'My Message');
     expectMessages(['My Message']);
@@ -172,11 +197,13 @@ describe('AriaDescriber', () => {
   });
 
   it('should not throw when attempting to describe a non-element node', () => {
+    createFixture();
     const node: any = document.createComment('Not an element node');
     expect(() => ariaDescriber.describe(node, 'This looks like an element')).not.toThrow();
   });
 
   it('should clear any pre-existing containers', () => {
+    createFixture();
     const extraContainer = document.createElement('div');
     extraContainer.id = MESSAGES_CONTAINER_ID;
     document.body.appendChild(extraContainer);
@@ -192,6 +219,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should not describe messages that match up with the aria-label of the element', () => {
+    createFixture();
     component.element1.setAttribute('aria-label', 'Hello');
     ariaDescriber.describe(component.element1, 'Hello');
     ariaDescriber.describe(component.element1, 'Hi');
@@ -199,6 +227,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should assign an id to the description element, if it does not have one', () => {
+    createFixture();
     const descriptionNode = fixture.nativeElement.querySelector('[description-without-id]');
     expect(descriptionNode.getAttribute('id')).toBeFalsy();
     ariaDescriber.describe(component.element1, descriptionNode);
@@ -206,6 +235,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should not overwrite the existing id of the description element', () => {
+    createFixture();
     const descriptionNode = fixture.nativeElement.querySelector('#description-with-existing-id');
     expect(descriptionNode.id).toBe('description-with-existing-id');
     ariaDescriber.describe(component.element1, descriptionNode);
@@ -213,6 +243,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should not remove pre-existing description nodes on destroy', () => {
+    createFixture();
     const descriptionNode = fixture.nativeElement.querySelector('#description-with-existing-id');
 
     expect(document.body.contains(descriptionNode))
@@ -231,6 +262,7 @@ describe('AriaDescriber', () => {
   });
 
   it('should remove the aria-describedby attribute if there are no more messages', () => {
+    createFixture();
     const element = component.element1;
 
     expect(element.hasAttribute('aria-describedby')).toBe(false);
@@ -242,17 +274,70 @@ describe('AriaDescriber', () => {
     expect(element.hasAttribute('aria-describedby')).toBe(false);
   });
 
+  it('should be able to register the same message with different roles', () => {
+    createFixture();
+    ariaDescriber.describe(component.element1, 'My Message', 'tooltip');
+    ariaDescriber.describe(component.element2, 'My Message', 'button');
+    ariaDescriber.describe(component.element3, 'My Message', 'presentation');
+    expectMessages(['tooltip/My Message', 'button/My Message', 'presentation/My Message']);
+    expectMessage(component.element1, 'tooltip/My Message');
+    expectMessage(component.element2, 'button/My Message');
+    expectMessage(component.element3, 'presentation/My Message');
+  });
+
+  it('should de-dupe a message if it has been registered with the same role', () => {
+    createFixture();
+    ariaDescriber.describe(component.element1, 'My Message', 'tooltip');
+    ariaDescriber.describe(component.element2, 'My Message', 'tooltip');
+    ariaDescriber.describe(component.element3, 'My Message', 'tooltip');
+    expectMessages(['tooltip/My Message']);
+    expectMessage(component.element1, 'tooltip/My Message');
+    expectMessage(component.element2, 'tooltip/My Message');
+    expectMessage(component.element3, 'tooltip/My Message');
+  });
+
+  it('should be able to unregister messages with a particular role', () => {
+    createFixture();
+    ariaDescriber.describe(component.element1, 'My Message', 'tooltip');
+    expectMessages(['tooltip/My Message']);
+
+    // Register again to check dedupe
+    ariaDescriber.describe(component.element2, 'My Message', 'tooltip');
+    expectMessages(['tooltip/My Message']);
+
+    // Unregister one message and make sure the message is still present in the container
+    ariaDescriber.removeDescription(component.element1, 'My Message', 'tooltip');
+    expect(component.element1.hasAttribute(CDK_DESCRIBEDBY_HOST_ATTRIBUTE)).toBeFalsy();
+    expectMessages(['tooltip/My Message']);
+
+    // Unregister the second message, message container should be gone
+    ariaDescriber.removeDescription(component.element2, 'My Message', 'tooltip');
+    expect(component.element2.hasAttribute(CDK_DESCRIBEDBY_HOST_ATTRIBUTE)).toBeFalsy();
+    expect(getMessagesContainer()).toBeNull();
+  });
+
+  it('should not remove element if it is registered with same text, but different role', () => {
+    createFixture();
+    ariaDescriber.describe(component.element1, 'My Message', 'tooltip');
+    ariaDescriber.describe(component.element2, 'My Message', 'button');
+    expectMessages(['tooltip/My Message', 'button/My Message']);
+    ariaDescriber.removeDescription(component.element2, 'My Message', 'button');
+    expectMessages(['tooltip/My Message']);
+    ariaDescriber.removeDescription(component.element1, 'My Message', 'tooltip');
+    expect(getMessageElements()).toBeNull();
+  });
+
 });
 
 function getMessagesContainer() {
-  return document.querySelector(`#${MESSAGES_CONTAINER_ID}`);
+  return document.querySelector(`#${MESSAGES_CONTAINER_ID}`)!;
 }
 
-function getMessageElements(): Node[] | null {
+function getMessageElements(): Element[] | null {
   const messagesContainer = getMessagesContainer();
   if (!messagesContainer) { return null; }
 
-  return messagesContainer ?  Array.prototype.slice.call(messagesContainer.children) : null;
+  return messagesContainer ? Array.prototype.slice.call(messagesContainer.children) : null;
 }
 
 /** Checks that the messages array matches the existing created message elements. */
@@ -262,7 +347,9 @@ function expectMessages(messages: string[]) {
 
   expect(messages.length).toBe(messageElements!.length);
   messages.forEach((message, i) => {
-    expect(messageElements![i].textContent).toBe(message);
+    const element = messageElements![i];
+    const role = element.getAttribute('role');
+    expect((role ? role + '/' : '') + element.textContent).toBe(message);
   });
 }
 
@@ -276,7 +363,9 @@ function expectMessage(el: Element, message: string) {
 
   const messages = ariaDescribedBy!.split(' ').map(referenceId => {
     const messageElement = document.querySelector(`#${referenceId}`);
-    return messageElement ? messageElement.textContent : '';
+    const role = messageElement?.getAttribute('role');
+    const prefix = role ? role + '/' : '';
+    return messageElement ? prefix + messageElement.textContent : '';
   });
 
   expect(messages).toContain(message);

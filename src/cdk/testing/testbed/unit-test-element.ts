@@ -7,14 +7,26 @@
  */
 
 import * as keyCodes from '@angular/cdk/keycodes';
-import {ElementDimensions, ModifierKeys, TestElement, TestKey} from '@angular/cdk/testing';
+import {
+  _getTextWithExcludedElements,
+  ElementDimensions,
+  ModifierKeys,
+  TestElement,
+  TestKey,
+  TextOptions,
+  EventData,
+} from '@angular/cdk/testing';
 import {
   clearElement,
+  createFakeEvent,
+  dispatchFakeEvent,
   dispatchMouseEvent,
+  dispatchPointerEvent,
   isTextInput,
   triggerBlur,
   triggerFocus,
   typeInElement,
+  dispatchEvent,
 } from './fake-events';
 
 /** Maps `TestKey` constants to the `keyCode` and `key` values used by native browser events. */
@@ -55,14 +67,14 @@ const keyMap = {
 export class UnitTestElement implements TestElement {
   constructor(readonly element: Element, private _stabilize: () => Promise<void>) {}
 
+  /** Blur the element. */
   async blur(): Promise<void> {
-    await this._stabilize();
     triggerBlur(this.element as HTMLElement);
     await this._stabilize();
   }
 
+  /** Clear the element's input (for input and textarea elements only). */
   async clear(): Promise<void> {
-    await this._stabilize();
     if (!isTextInput(this.element)) {
       throw Error('Attempting to clear an invalid element');
     }
@@ -70,25 +82,47 @@ export class UnitTestElement implements TestElement {
     await this._stabilize();
   }
 
-  async click(relativeX = 0, relativeY = 0): Promise<void> {
-    await this._stabilize();
-    const {left, top} = this.element.getBoundingClientRect();
-    // Round the computed click position as decimal pixels are not
-    // supported by mouse events and could lead to unexpected results.
-    const clientX = Math.round(left + relativeX);
-    const clientY = Math.round(top + relativeY);
-    dispatchMouseEvent(this.element, 'mousedown', clientX, clientY);
-    dispatchMouseEvent(this.element, 'mouseup', clientX, clientY);
-    dispatchMouseEvent(this.element, 'click', clientX, clientY);
+  /**
+   * Click the element at the default location for the current environment. If you need to guarantee
+   * the element is clicked at a specific location, consider using `click('center')` or
+   * `click(x, y)` instead.
+   */
+  click(modifiers?: ModifierKeys): Promise<void>;
+  /** Click the element at the element's center. */
+  click(location: 'center', modifiers?: ModifierKeys): Promise<void>;
+  /**
+   * Click the element at the specified coordinates relative to the top-left of the element.
+   * @param relativeX Coordinate within the element, along the X-axis at which to click.
+   * @param relativeY Coordinate within the element, along the Y-axis at which to click.
+   * @param modifiers Modifier keys held while clicking
+   */
+  click(relativeX: number, relativeY: number, modifiers?: ModifierKeys): Promise<void>;
+  async click(...args: [ModifierKeys?] | ['center', ModifierKeys?] |
+    [number, number, ModifierKeys?]): Promise<void> {
+    await this._dispatchMouseEventSequence('click', args, 0);
     await this._stabilize();
   }
 
-  async focus(): Promise<void> {
+  /**
+   * Right clicks on the element at the specified coordinates relative to the top-left of it.
+   * @param relativeX Coordinate within the element, along the X-axis at which to click.
+   * @param relativeY Coordinate within the element, along the Y-axis at which to click.
+   * @param modifiers Modifier keys held while clicking
+   */
+  rightClick(relativeX: number, relativeY: number, modifiers?: ModifierKeys): Promise<void>;
+  async rightClick(...args: [ModifierKeys?] | ['center', ModifierKeys?] |
+    [number, number, ModifierKeys?]): Promise<void> {
+    await this._dispatchMouseEventSequence('contextmenu', args, 2);
     await this._stabilize();
+  }
+
+  /** Focus the element. */
+  async focus(): Promise<void> {
     triggerFocus(this.element as HTMLElement);
     await this._stabilize();
   }
 
+  /** Get the computed value of the given CSS property for the element. */
   async getCssValue(property: string): Promise<string> {
     await this._stabilize();
     // TODO(mmalerba): Consider adding value normalization if we run into common cases where its
@@ -96,50 +130,184 @@ export class UnitTestElement implements TestElement {
     return getComputedStyle(this.element).getPropertyValue(property);
   }
 
+  /** Hovers the mouse over the element. */
   async hover(): Promise<void> {
-    await this._stabilize();
+    this._dispatchPointerEventIfSupported('pointerenter');
     dispatchMouseEvent(this.element, 'mouseenter');
     await this._stabilize();
   }
 
+  /** Moves the mouse away from the element. */
+  async mouseAway(): Promise<void> {
+    this._dispatchPointerEventIfSupported('pointerleave');
+    dispatchMouseEvent(this.element, 'mouseleave');
+    await this._stabilize();
+  }
+
+  /**
+   * Sends the given string to the input as a series of key presses. Also fires input events
+   * and attempts to add the string to the Element's value.
+   */
   async sendKeys(...keys: (string | TestKey)[]): Promise<void>;
+  /**
+   * Sends the given string to the input as a series of key presses. Also fires input events
+   * and attempts to add the string to the Element's value.
+   */
   async sendKeys(modifiers: ModifierKeys, ...keys: (string | TestKey)[]): Promise<void>;
   async sendKeys(...modifiersAndKeys: any[]): Promise<void> {
-    await this._stabilize();
     const args = modifiersAndKeys.map(k => typeof k === 'number' ? keyMap[k as TestKey] : k);
     typeInElement(this.element as HTMLElement, ...args);
     await this._stabilize();
   }
 
-  async text(): Promise<string> {
+  /**
+   * Gets the text from the element.
+   * @param options Options that affect what text is included.
+   */
+  async text(options?: TextOptions): Promise<string> {
     await this._stabilize();
+    if (options?.exclude) {
+      return _getTextWithExcludedElements(this.element, options.exclude);
+    }
     return (this.element.textContent || '').trim();
   }
 
+  /** Gets the value for the given attribute from the element. */
   async getAttribute(name: string): Promise<string|null> {
     await this._stabilize();
     return this.element.getAttribute(name);
   }
 
+  /** Checks whether the element has the given class. */
   async hasClass(name: string): Promise<boolean> {
     await this._stabilize();
     return this.element.classList.contains(name);
   }
 
+  /** Gets the dimensions of the element. */
   async getDimensions(): Promise<ElementDimensions> {
     await this._stabilize();
     return this.element.getBoundingClientRect();
   }
 
-  async getProperty(name: string): Promise<any> {
+  /** Gets the value of a property of an element. */
+  async getProperty<T = any>(name: string): Promise<T> {
     await this._stabilize();
     return (this.element as any)[name];
   }
 
+  /** Sets the value of a property of an input. */
+  async setInputValue(value: string): Promise<void> {
+    (this.element as any).value = value;
+    await this._stabilize();
+  }
+
+  /** Selects the options at the specified indexes inside of a native `select` element. */
+  async selectOptions(...optionIndexes: number[]): Promise<void> {
+    let hasChanged = false;
+    const options = this.element.querySelectorAll('option');
+    const indexes = new Set(optionIndexes); // Convert to a set to remove duplicates.
+
+    for (let i = 0; i < options.length; i++) {
+      const option = options[i];
+      const wasSelected = option.selected;
+
+      // We have to go through `option.selected`, because `HTMLSelectElement.value` doesn't
+      // allow for multiple options to be selected, even in `multiple` mode.
+      option.selected = indexes.has(i);
+
+      if (option.selected !== wasSelected) {
+        hasChanged = true;
+        dispatchFakeEvent(this.element, 'change');
+      }
+    }
+
+    if (hasChanged) {
+      await this._stabilize();
+    }
+  }
+
+  /** Checks whether this element matches the given selector. */
   async matchesSelector(selector: string): Promise<boolean> {
     await this._stabilize();
     const elementPrototype = Element.prototype as any;
     return (elementPrototype['matches'] || elementPrototype['msMatchesSelector'])
         .call(this.element, selector);
+  }
+
+  /** Checks whether the element is focused. */
+  async isFocused(): Promise<boolean> {
+    await this._stabilize();
+    return document.activeElement === this.element;
+  }
+
+  /**
+   * Dispatches an event with a particular name.
+   * @param name Name of the event to be dispatched.
+   */
+  async dispatchEvent(name: string, data?: Record<string, EventData>): Promise<void> {
+    const event = createFakeEvent(name);
+
+    if (data) {
+      // tslint:disable-next-line:ban Have to use `Object.assign` to preserve the original object.
+      Object.assign(event, data);
+    }
+
+    dispatchEvent(this.element, event);
+    await this._stabilize();
+  }
+
+  /**
+   * Dispatches a pointer event on the current element if the browser supports it.
+   * @param name Name of the pointer event to be dispatched.
+   * @param clientX Coordinate of the user's pointer along the X axis.
+   * @param clientY Coordinate of the user's pointer along the Y axis.
+   * @param button Mouse button that should be pressed when dispatching the event.
+   */
+  private _dispatchPointerEventIfSupported(
+    name: string, clientX?: number, clientY?: number, button?: number) {
+    // The latest versions of all browsers we support have the new `PointerEvent` API.
+    // Though since we capture the two most recent versions of these browsers, we also
+    // need to support Safari 12 at time of writing. Safari 12 does not have support for this,
+    // so we need to conditionally create and dispatch these events based on feature detection.
+    if (typeof PointerEvent !== 'undefined' && PointerEvent) {
+      dispatchPointerEvent(this.element, name, clientX, clientY, {isPrimary: true, button});
+    }
+  }
+
+  /** Dispatches all the events that are part of a mouse event sequence. */
+  private async _dispatchMouseEventSequence(
+    name: string,
+    args: [ModifierKeys?] | ['center', ModifierKeys?] | [number, number, ModifierKeys?],
+    button?: number) {
+    let clientX: number | undefined = undefined;
+    let clientY: number | undefined = undefined;
+    let modifiers: ModifierKeys = {};
+
+    if (args.length && typeof args[args.length - 1] === 'object') {
+      modifiers = args.pop() as ModifierKeys;
+    }
+
+    if (args.length) {
+      const {left, top, width, height} = await this.getDimensions();
+      const relativeX = args[0] === 'center' ? width / 2 : args[0] as number;
+      const relativeY = args[0] === 'center' ? height / 2 : args[1] as number;
+
+      // Round the computed click position as decimal pixels are not
+      // supported by mouse events and could lead to unexpected results.
+      clientX = Math.round(left + relativeX);
+      clientY = Math.round(top + relativeY);
+    }
+
+    this._dispatchPointerEventIfSupported('pointerdown', clientX, clientY, button);
+    dispatchMouseEvent(this.element, 'mousedown', clientX, clientY, button, modifiers);
+    this._dispatchPointerEventIfSupported('pointerup', clientX, clientY, button);
+    dispatchMouseEvent(this.element, 'mouseup', clientX, clientY, button, modifiers);
+    dispatchMouseEvent(this.element, name, clientX, clientY, button, modifiers);
+
+    // This call to _stabilize should not be needed since the callers will already do that them-
+    // selves. Nevertheless it breaks some tests in g3 without it. It needs to be investigated
+    // why removing breaks those tests.
+    await this._stabilize();
   }
 }

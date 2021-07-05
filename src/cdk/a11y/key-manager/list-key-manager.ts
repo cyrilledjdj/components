@@ -19,6 +19,8 @@ import {
   ZERO,
   NINE,
   hasModifierKey,
+  HOME,
+  END,
 } from '@angular/cdk/keycodes';
 import {debounceTime, filter, map, tap} from 'rxjs/operators';
 
@@ -42,11 +44,12 @@ export class ListKeyManager<T extends ListKeyManagerOption> {
   private _activeItemIndex = -1;
   private _activeItem: T | null = null;
   private _wrap = false;
-  private _letterKeyStream = new Subject<string>();
+  private readonly _letterKeyStream = new Subject<string>();
   private _typeaheadSubscription = Subscription.EMPTY;
   private _vertical = true;
   private _horizontal: 'ltr' | 'rtl' | null;
   private _allowedModifierKeys: ListKeyManagerModifierKey[] = [];
+  private _homeAndEnd = false;
 
   /**
    * Predicate function that can be used to check whether an item should be skipped
@@ -79,10 +82,10 @@ export class ListKeyManager<T extends ListKeyManagerOption> {
    * Stream that emits any time the TAB key is pressed, so components can react
    * when focus is shifted off of the list.
    */
-  tabOut: Subject<void> = new Subject<void>();
+  readonly tabOut = new Subject<void>();
 
   /** Stream that emits whenever the active item of the list manager changes. */
-  change = new Subject<number>();
+  readonly change = new Subject<number>();
 
   /**
    * Sets the predicate function that determines which items should be skipped by the
@@ -137,7 +140,8 @@ export class ListKeyManager<T extends ListKeyManagerOption> {
    * @param debounceInterval Time to wait after the last keystroke before setting the active item.
    */
   withTypeAhead(debounceInterval: number = 200): this {
-    if (this._items.length && this._items.some(item => typeof item.getLabel !== 'function')) {
+    if ((typeof ngDevMode === 'undefined' || ngDevMode) && (this._items.length &&
+        this._items.some(item => typeof item.getLabel !== 'function'))) {
       throw Error('ListKeyManager items in typeahead mode must implement the `getLabel` method.');
     }
 
@@ -175,6 +179,16 @@ export class ListKeyManager<T extends ListKeyManagerOption> {
   }
 
   /**
+   * Configures the key manager to activate the first and last items
+   * respectively when the Home or End key is pressed.
+   * @param enabled Whether pressing the Home or End key activates the first/last item.
+   */
+  withHomeAndEnd(enabled: boolean = true): this {
+    this._homeAndEnd = enabled;
+    return this;
+  }
+
+  /**
    * Sets the active item to the item at the index specified.
    * @param index The index of the item to be set as active.
    */
@@ -187,11 +201,11 @@ export class ListKeyManager<T extends ListKeyManagerOption> {
   setActiveItem(item: T): void;
 
   setActiveItem(item: any): void {
-    const previousIndex = this._activeItemIndex;
+    const previousActiveItem = this._activeItem;
 
     this.updateActiveItem(item);
 
-    if (this._activeItemIndex !== previousIndex) {
+    if (this._activeItem !== previousActiveItem) {
       this.change.next(this._activeItemIndex);
     }
   }
@@ -239,6 +253,22 @@ export class ListKeyManager<T extends ListKeyManagerOption> {
       case LEFT_ARROW:
         if (this._horizontal && isModifierAllowed) {
           this._horizontal === 'rtl' ? this.setNextItemActive() : this.setPreviousItemActive();
+          break;
+        } else {
+          return;
+        }
+
+      case HOME:
+        if (this._homeAndEnd && isModifierAllowed) {
+          this.setFirstItemActive();
+          break;
+        } else {
+          return;
+        }
+
+      case END:
+        if (this._homeAndEnd && isModifierAllowed) {
+          this.setLastItemActive();
           break;
         } else {
           return;

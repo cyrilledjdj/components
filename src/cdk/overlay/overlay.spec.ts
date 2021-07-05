@@ -1,4 +1,11 @@
-import {async, fakeAsync, tick, ComponentFixture, inject, TestBed} from '@angular/core/testing';
+import {
+  waitForAsync,
+  fakeAsync,
+  tick,
+  ComponentFixture,
+  inject,
+  TestBed,
+} from '@angular/core/testing';
 import {
   Component,
   NgModule,
@@ -42,7 +49,7 @@ describe('Overlay', () => {
   let zone: MockNgZone;
   let mockLocation: SpyLocation;
 
-  beforeEach(async(() => {
+  beforeEach(waitForAsync(() => {
     dir = 'ltr';
     TestBed.configureTestingModule({
       imports: [OverlayModule, PortalModule, OverlayTestModule],
@@ -116,7 +123,7 @@ describe('Overlay', () => {
 
     expect(paneElement.childNodes.length).not.toBe(0);
     expect(paneElement.style.pointerEvents)
-      .toBe('auto', 'Expected the overlay pane to enable pointerEvents when attached.');
+      .toBe('', 'Expected the overlay pane to enable pointerEvents when attached.');
 
     overlayRef.detach();
 
@@ -330,7 +337,7 @@ describe('Overlay', () => {
     class CustomErrorHandler extends ErrorHandler {
       constructor(private _overlay: Overlay) { super(); }
 
-      handleError(error: any) {
+      override handleError(error: any) {
         const overlayRef = this._overlay.create({hasBackdrop: !!error});
         overlayRef.dispose();
       }
@@ -442,6 +449,29 @@ describe('Overlay', () => {
       tick();
 
       expect(overlayContainerElement.querySelectorAll('.fake-positioned').length).toBe(1);
+    }));
+
+    it('should have the overlay in the DOM in position strategy when reattaching', fakeAsync(() => {
+      let overlayPresentInDom = false;
+
+      config.positionStrategy = {
+        attach: (ref: OverlayRef) => overlayPresentInDom = !!ref.hostElement.parentElement,
+        apply: () => {},
+        dispose: () => {}
+      };
+
+      const overlayRef = overlay.create(config);
+
+      overlayRef.attach(componentPortal);
+      expect(overlayPresentInDom).toBeTruthy('Expected host element to be attached to the DOM.');
+
+      overlayRef.detach();
+      zone.simulateZoneExit();
+      tick();
+
+      overlayRef.attach(componentPortal);
+
+      expect(overlayPresentInDom).toBeTruthy('Expected host element to be attached to the DOM.');
     }));
 
     it('should not apply the position if it detaches before the zone stabilizes', fakeAsync(() => {

@@ -25,9 +25,13 @@ import {
   ViewChild,
   ViewEncapsulation,
 } from '@angular/core';
-import {DateAdapter, MAT_DATE_FORMATS, MatDateFormats} from '@angular/material/core';
+import {
+  DateAdapter,
+  MAT_DATE_FORMATS,
+  MatDateFormats,
+} from '@angular/material/core';
 import {Subject, Subscription} from 'rxjs';
-import {MatCalendarCellCssClasses} from './calendar-body';
+import {MatCalendarUserEvent, MatCalendarCellClassFunction} from './calendar-body';
 import {createMissingDateImplError} from './datepicker-errors';
 import {MatDatepickerIntl} from './datepicker-intl';
 import {MatMonthView} from './month-view';
@@ -38,12 +42,16 @@ import {
   yearsPerPage
 } from './multi-year-view';
 import {MatYearView} from './year-view';
+import {MAT_SINGLE_DATE_SELECTION_MODEL_PROVIDER, DateRange} from './date-selection-model';
 
 /**
  * Possible views for the calendar.
  * @docs-private
  */
 export type MatCalendarView = 'month' | 'year' | 'multi-year';
+
+/** Counter used to generate unique IDs. */
+let uniqueId = 0;
 
 /** Default header for MatCalendar */
 @Component({
@@ -54,6 +62,8 @@ export type MatCalendarView = 'month' | 'year' | 'multi-year';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MatCalendarHeader<D> {
+  _buttonDescriptionId = `mat-calendar-button-${uniqueId++}`;
+
   constructor(private _intl: MatDatepickerIntl,
               @Inject(forwardRef(() => MatCalendar)) public calendar: MatCalendar<D>,
               @Optional() private _dateAdapter: DateAdapter<D>,
@@ -165,10 +175,7 @@ export class MatCalendarHeader<D> {
   }
 }
 
-/**
- * A calendar that is used as part of the datepicker.
- * @docs-private
- */
+/** A calendar that is used as part of the datepicker. */
 @Component({
   selector: 'mat-calendar',
   templateUrl: 'calendar.html',
@@ -179,6 +186,7 @@ export class MatCalendarHeader<D> {
   exportAs: 'matCalendar',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [MAT_SINGLE_DATE_SELECTION_MODEL_PROVIDER]
 })
 export class MatCalendar<D> implements AfterContentInit, AfterViewChecked, OnDestroy, OnChanges {
   /** An input indicating the type of the header component, if set. */
@@ -200,7 +208,7 @@ export class MatCalendar<D> implements AfterContentInit, AfterViewChecked, OnDes
   @Input()
   get startAt(): D | null { return this._startAt; }
   set startAt(value: D | null) {
-    this._startAt = this._getValidDateOrNull(this._dateAdapter.deserialize(value));
+    this._startAt = this._dateAdapter.getValidDateOrNull(this._dateAdapter.deserialize(value));
   }
   private _startAt: D | null;
 
@@ -209,17 +217,21 @@ export class MatCalendar<D> implements AfterContentInit, AfterViewChecked, OnDes
 
   /** The currently selected date. */
   @Input()
-  get selected(): D | null { return this._selected; }
-  set selected(value: D | null) {
-    this._selected = this._getValidDateOrNull(this._dateAdapter.deserialize(value));
+  get selected(): DateRange<D> | D | null { return this._selected; }
+  set selected(value: DateRange<D> | D | null) {
+    if (value instanceof DateRange) {
+      this._selected = value;
+    } else {
+      this._selected = this._dateAdapter.getValidDateOrNull(this._dateAdapter.deserialize(value));
+    }
   }
-  private _selected: D | null;
+  private _selected: DateRange<D> | D | null;
 
   /** The minimum selectable date. */
   @Input()
   get minDate(): D | null { return this._minDate; }
   set minDate(value: D | null) {
-    this._minDate = this._getValidDateOrNull(this._dateAdapter.deserialize(value));
+    this._minDate = this._dateAdapter.getValidDateOrNull(this._dateAdapter.deserialize(value));
   }
   private _minDate: D | null;
 
@@ -227,7 +239,7 @@ export class MatCalendar<D> implements AfterContentInit, AfterViewChecked, OnDes
   @Input()
   get maxDate(): D | null { return this._maxDate; }
   set maxDate(value: D | null) {
-    this._maxDate = this._getValidDateOrNull(this._dateAdapter.deserialize(value));
+    this._maxDate = this._dateAdapter.getValidDateOrNull(this._dateAdapter.deserialize(value));
   }
   private _maxDate: D | null;
 
@@ -235,10 +247,16 @@ export class MatCalendar<D> implements AfterContentInit, AfterViewChecked, OnDes
   @Input() dateFilter: (date: D) => boolean;
 
   /** Function that can be used to add custom CSS classes to dates. */
-  @Input() dateClass: (date: D) => MatCalendarCellCssClasses;
+  @Input() dateClass: MatCalendarCellClassFunction<D>;
+
+  /** Start of the comparison range. */
+  @Input() comparisonStart: D | null;
+
+  /** End of the comparison range. */
+  @Input() comparisonEnd: D | null;
 
   /** Emits when the currently selected date changes. */
-  @Output() readonly selectedChange: EventEmitter<D> = new EventEmitter<D>();
+  @Output() readonly selectedChange: EventEmitter<D | null> = new EventEmitter<D | null>();
 
   /**
    * Emits the year chosen in multiyear view.
@@ -252,8 +270,15 @@ export class MatCalendar<D> implements AfterContentInit, AfterViewChecked, OnDes
    */
   @Output() readonly monthSelected: EventEmitter<D> = new EventEmitter<D>();
 
+  /**
+   * Emits when the current view changes.
+   */
+  @Output() readonly viewChanged: EventEmitter<MatCalendarView> =
+    new EventEmitter<MatCalendarView>(true);
+
   /** Emits when any date is selected. */
-  @Output() readonly _userSelection: EventEmitter<void> = new EventEmitter<void>();
+  @Output() readonly _userSelection: EventEmitter<MatCalendarUserEvent<D | null>> =
+      new EventEmitter<MatCalendarUserEvent<D | null>>();
 
   /** Reference to the current month view component. */
   @ViewChild(MatMonthView) monthView: MatMonthView<D>;
@@ -279,28 +304,34 @@ export class MatCalendar<D> implements AfterContentInit, AfterViewChecked, OnDes
   /** Whether the calendar is in month view. */
   get currentView(): MatCalendarView { return this._currentView; }
   set currentView(value: MatCalendarView) {
+    const viewChangedResult = this._currentView !== value ? value : null;
     this._currentView = value;
     this._moveFocusOnNextTick = true;
     this._changeDetectorRef.markForCheck();
+    if (viewChangedResult) {
+      this.viewChanged.emit(viewChangedResult);
+    }
   }
   private _currentView: MatCalendarView;
 
   /**
    * Emits whenever there is a state change that the header may need to respond to.
    */
-  stateChanges = new Subject<void>();
+  readonly stateChanges = new Subject<void>();
 
   constructor(_intl: MatDatepickerIntl,
               @Optional() private _dateAdapter: DateAdapter<D>,
               @Optional() @Inject(MAT_DATE_FORMATS) private _dateFormats: MatDateFormats,
               private _changeDetectorRef: ChangeDetectorRef) {
 
-    if (!this._dateAdapter) {
-      throw createMissingDateImplError('DateAdapter');
-    }
+    if (typeof ngDevMode === 'undefined' || ngDevMode) {
+      if (!this._dateAdapter) {
+        throw createMissingDateImplError('DateAdapter');
+      }
 
-    if (!this._dateFormats) {
-      throw createMissingDateImplError('MAT_DATE_FORMATS');
+      if (!this._dateFormats) {
+        throw createMissingDateImplError('MAT_DATE_FORMATS');
+      }
     }
 
     this._intlChanges = _intl.changes.subscribe(() => {
@@ -347,23 +378,26 @@ export class MatCalendar<D> implements AfterContentInit, AfterViewChecked, OnDes
     this.stateChanges.next();
   }
 
+  /** Focuses the active date. */
   focusActiveCell() {
-    this._getCurrentViewComponent()._focusActiveCell();
+    this._getCurrentViewComponent()._focusActiveCell(false);
   }
 
   /** Updates today's date after an update of the active date */
   updateTodaysDate() {
-    let view = this.currentView == 'month' ? this.monthView :
-            (this.currentView == 'year' ? this.yearView : this.multiYearView);
-
-    view.ngAfterContentInit();
+    this._getCurrentViewComponent()._init();
   }
 
   /** Handles date selection in the month view. */
-  _dateSelected(date: D | null): void {
-    if (date && !this._dateAdapter.sameDate(date, this.selected)) {
+  _dateSelected(event: MatCalendarUserEvent<D | null>): void {
+    const date = event.value;
+
+    if (this.selected instanceof DateRange ||
+        (date && !this._dateAdapter.sameDate(date, this.selected))) {
       this.selectedChange.emit(date);
     }
+
+    this._userSelection.emit(event);
   }
 
   /** Handles year selection in the multiyear view. */
@@ -376,26 +410,17 @@ export class MatCalendar<D> implements AfterContentInit, AfterViewChecked, OnDes
     this.monthSelected.emit(normalizedMonth);
   }
 
-  _userSelected(): void {
-    this._userSelection.emit();
-  }
-
   /** Handles year/month selection in the multi-year/year views. */
   _goToDateInView(date: D, view: 'month' | 'year' | 'multi-year'): void {
     this.activeDate = date;
     this.currentView = view;
   }
 
-  /**
-   * @param obj The object to check.
-   * @returns The given object if it is both a date instance and valid, otherwise null.
-   */
-  private _getValidDateOrNull(obj: any): D | null {
-    return (this._dateAdapter.isDateInstance(obj) && this._dateAdapter.isValid(obj)) ? obj : null;
-  }
-
   /** Returns the component instance that corresponds to the current calendar view. */
-  private _getCurrentViewComponent() {
+  private _getCurrentViewComponent(): MatMonthView<D> | MatYearView<D> | MatMultiYearView<D> {
+    // The return type is explicitly written as a union to ensure that the Closure compiler does
+    // not optimize calls to _init(). Without the explict return type, TypeScript narrows it to
+    // only the first component type. See https://github.com/angular/components/issues/22996.
     return this.monthView || this.yearView || this.multiYearView;
   }
 }

@@ -1,8 +1,8 @@
 import {ComponentPortal, PortalModule} from '@angular/cdk/portal';
 import {CdkScrollable, ScrollingModule, ViewportRuler} from '@angular/cdk/scrolling';
-import {MockNgZone} from '@angular/cdk/testing/private';
+import {dispatchFakeEvent, MockNgZone} from '@angular/cdk/testing/private';
 import {Component, ElementRef, NgModule, NgZone} from '@angular/core';
-import {inject, TestBed} from '@angular/core/testing';
+import {fakeAsync, inject, TestBed, tick} from '@angular/core/testing';
 import {Subscription} from 'rxjs';
 import {map} from 'rxjs/operators';
 import {
@@ -765,6 +765,29 @@ describe('FlexibleConnectedPositionStrategy', () => {
         expect(Math.floor(overlayRect.right)).toBe(200);
       });
 
+    });
+
+    it('should position the panel correctly when the origin is an SVG element', () => {
+      document.body.removeChild(originElement);
+      originElement = createBlockElement('svg', 'http://www.w3.org/2000/svg');
+      document.body.appendChild(originElement);
+
+      const originRect = originElement.getBoundingClientRect();
+
+      positionStrategy
+        .setOrigin(originElement)
+        .withPositions([{
+          originX: 'start',
+          originY: 'bottom',
+          overlayX: 'start',
+          overlayY: 'top'
+        }]);
+
+      attachOverlay({positionStrategy});
+
+      const overlayRect = overlayRef.overlayElement.getBoundingClientRect();
+      expect(Math.floor(overlayRect.top)).toBe(Math.floor(originRect.bottom));
+      expect(Math.floor(overlayRect.left)).toBe(Math.floor(originRect.left));
     });
 
     it('should account for the `offsetX` pushing the overlay out of the screen', () => {
@@ -2079,6 +2102,144 @@ describe('FlexibleConnectedPositionStrategy', () => {
         expect(boundingBoxStyle.maxHeight).toBeFalsy();
       });
 
+    it('should collapse the overlay vertically if overlay is outside of viewport, but taller ' +
+      'than the minHeight', () => {
+        const bottomOffset = OVERLAY_HEIGHT / 2;
+        originElement.style.bottom = `${bottomOffset}px`;
+        originElement.style.left = '50%';
+        originElement.style.position = 'fixed';
+
+        positionStrategy
+          .withFlexibleDimensions()
+          .withPush(true)
+          .withPositions([{
+            overlayY: 'top',
+            overlayX: 'start',
+            originY: 'bottom',
+            originX: 'start',
+          }]);
+
+        attachOverlay({positionStrategy, minHeight: bottomOffset - 1});
+        const overlayRect = overlayRef.overlayElement.getBoundingClientRect();
+
+        expect(Math.floor(overlayRect.height)).toBe(bottomOffset);
+      });
+
+    it('should collapse the overlay vertically if overlay is outside of viewport, but taller ' +
+      'than the minHeight that is set as a pixel string', () => {
+        const bottomOffset = OVERLAY_HEIGHT / 2;
+        originElement.style.bottom = `${bottomOffset}px`;
+        originElement.style.left = '50%';
+        originElement.style.position = 'fixed';
+
+        positionStrategy
+          .withFlexibleDimensions()
+          .withPush(true)
+          .withPositions([{
+            overlayY: 'top',
+            overlayX: 'start',
+            originY: 'bottom',
+            originX: 'start',
+          }]);
+
+        attachOverlay({positionStrategy, minHeight: `${bottomOffset - 1}px`});
+        const overlayRect = overlayRef.overlayElement.getBoundingClientRect();
+
+        expect(Math.floor(overlayRect.height)).toBe(bottomOffset);
+      });
+
+    it('should collapse the overlay horizontally if overlay is outside of viewport, but wider ' +
+      'than the minWidth', () => {
+        const rightOffset = OVERLAY_WIDTH / 2;
+        originElement.style.top = '50%';
+        originElement.style.right = `${rightOffset}px`;
+        originElement.style.position = 'fixed';
+
+        positionStrategy
+          .withFlexibleDimensions()
+          .withPush(true)
+          .withPositions([{
+            overlayY: 'top',
+            overlayX: 'start',
+            originY: 'top',
+            originX: 'end',
+          }]);
+
+        attachOverlay({positionStrategy, minWidth: rightOffset});
+        const overlayRect = overlayRef.overlayElement.getBoundingClientRect();
+
+        expect(Math.floor(overlayRect.width)).toBe(rightOffset);
+      });
+
+    it('should collapse the overlay horizontally if overlay is outside of viewport, but wider ' +
+      'than the minWidth that is set as a pixel string', () => {
+        const rightOffset = OVERLAY_WIDTH / 2;
+        originElement.style.top = '50%';
+        originElement.style.right = `${rightOffset}px`;
+        originElement.style.position = 'fixed';
+
+        positionStrategy
+          .withFlexibleDimensions()
+          .withPush(true)
+          .withPositions([{
+            overlayY: 'top',
+            overlayX: 'start',
+            originY: 'top',
+            originX: 'end',
+          }]);
+
+        attachOverlay({positionStrategy, minWidth: `${rightOffset}px`});
+        const overlayRect = overlayRef.overlayElement.getBoundingClientRect();
+
+        expect(Math.floor(overlayRect.width)).toBe(rightOffset);
+      });
+
+    it('should account for sub-pixel deviations in the size of the overlay', fakeAsync(() => {
+      originElement.style.top = '200px';
+      originElement.style.left = '200px';
+
+      positionStrategy
+        .withFlexibleDimensions()
+        .withPositions([{
+          originX: 'start',
+          originY: 'bottom',
+          overlayX: 'start',
+          overlayY: 'top'
+        }]);
+
+      attachOverlay({
+        positionStrategy,
+        height: '100%'
+      });
+
+      const originalGetBoundingClientRect = overlayRef.overlayElement.getBoundingClientRect;
+
+      // The browser may return a `ClientRect` with sub-pixel deviations if the screen is zoomed in.
+      // Since there's no way for us to zoom in the screen programmatically, we simulate the effect
+      // by patching `getBoundingClientRect` to return a slightly different value.
+      overlayRef.overlayElement.getBoundingClientRect = function() {
+        const clientRect = originalGetBoundingClientRect.apply(this);
+        const zoomOffset = 0.1;
+
+        return {
+          top: clientRect.top,
+          right: clientRect.right + zoomOffset,
+          bottom: clientRect.bottom + zoomOffset,
+          left: clientRect.left,
+          width: clientRect.width + zoomOffset,
+          height: clientRect.height + zoomOffset
+        } as any;
+      };
+
+      // Trigger a resize so that the overlay get repositioned from scratch
+      // and to have it use the patched `getBoundingClientRect`.
+      dispatchFakeEvent(window, 'resize');
+      tick(100); // The resize listener is usually debounced.
+
+      const overlayRect = originalGetBoundingClientRect.apply(overlayRef.overlayElement);
+      expect(Math.floor(overlayRect.top)).toBe(0);
+    }));
+
   });
 
   describe('onPositionChange with scrollable view properties', () => {
@@ -2498,8 +2659,15 @@ function createPositionedBlockElement() {
 }
 
 /** Creates a block element with a default size. */
-function createBlockElement() {
-  const element = document.createElement('div');
+function createBlockElement(tagName = 'div', namespace?: string) {
+  let element;
+
+  if (namespace) {
+    element = document.createElementNS(namespace, tagName) as HTMLElement;
+  } else {
+    element = document.createElement(tagName);
+  }
+
   element.style.width = `${DEFAULT_WIDTH}px`;
   element.style.height = `${DEFAULT_HEIGHT}px`;
   element.style.backgroundColor = 'rebeccapurple';
